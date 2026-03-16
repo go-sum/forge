@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@source "../../internal/view/**/*.go";
+@source "../../static/**/*.js";
+
+@layer utilities {
+  /* Meta(Name("htmx-config"), Content(`{"includeIndicatorStyles":false}`)) disables runtime <style> element injection
+     but violates Content-Security-Policy: style-src 'self'
+     Replicate the stylesheet behavior here
+  */
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+  }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+  }
+
+}
