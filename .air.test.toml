@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = 'echo "*** DB Should be running, for DB tests to PASS***" ; go test ./...'
+  bin = "/bin/true"
+  include_ext = ["go", "toml"]
+  include_regex = ["_test\\.go$"]
+  exclude_regex = []
+  exclude_dir = ["tmp", "bin", "db", "public"]
+  stop_on_error = true
+
+[log]
+  time = true

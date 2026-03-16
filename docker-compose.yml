@@ -1,0 +1,90 @@
+x-pg-image: &pg-image postgres:16-alpine
+
+x-pg-healthcheck: &pg-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 5
+
+services:
+  app_server:
+    profiles: [dev]
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      app_data:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  app_data:
+    profiles: [dev, db]
+    image: *pg-image
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: ${PGDATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER}"]
+      <<: *pg-healthcheck
+    networks:
+      - app_network
+
+  schema_data:
+    profiles: [db]
+    image: *pg-image
+    environment:
+      POSTGRES_USER: ${PGSCHEMA_PLAN_USER}
+      POSTGRES_PASSWORD: ${PGSCHEMA_PLAN_PASSWORD}
+      POSTGRES_DB: ${PGSCHEMA_PLAN_DB}
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/init-plan:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSCHEMA_PLAN_USER}"]
+      <<: *pg-healthcheck
+    depends_on:
+      app_data:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  test_data:
+    profiles: [test]
+    image: *pg-image
+    environment:
+      POSTGRES_USER: ${PGTEST_USER}
+      POSTGRES_PASSWORD: ${PGTEST_PASSWORD}
+      POSTGRES_DB: ${PGTEST_DATABASE}
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/init-test:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGTEST_USER}"]
+      <<: *pg-healthcheck
+    networks:
+      - test_network
+
+volumes:
+  postgres_data:
+
+networks:
+  app_network:
+    driver: bridge
+    name: app_network
+  test_network:
+    driver: bridge
+    name: test_network

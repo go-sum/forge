@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/server ./cmd/server"
+  entrypoint = "./tmp/server"
+  include_ext = ["go", "toml"]
+  exclude_dir = ["tmp", "bin", "db", "public"]
+
+[proxy]
+  enabled = true
+  proxy_port = 8080
+  app_port = 3000
+
+[log]
+  time = true

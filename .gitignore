@@ -1,0 +1,15 @@
+.claude
+.codex
+.env
+
+bin/
+tmp/
+
+# Generated / downloaded assets — rebuild with `make css` and `make js`
+public/css/
+public/js/htmx.min.js
+public/js/alpine.min.js
+
+*.test
+*.out
+.DS_Store
