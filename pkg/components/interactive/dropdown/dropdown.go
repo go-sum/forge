@@ -1,12 +1,17 @@
 // Package dropdown provides a native HTML dropdown menu using <details>/<summary>.
 // Open/close is handled natively by the browser. A delegated outside-click
-// listener in static/js/app.js closes any open [data-dropdown] details element
-// when the user clicks outside of it.
+// listener in js/app.js closes any open [data-popover] details element
+// when the user clicks outside of it. The dropdown is a styled menu variant
+// of the generic popover pattern (pkg/components/interactive/popover).
 package dropdown
 
 import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
+
+	componenticons "starter/pkg/components/icons"
+	iconrender "starter/pkg/components/icons/render"
+	core "starter/pkg/components/ui/core"
 )
 
 // Props configures a dropdown root.
@@ -15,59 +20,79 @@ type Props struct {
 	Extra []g.Node
 }
 
-// Root renders a dropdown root as a native <details> element.
-// data-dropdown is the hook for the outside-click delegated listener in app.js.
-func Root(p Props, children ...g.Node) g.Node {
-	nodes := []g.Node{
-		g.Attr("data-dropdown", ""),
-		h.Class("relative inline-block"),
-	}
-	if p.ID != "" {
-		nodes = append(nodes, h.ID(p.ID))
-	}
-	nodes = append(nodes, g.Group(p.Extra))
-	nodes = append(nodes, g.Group(children))
-	return h.Details(nodes...)
+// TriggerProps configures the native <summary> trigger.
+type TriggerProps struct {
+	Extra []g.Node
 }
 
-// Trigger renders the <summary> click trigger.
-func Trigger(children ...g.Node) g.Node {
-	return h.Summary(
-		h.Class("list-none cursor-pointer"),
-		g.Group(children),
-	)
+// ItemProps configures a single menu entry.
+type ItemProps struct {
+	Label    string
+	Href     string
+	Disabled bool
+	Extra    []g.Node
+}
+
+// Root renders a dropdown root using core.Popover.Root.
+func Root(p Props, children ...g.Node) g.Node {
+	return core.Popover.Root(core.PopoverRootProps{
+		ID:    p.ID,
+		Extra: p.Extra,
+	}, children...)
+}
+
+// Trigger renders a styled <summary> via core.Popover.Trigger so callers do not
+// nest interactive controls inside the native trigger.
+func Trigger(p TriggerProps, children ...g.Node) g.Node {
+	chevron := core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{Size: "size-4 shrink-0 text-muted-foreground"}))
+	return core.Popover.Trigger(core.PopoverTriggerProps{
+		Class: "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+		Extra: p.Extra,
+	}, g.Group(children), chevron)
 }
 
 // Content renders the dropdown panel, visible when <details> is open.
 func Content(children ...g.Node) g.Node {
 	return h.Div(
 		h.Class("absolute z-50 mt-1 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md"),
+		g.Attr("role", "menu"),
 		g.Group(children),
 	)
 }
 
 // Item renders a single menu entry as <a> (href set) or <button>.
-func Item(label, href string, disabled bool) g.Node {
-	cls := "flex w-full items-center px-2 py-1.5 text-sm rounded-sm transition-colors"
-	if disabled {
-		cls += " opacity-50 pointer-events-none"
+func Item(p ItemProps) g.Node {
+	cls := "flex w-full items-center rounded-sm px-2 py-1.5 text-sm transition-colors"
+	if p.Disabled {
+		cls += " opacity-50"
 	} else {
-		cls += " hover:bg-accent hover:text-accent-foreground cursor-default"
+		cls += " cursor-default hover:bg-accent hover:text-accent-foreground"
 	}
-	if href != "" {
-		return h.A(h.Class(cls), h.Href(href), g.Text(label))
+	if p.Href != "" {
+		nodes := []g.Node{h.Class(cls), g.Attr("role", "menuitem")}
+		if p.Disabled {
+			nodes = append(nodes, g.Attr("aria-disabled", "true"), g.Attr("tabindex", "-1"))
+		} else {
+			nodes = append(nodes, h.Href(p.Href))
+		}
+		nodes = append(nodes, g.Group(p.Extra), g.Text(p.Label))
+		return h.A(nodes...)
 	}
-	return h.Button(
+	nodes := []g.Node{
 		h.Class(cls),
 		h.Type("button"),
-		g.If(disabled, h.Disabled()),
-		g.Text(label),
-	)
+		g.Attr("role", "menuitem"),
+	}
+	if p.Disabled {
+		nodes = append(nodes, h.Disabled())
+	}
+	nodes = append(nodes, g.Group(p.Extra), g.Text(p.Label))
+	return h.Button(nodes...)
 }
 
 // Separator renders a horizontal rule between menu sections.
 func Separator() g.Node {
-	return h.Div(h.Class("h-px my-1 -mx-1 bg-muted"), h.Role("separator"))
+	return h.Div(h.Class("-mx-1 my-1 h-px bg-muted"), h.Role("separator"))
 }
 
 // Label renders a non-interactive section heading.

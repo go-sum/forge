@@ -23,6 +23,7 @@
 | HTML Rendering | Gomponents | v1.2.0 | Type-safe HTML in Go, no template parsing, `io.Writer` streaming |
 | HTMX | HTMX | 2.0.4 | Progressive enhancement, HTML-over-the-wire |
 | CSS | Tailwind CSS | v4.1+ | Utility-first, standalone CLI (no Node.js), `@source` scanning |
+| Design System | daisyUI | 5.0.14 | Prebuilt component CSS (btn, card, alert, etc.); downloaded via curl, no Node.js |
 | JS Sprinkles | Alpine.js | 3.14.8 | Lightweight csp-safe reactivity for dismiss/toggle/dropdown states |
 |||||
 | Containerization | Docker + Compose | latest | Dev/prod parity, single-command startup, CI/CD-ready |
@@ -33,6 +34,10 @@
 ## Echo v5 Critical API Rules
 
 > For the Echo v4 to v5 migration roadmap, see [`API_RULES.md`](./API_RULES.md).
+
+
+## golang dev environment location
+If not finding go in the PATH, it's located in /usr/local/go/bin
 
 ---
 
@@ -51,16 +56,37 @@ Handlers never import repository. Services never import handlers. Each layer com
 
 ## `pkg/` vs `internal/` Boundary Rules
 
-### `pkg/` — Extractable Library Packages
+### `pkg/` — Two Sub-Regions with Different Rules
 
-Each `pkg/` package is a **leaf node** in the dependency graph:
+#### Infrastructure packages — strict leaf-node rule
+
+Each `pkg/` **infrastructure package** is a **leaf node** in the dependency graph:
 - **MUST NOT** import from `internal/`
 - **MUST NOT** import from other `pkg/` packages
 - **MAY** import only from the standard library and external modules
 - **COULD** be extracted into a standalone Go module without changes
 
-| Package | Purpose | External Dependencies |
-|---------|---------|----------------------|
+#### Component library — tiered DAG model (`pkg/components/` subtree)
+
+`pkg/components/` packages may import each other, but only **downward** through the tier hierarchy. No lateral imports within a tier. No upward imports. No `internal/` imports.
+
+```
+Tier 0 — Primitives:   pkg/components/ui/core
+                        imports: external modules only
+
+Tier 1 — Composed:     pkg/components/ui/{data,feedback,layout}
+                        pkg/components/interactive/*
+                        pkg/components/form/*
+                        imports: external modules + Tier 0 only
+
+Tier 2 — Patterns:     pkg/components/patterns/*
+                        imports: external modules + Tier 0 + Tier 1
+
+Tier 3 — Examples:     pkg/components/examples
+                        imports: anything within pkg/components/
+```
+
+`pkg/components/patterns/form/submission.go` accepts `*validator.Validate` directly (not `*validate.Validator`) to avoid importing `pkg/validate` (an infrastructure package, outside this tree).
 
 ### `internal/` — Application Code
 
@@ -170,6 +196,58 @@ All env vars use the `CTX_` prefix. The key transform strips the prefix, lowerca
 ### Secrets
 
 Secrets (with real credentials) stored in environment variables — never committed to YAML files.
+
+---
+
+## Code Style & Architecture
+
+### Single Responsibility
+Each function does one thing. `main()` orchestrates — it does not implement. Distinct concerns (logger setup, config building, asset init) are extracted into named functions.
+
+### DRY
+Values that appear in multiple places become constants. Logic that appears in multiple places becomes a function. String literals used as identifiers (URL prefixes, header values) are defined once at the narrowest applicable scope.
+
+### YAGNI
+No single-field wrapper structs. No parameters or fields added for hypothetical future use. The right amount of structure is what current callers require — nothing more.
+
+### Naming
+- **Functions:** verb-first — `initLogger`, `CheckHealth`, `Connect`, `Setup`
+- **Variables:** noun describing content — `dev`, `pool`, `opts`, `srvCfg`
+- **Constants:** descriptive noun phrase — `staticPrefix`, `cacheImmutable`, `hstsOneYear`
+
+### Magic Values
+Unnamed literals with non-obvious meaning, or that appear more than once, become named constants. Scope to the narrowest applicable level: block-local `const` before file-level, unexported before exported.
+
+### Readability
+- Early returns reduce nesting
+- Repeated expressions become named variables (`dev := cfg.IsDevelopment()` not two calls to the same method)
+- Shared struct literals become named variables (`opts := &slog.HandlerOptions{...}` once, not duplicated)
+
+### Consistency
+New code follows established layer patterns exactly. Pattern violations are corrected — not quietly worked around.
+
+---
+
+## Source Code Documentation Style
+
+Comments explain **what the code cannot say for itself**. They are not required everywhere — only where behavior is non-obvious, where a constraint would surprise a reader, or where an unusual pattern needs justification.
+
+**Rules:**
+- Name things so clearly that a type or function comment restating the name is unnecessary
+- Add a comment only when it reveals something the name, signature, or struct tags do not: non-obvious behavior, caller contracts, ordering requirements, or algorithm rationale
+- Exported symbols that are genuinely self-describing (e.g. `IsDevelopment() bool`) need no doc comment
+- Prefer a single precise sentence over a verbose paragraph
+
+**Examples of comments that belong:**
+- `// Port and GracefulTimeout are int (YAML integers); callers convert as needed` — the type alone doesn't reveal the conversion contract
+- `// ContentFiles are loaded after env vars` — the precedence rule is a design decision invisible in the field type
+- `// Missing files are silently skipped` — surprising absence of an error return warrants a note
+- `// transformKey` algorithm with worked examples — a non-trivial disambiguation algorithm that must be understood to be maintained
+
+**Examples of comments to omit:**
+- `// ServerConfig holds HTTP server settings` — the name says this
+- `// IsDevelopment reports whether the app is in development mode` — the signature says this
+- `// DatabaseConfig holds the database connection string` — obvious
 
 ---
 

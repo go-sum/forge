@@ -1,0 +1,51 @@
+// Package database provides PostgreSQL connection pool management via pgxpool.
+//
+// MaxConns defaults to 10 when not specified in the DSN. PostgreSQL's default
+// max_connections is 100; with multiple app instances the dynamic pgxpool
+// default (max(4, GOMAXPROCS*4)) can exhaust that silently. Override via DSN
+// query parameter: ?pool_max_conns=20.
+package database
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Connect creates a new connection pool and verifies connectivity.
+func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parsing database config: %w", err)
+	}
+
+	// Apply a safe MaxConns default. pgxpool's dynamic default is
+	// max(4, GOMAXPROCS*4), which on a 4-core host gives 16 connections.
+	// With multiple app instances this exhausts PostgreSQL's default
+	// max_connections=100 silently. The DSN pool_max_conns=N param takes
+	// precedence because pgxpool.ParseConfig already wrote it into poolCfg.
+	if poolCfg.MaxConns == 0 {
+		poolCfg.MaxConns = 10
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to database: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("pinging database: %w", err)
+	}
+
+	return pool, nil
+}
+
+func CheckHealth(ctx context.Context, pool *pgxpool.Pool) error {
+	return pool.Ping(ctx)
+}
+
+func Close(pool *pgxpool.Pool) {
+	pool.Close()
+}

@@ -70,7 +70,7 @@ func ThemeScript() g.Node {
 //
 // Icon visibility is controlled by CSS rules keyed on data-theme-preference on
 // <html>; no inline JS is needed.  The delegated click handler in
-// static/js/app.js responds to data-theme-toggle.
+// js/app.js responds to data-theme-toggle.
 func ThemeSelector() g.Node {
 	return h.Button(
 		g.Attr("data-theme-toggle", ""),

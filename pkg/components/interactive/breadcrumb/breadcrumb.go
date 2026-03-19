@@ -41,11 +41,16 @@ func Link(href string, children ...g.Node) g.Node {
 }
 
 // Separator renders a "/" separator between items.
-func Separator() g.Node {
+// Pass children to use a custom separator symbol.
+func Separator(children ...g.Node) g.Node {
+	content := g.Node(g.Text("/"))
+	if len(children) > 0 {
+		content = g.Group(children)
+	}
 	return h.Span(
 		h.Class("mx-2 text-muted-foreground"),
 		g.Attr("aria-hidden", "true"),
-		g.Text("/"),
+		content,
 	)
 }
 

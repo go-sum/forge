@@ -5,37 +5,16 @@ import (
 	h "maragu.dev/gomponents/html"
 )
 
-// RadioProps configures a radio button input.
-type RadioProps struct {
-	ID       string
-	Name     string
-	Value    string
-	Checked  bool
-	Disabled bool
-	Extra    []g.Node
-}
-
-// Radio renders a styled <input type="radio">.
+// Radio renders a styled radio button as a composite: a hidden peer <input> plus
+// visual ring and dot spans driven by peer-checked CSS. CSS pseudo-elements
+// cannot apply to <input> directly, so the dot is a real sibling span.
 func Radio(p RadioProps) g.Node {
-	nodes := []g.Node{
-		h.Class("size-4 shrink-0 rounded-full border border-input shadow-xs focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 checked:bg-primary checked:border-primary appearance-none cursor-pointer transition-shadow"),
-		h.Type("radio"),
-	}
-	if p.ID != "" {
-		nodes = append(nodes, h.ID(p.ID))
-	}
-	if p.Name != "" {
-		nodes = append(nodes, h.Name(p.Name))
-	}
-	if p.Value != "" {
-		nodes = append(nodes, h.Value(p.Value))
-	}
-	if p.Checked {
-		nodes = append(nodes, h.Checked())
-	}
-	if p.Disabled {
-		nodes = append(nodes, h.Disabled())
-	}
-	nodes = append(nodes, g.Group(p.Extra))
-	return h.Input(nodes...)
+	return h.Span(
+		h.Class("relative inline-flex size-4 shrink-0 cursor-pointer"),
+		h.Input(buildToggleInput("radio", p)...),
+		// Ring — outer circle border, colour driven by peer state.
+		h.Span(h.Class("absolute inset-0 rounded-full border border-input bg-transparent transition-colors peer-checked:border-primary peer-disabled:opacity-50")),
+		// Dot — inner filled circle, visible only when checked.
+		h.Span(h.Class("absolute inset-0 m-auto size-2 rounded-full bg-transparent transition-colors peer-checked:bg-primary")),
+	)
 }

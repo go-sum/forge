@@ -5,37 +5,24 @@ import (
 	h "maragu.dev/gomponents/html"
 )
 
-// CheckboxProps configures a checkbox input.
-type CheckboxProps struct {
-	ID       string
-	Name     string
-	Value    string
-	Checked  bool
-	Disabled bool
-	Extra    []g.Node
-}
-
-// Checkbox renders a styled <input type="checkbox">.
+// Checkbox renders a styled checkbox as a composite: a hidden peer <input> plus
+// visual box and checkmark spans driven by peer-checked CSS. CSS pseudo-elements
+// cannot apply to <input> directly, so the checkmark is a real SVG sibling.
 func Checkbox(p CheckboxProps) g.Node {
-	nodes := []g.Node{
-		h.Class("peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 checked:bg-primary checked:text-primary-foreground checked:border-primary appearance-none cursor-pointer transition-shadow"),
-		h.Type("checkbox"),
-	}
-	if p.ID != "" {
-		nodes = append(nodes, h.ID(p.ID))
-	}
-	if p.Name != "" {
-		nodes = append(nodes, h.Name(p.Name))
-	}
-	if p.Value != "" {
-		nodes = append(nodes, h.Value(p.Value))
-	}
-	if p.Checked {
-		nodes = append(nodes, h.Checked())
-	}
-	if p.Disabled {
-		nodes = append(nodes, h.Disabled())
-	}
-	nodes = append(nodes, g.Group(p.Extra))
-	return h.Input(nodes...)
+	return h.Span(
+		h.Class("relative inline-flex size-4 shrink-0 cursor-pointer"),
+		h.Input(buildToggleInput("checkbox", p)...),
+		// Box — border becomes filled when checked.
+		h.Span(h.Class("absolute inset-0 rounded-[4px] border border-input bg-transparent transition-colors peer-checked:bg-primary peer-checked:border-primary peer-disabled:opacity-50")),
+		// Checkmark — inline SVG path, visible only when checked.
+		h.SVG(
+			h.Class("absolute inset-0 m-auto size-3 hidden peer-checked:block text-primary-foreground"),
+			g.Attr("viewBox", "0 0 10 10"),
+			g.Attr("fill", "none"),
+			g.Attr("stroke", "currentColor"),
+			g.Attr("stroke-width", "1.5"),
+			g.Attr("aria-hidden", "true"),
+			g.El("path", g.Attr("d", "M2 6l3 3 5-5")),
+		),
+	)
 }

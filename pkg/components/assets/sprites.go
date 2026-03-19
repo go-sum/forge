@@ -6,6 +6,13 @@ import (
 	"sync"
 )
 
+const defaultPublicPrefix = "/public"
+
+// PublicPath resolves rel under the default public asset URL prefix.
+func PublicPath(rel string) string {
+	return defaultPublicPrefix + "/" + strings.TrimPrefix(rel, "/")
+}
+
 // Registry resolves named component sprite assets to public URLs.
 // Applications register the sprite files they build, while component packages
 // consume the registry without knowing app-specific file locations.
@@ -15,15 +22,15 @@ type Registry struct {
 	resolvePath func(string) string
 }
 
-// NewRegistry returns an empty sprite registry with a default /public resolver.
+// NewRegistry returns an empty sprite registry with a default public resolver.
 func NewRegistry() *Registry {
 	return &Registry{
 		spriteFiles: make(map[string]string),
-		resolvePath: func(rel string) string { return "/public/" + strings.TrimPrefix(rel, "/") },
+		resolvePath: PublicPath,
 	}
 }
 
-// RegisterSprite associates a sprite key with its relative path under public/.
+// RegisterSprite associates a sprite key with its relative path under the public asset root.
 func (r *Registry) RegisterSprite(key, rel string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -42,14 +49,14 @@ func (r *Registry) SetPathFunc(f func(string) string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if f == nil {
-		r.resolvePath = func(rel string) string { return "/public/" + strings.TrimPrefix(rel, "/") }
+		r.resolvePath = PublicPath
 		return
 	}
 	r.resolvePath = f
 }
 
 // SpritePath returns the resolved URL for the named sprite file.
-// Unknown keys return an empty string so callers do not emit broken /public URLs.
+// Unknown keys return an empty string so callers do not emit broken public URLs.
 func (r *Registry) SpritePath(key string) string {
 	r.mu.RLock()
 	rel, ok := r.spriteFiles[key]

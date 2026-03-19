@@ -40,6 +40,26 @@ func TestPropsForRegistry(t *testing.T) {
 	}
 }
 
+func TestPropsForRegistries(t *testing.T) {
+	assetRegistry := componentassets.NewRegistry()
+	assetRegistry.SetPathFunc(func(rel string) string { return "/assets/" + rel })
+	assetRegistry.RegisterSprite("test-custom-icons", "icons/custom.svg")
+
+	iconRegistry := componenticons.NewRegistry()
+	iconRegistry.Register(componenticons.ChevronRight, componenticons.Ref{
+		Sprite: "test-custom-icons",
+		ID:     "chevron-right",
+	})
+
+	got := PropsForRegistries(assetRegistry, iconRegistry, componenticons.ChevronRight, core.IconProps{Size: "size-4"})
+	if got.Src != "/assets/icons/custom.svg" {
+		t.Fatalf("PropsForRegistries().Src = %q", got.Src)
+	}
+	if got.ID != "chevron-right" {
+		t.Fatalf("PropsForRegistries().ID = %q", got.ID)
+	}
+}
+
 func TestPropsForRegistryUnknown(t *testing.T) {
 	r := componenticons.NewRegistry()
 

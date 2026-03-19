@@ -79,6 +79,9 @@ func buttonClass(p Props) string {
 	if p.FullWidth {
 		cls += " w-full"
 	}
+	if p.Disabled {
+		cls += " pointer-events-none opacity-50"
+	}
 	return cls
 }
 
@@ -100,14 +103,16 @@ func buttonContent(p Props) g.Node {
 // When Href is set, renders an <a> element (link variant).
 func Button(p Props) g.Node {
 	if p.Href != "" {
-		nodes := []g.Node{
-			h.Class(buttonClass(p)),
-			h.Href(p.Href),
+		nodes := []g.Node{h.Class(buttonClass(p))}
+		if p.Disabled {
+			nodes = append(nodes, g.Attr("aria-disabled", "true"), g.Attr("tabindex", "-1"))
+		} else {
+			nodes = append(nodes, h.Href(p.Href))
 		}
 		if p.ID != "" {
 			nodes = append(nodes, h.ID(p.ID))
 		}
-		if p.Target != "" {
+		if p.Target != "" && !p.Disabled {
 			nodes = append(nodes, h.Target(p.Target))
 		}
 		nodes = append(nodes, g.Group(p.Extra))

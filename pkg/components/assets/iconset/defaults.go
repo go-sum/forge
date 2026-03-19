@@ -19,6 +19,7 @@ var Default = Catalog{
 		componenticons.ChevronLeft:  {Sprite: "lucide-icons", ID: "chevron-left"},
 		componenticons.ChevronRight: {Sprite: "lucide-icons", ID: "chevron-right"},
 		componenticons.ChevronsUp:   {Sprite: "lucide-icons", ID: "chevrons-up"},
+		componenticons.Close:        {Sprite: "lucide-icons", ID: "x"},
 		componenticons.ThemeLight:   {Sprite: "theme-icons", ID: "sun"},
 		componenticons.ThemeDark:    {Sprite: "theme-icons", ID: "moon"},
 		componenticons.ThemeSystem:  {Sprite: "theme-icons", ID: "monitor"},

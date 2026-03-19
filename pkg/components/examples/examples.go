@@ -4,6 +4,7 @@
 package examples
 
 import (
+	componentassets "starter/pkg/components/assets"
 	uiform "starter/pkg/components/form"
 	componenticons "starter/pkg/components/icons"
 	iconrender "starter/pkg/components/icons/render"
@@ -49,6 +50,7 @@ func Page() g.Node {
 					tocItem("form-fields", "Form Fields"),
 					tocItem("labels", "Labels"),
 					tocItem("pagination", "Pagination"),
+					tocItem("popover", "Popover"),
 					tocItem("progress", "Progress"),
 					tocItem("separators", "Separators"),
 					tocItem("skeleton", "Skeleton"),
@@ -97,13 +99,10 @@ func Page() g.Node {
 		// ── Avatars ──────────────────────────────────────
 		section("avatars", "Avatars",
 			h.Div(h.Class("grid grid-cols-2 gap-4"),
-				example("With image + fallback", h.Div(
+				example("Image and placeholder", h.Div(
 					h.Class("flex gap-4"),
-					core.Avatar.Root(
-						core.Avatar.Image("/public/img/svg/avatar.svg", "shadcn"),
-						core.Avatar.Fallback(g.Text("CN")),
-					),
-					core.Avatar.Root(core.Avatar.Fallback(g.Text("AB"))),
+					core.Avatar.Image(componentassets.PublicPath("img/svg/avatar.svg"), "shadcn"),
+					core.Avatar.Fallback(g.Text("AB")),
 				)),
 				example("Lucide icon", core.Icon(iconrender.Props("lucide-icons", "circle-user", core.IconProps{
 					Size:  "size-10",
@@ -116,22 +115,22 @@ func Page() g.Node {
 		section("badges", "Badges",
 			example("Variants", h.Div(
 				h.Class("flex flex-wrap gap-2"),
-				feedback.Badge(feedback.BadgeProps{Children: []g.Node{g.Text("Default")}}),
-				feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeSecondary, Children: []g.Node{g.Text("Secondary")}}),
-				feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeDestructive, Children: []g.Node{g.Text("Destructive")}}),
-				feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeOutline, Children: []g.Node{g.Text("Outline")}}),
+				core.Badge(core.BadgeProps{Children: []g.Node{g.Text("Default")}}),
+				core.Badge(core.BadgeProps{Variant: core.BadgeSecondary, Children: []g.Node{g.Text("Secondary")}}),
+				core.Badge(core.BadgeProps{Variant: core.BadgeDestructive, Children: []g.Node{g.Text("Destructive")}}),
+				core.Badge(core.BadgeProps{Variant: core.BadgeOutline, Children: []g.Node{g.Text("Outline")}}),
 			)),
 			example("With icon", h.Div(
 				h.Class("flex flex-wrap gap-2"),
-				feedback.Badge(feedback.BadgeProps{Children: []g.Node{
+				core.Badge(core.BadgeProps{Children: []g.Node{
 					core.Icon(iconrender.Props("lucide-icons", "check", core.IconProps{})),
 					g.Text("Verified"),
 				}}),
-				feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeDestructive, Children: []g.Node{
+				core.Badge(core.BadgeProps{Variant: core.BadgeDestructive, Children: []g.Node{
 					core.Icon(iconrender.Props("lucide-icons", "x", core.IconProps{})),
 					g.Text("Failed"),
 				}}),
-				feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeOutline, Children: []g.Node{
+				core.Badge(core.BadgeProps{Variant: core.BadgeOutline, Children: []g.Node{
 					core.Icon(iconrender.Props("lucide-icons", "clock", core.IconProps{})),
 					g.Text("Pending"),
 				}}),
@@ -210,8 +209,8 @@ func Page() g.Node {
 				),
 				dialog.Content("example-dialog",
 					dialog.Header(
-						dialog.Title(g.Text("Confirm Action")),
-						dialog.Description(g.Text("This action cannot be undone. Are you sure you want to proceed?")),
+						dialog.Title("example-dialog", g.Text("Confirm Action")),
+						dialog.Description("example-dialog", g.Text("This action cannot be undone. Are you sure you want to proceed?")),
 					),
 					dialog.Footer(
 						dialog.Close(
@@ -225,22 +224,18 @@ func Page() g.Node {
 
 		// ── Dropdown ────────────────────────────────────
 		section("dropdown", "Dropdown",
-			example("Ghost button trigger", dropdown.Root(
+			example("Native summary trigger", dropdown.Root(
 				dropdown.Props{},
-				dropdown.Trigger(
-					core.Button(core.Props{Label: "Options ▾", Variant: core.VariantGhost}),
-				),
+				dropdown.Trigger(dropdown.TriggerProps{}, g.Text("Options")),
 				dropdown.Content(
 					dropdown.Label("Account"),
-					dropdown.Item("View Profile", "#", false),
-					dropdown.Item("Edit Settings", "#", false),
+					dropdown.Item(dropdown.ItemProps{Label: "View Profile", Href: "#"}),
+					dropdown.Item(dropdown.ItemProps{Label: "Edit Settings", Href: "#"}),
 					dropdown.Separator(),
-					dropdown.Item("Sign Out", "#", false),
+					dropdown.Item(dropdown.ItemProps{Label: "Sign Out", Href: "#"}),
 				),
 			)),
 		),
-
-		// ── Form Fields ─────────────────────────────────
 		section("form-fields", "Form Fields",
 			example("Text input", uiform.Input(uiform.InputProps{
 				ID:          "ex-text",
@@ -312,6 +307,67 @@ func Page() g.Node {
 				Placeholder: "Tell us about yourself…",
 				Rows:        4,
 			})),
+			example("FieldSet — radio group", uiform.FieldSet(uiform.FieldSetProps{
+				ID:     "ex-contact",
+				Legend: "Preferred contact",
+			},
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-contact-email", Name: "contact", Value: "email", Checked: true}),
+					g.Text("Email"),
+				),
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-contact-phone", Name: "contact", Value: "phone"}),
+					g.Text("Phone"),
+				),
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-contact-post", Name: "contact", Value: "post"}),
+					g.Text("Post"),
+				),
+			)),
+			example("FieldSet — disabled group", uiform.FieldSet(uiform.FieldSetProps{
+				ID:       "ex-contact-disabled",
+				Legend:   "Preferred contact",
+				Disabled: true,
+			},
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-cd-email", Name: "contact-disabled", Value: "email", Checked: true}),
+					g.Text("Email"),
+				),
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-cd-phone", Name: "contact-disabled", Value: "phone"}),
+					g.Text("Phone"),
+				),
+				h.Label(h.Class("flex items-center gap-2 text-sm cursor-pointer"),
+					uiform.Radio(uiform.RadioProps{ID: "ex-cd-post", Name: "contact-disabled", Value: "post"}),
+					g.Text("Post"),
+				),
+			)),
+			example("Select with opt-groups", uiform.Select(uiform.SelectProps{
+				ID:       "ex-role-grouped",
+				Name:     "role",
+				Selected: "admin",
+				Groups: []uiform.OptGroup{
+					{Label: "Admin roles", Options: []uiform.Option{
+						{Value: "admin", Label: "Admin"},
+						{Value: "superadmin", Label: "Super Admin"},
+					}},
+					{Label: "Member roles", Options: []uiform.Option{
+						{Value: "editor", Label: "Editor"},
+						{Value: "viewer", Label: "Viewer"},
+					}},
+				},
+			})),
+			example("File upload (single)", uiform.FileUpload(uiform.FileUploadProps{
+				ID:     "ex-upload",
+				Name:   "file",
+				Accept: "image/*,application/pdf",
+				Prompt: "Drop an image or PDF, or click to browse",
+			})),
+			example("File upload (multiple)", uiform.FileUpload(uiform.FileUploadProps{
+				ID:       "ex-upload-multi",
+				Name:     "files",
+				Multiple: true,
+			})),
 		),
 
 		// ── Labels ──────────────────────────────────────
@@ -364,7 +420,7 @@ func Page() g.Node {
 		section("tables", "Tables",
 			example("Table with header/body/actions", data.Table.Root(
 				data.Table.Header(
-					data.Table.Row(false,
+					data.Table.Row(data.RowProps{},
 						data.Table.Head(g.Text("Name")),
 						data.Table.Head(g.Text("Role")),
 						data.Table.Head(g.Text("Status")),
@@ -372,10 +428,10 @@ func Page() g.Node {
 					),
 				),
 				data.Table.Body(
-					data.Table.Row(false,
+					data.Table.Row(data.RowProps{},
 						data.Table.Cell(g.Text("Alice Johnson")),
 						data.Table.Cell(g.Text("Admin")),
-						data.Table.Cell(feedback.Badge(feedback.BadgeProps{Children: []g.Node{g.Text("Active")}})),
+						data.Table.Cell(core.Badge(core.BadgeProps{Children: []g.Node{g.Text("Active")}})),
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
 								core.Button(core.Props{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
@@ -383,10 +439,10 @@ func Page() g.Node {
 							),
 						),
 					),
-					data.Table.Row(false,
+					data.Table.Row(data.RowProps{},
 						data.Table.Cell(g.Text("Bob Smith")),
 						data.Table.Cell(g.Text("Editor")),
-						data.Table.Cell(feedback.Badge(feedback.BadgeProps{Variant: feedback.BadgeSecondary, Children: []g.Node{g.Text("Inactive")}})),
+						data.Table.Cell(core.Badge(core.BadgeProps{Variant: core.BadgeSecondary, Children: []g.Node{g.Text("Inactive")}})),
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
 								core.Button(core.Props{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
@@ -401,25 +457,25 @@ func Page() g.Node {
 
 		// ── Tabs ────────────────────────────────────────
 		section("tabs", "Tabs",
-			example("Three-tab panel", tabs.Root("account",
+			example("Three-tab panel", tabs.Root("account-tabs", "account",
 				tabs.List(
-					tabs.Trigger("account", true, g.Text("Account")),
-					tabs.Trigger("password", false, g.Text("Password")),
-					tabs.Trigger("settings", false, g.Text("Settings")),
+					tabs.Trigger("account-tabs", "account", true, g.Text("Account")),
+					tabs.Trigger("account-tabs", "password", false, g.Text("Password")),
+					tabs.Trigger("account-tabs", "settings", false, g.Text("Settings")),
 				),
-				tabs.Content("account", true,
+				tabs.Content("account-tabs", "account", true,
 					data.Card.Root(
 						data.Card.Header(data.Card.Title(g.Text("Account"))),
 						data.Card.Content(h.P(g.Text("Manage your account settings here."))),
 					),
 				),
-				tabs.Content("password", false,
+				tabs.Content("account-tabs", "password", false,
 					data.Card.Root(
 						data.Card.Header(data.Card.Title(g.Text("Password"))),
 						data.Card.Content(h.P(g.Text("Change your password here."))),
 					),
 				),
-				tabs.Content("settings", false,
+				tabs.Content("account-tabs", "settings", false,
 					data.Card.Root(
 						data.Card.Header(data.Card.Title(g.Text("Settings"))),
 						data.Card.Content(h.P(g.Text("Manage your preferences here."))),
@@ -458,17 +514,66 @@ func Page() g.Node {
 			)),
 		),
 
+		// ── Popover ─────────────────────────────────────
+		section("popover", "Popover",
+			example("Default (left-aligned)", core.Popover.Root(core.PopoverRootProps{},
+				core.Popover.Trigger(core.PopoverTriggerProps{Class: popoverBtnClass},
+					g.Text("Open popover"),
+				),
+				core.Popover.Content(core.PopoverContentProps{},
+					h.P(h.Class("p-4"),
+						h.Span(h.Class("block text-sm font-medium mb-1"), g.Text("Popover title")),
+						h.Span(h.Class("text-sm text-muted-foreground"), g.Text("This is a generic floating panel. It closes when you click outside.")),
+					),
+				),
+			)),
+			example("Right-aligned", core.Popover.Root(core.PopoverRootProps{},
+				core.Popover.Trigger(core.PopoverTriggerProps{Class: popoverBtnClass},
+					g.Text("Right-aligned"),
+				),
+				core.Popover.Content(core.PopoverContentProps{Align: "right"},
+					h.P(h.Class("p-4 text-sm text-muted-foreground"), g.Text("Panel anchored to the right edge of the trigger.")),
+				),
+			)),
+			example("Custom width", core.Popover.Root(core.PopoverRootProps{},
+				core.Popover.Trigger(core.PopoverTriggerProps{Class: popoverBtnClass},
+					g.Text("Narrow popover"),
+				),
+				core.Popover.Content(core.PopoverContentProps{Width: "w-48"},
+					h.P(h.Class("p-4 text-sm text-muted-foreground"), g.Text("w-48 panel.")),
+				),
+			)),
+		),
+
 		// ── Tooltip ─────────────────────────────────────
 		section("tooltip", "Tooltip",
-			example("Hover for tooltip", tooltip.Root(
+			example("Hover or focus for tooltip", tooltip.Root(
 				tooltip.Trigger(
-					core.Button(core.Props{Label: "Hover me", Variant: core.VariantOutline}),
+					core.Button(core.Props{
+						Label:   "Focus me",
+						Variant: core.VariantOutline,
+						Extra:   tooltip.TriggerAttrs("example-tooltip"),
+					}),
 				),
-				tooltip.Content(g.Text("This is a tooltip")),
+				tooltip.Content("example-tooltip", g.Text("This is a tooltip")),
+			)),
+			example("Click-activated (touch-friendly)", tooltip.ClickRoot(
+				tooltip.ClickTrigger(
+					g.Attr("aria-describedby", "click-tooltip"),
+					core.Icon(iconrender.Props("lucide-icons", "circle-help", core.IconProps{
+						Size:  "size-5",
+						Label: "Help",
+					})),
+				),
+				tooltip.ClickContent("click-tooltip", g.Text("Click or tap to reveal this tooltip")),
 			)),
 		),
 	)
 }
+
+// popoverBtnClass applies outline-button styling to a <summary> trigger so it
+// looks like a button without nesting an invalid <button> inside <summary>.
+const popoverBtnClass = "gap-2 rounded-md border bg-background text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-sm font-medium transition-all focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
 
 // section renders an anchored <section> with a heading and divider.
 func section(id, title string, content ...g.Node) g.Node {
@@ -484,7 +589,6 @@ func section(id, title string, content ...g.Node) g.Node {
 				h.Href("#top"),
 				h.Class("text-xs text-muted-foreground hover:text-foreground hover:underline"),
 				core.Icon(iconrender.PropsFor(componenticons.ChevronsUp, core.IconProps{Size: "size-4 shrink-0"})),
-				// g.Text("↑ Back to top"),
 			),
 		),
 		h.Div(h.Class("space-y-4"), g.Group(content)),
@@ -527,8 +631,17 @@ func toastVariantClass(variant string) string {
 
 // toastPreview renders an inline (non-fixed) dismissible toast for variant showcase.
 func toastPreview(variant, title, desc string) g.Node {
+	role := "status"
+	live := "polite"
+	if variant == "error" || variant == "warning" {
+		role = "alert"
+		live = "assertive"
+	}
 	return h.Div(
 		h.Class("relative rounded-lg border p-4 shadow-md "+toastVariantClass(variant)),
+		h.Role(role),
+		g.Attr("aria-live", live),
+		g.Attr("aria-atomic", "true"),
 		g.Attr("data-dismissible", ""),
 		h.P(h.Class("font-medium text-sm"), g.Text(title)),
 		h.P(h.Class("text-sm mt-1 opacity-80"), g.Text(desc)),
@@ -536,6 +649,7 @@ func toastPreview(variant, title, desc string) g.Node {
 			g.Attr("data-dismiss", ""),
 			h.Class("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity text-xs"),
 			h.Type("button"),
+			g.Attr("aria-label", "Dismiss"),
 			g.Text("×"),
 		),
 	)
@@ -553,9 +667,18 @@ func toastTriggerButton(templateID, label string) g.Node {
 
 // toastTemplate renders a hidden <template> containing a toast for JS cloning.
 func toastTemplate(id, variant, title, desc string) g.Node {
+	role := "status"
+	live := "polite"
+	if variant == "error" || variant == "warning" {
+		role = "alert"
+		live = "assertive"
+	}
 	return g.El("template", h.ID(id),
 		h.Div(
 			h.Class("relative rounded-lg border p-4 shadow-md "+toastVariantClass(variant)),
+			h.Role(role),
+			g.Attr("aria-live", live),
+			g.Attr("aria-atomic", "true"),
 			g.Attr("data-dismissible", ""),
 			h.P(h.Class("font-medium text-sm"), g.Text(title)),
 			h.P(h.Class("text-sm mt-1 opacity-80"), g.Text(desc)),
@@ -563,6 +686,7 @@ func toastTemplate(id, variant, title, desc string) g.Node {
 				g.Attr("data-dismiss", ""),
 				h.Class("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity text-xs"),
 				h.Type("button"),
+				g.Attr("aria-label", "Dismiss"),
 				g.Text("×"),
 			),
 		),

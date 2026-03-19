@@ -45,13 +45,22 @@ func (tableNS) Footer(children ...g.Node) g.Node {
 	)
 }
 
-// Row renders a <tr>. Pass selected=true for a selected highlight.
-func (tableNS) Row(selected bool, children ...g.Node) g.Node {
+// RowProps configures a table row.
+type RowProps struct {
+	Selected bool
+	Extra    []g.Node
+}
+
+// Row renders a <tr>. Pass RowProps{Selected: true} for a selected highlight.
+func (tableNS) Row(p RowProps, children ...g.Node) g.Node {
 	cls := "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
-	if selected {
+	if p.Selected {
 		cls += " bg-muted"
 	}
-	return h.Tr(h.Class(cls), g.Group(children))
+	nodes := []g.Node{h.Class(cls)}
+	nodes = append(nodes, g.Group(p.Extra))
+	nodes = append(nodes, g.Group(children))
+	return h.Tr(nodes...)
 }
 
 // Head renders a <th> header cell.

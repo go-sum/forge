@@ -1,0 +1,18 @@
+app:
+  env: development
+
+log:
+  level: debug
+
+server:
+  port: 3000
+  # Inline script hashes are injected at startup — see csp_hashes below.
+  csp: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+
+csp_hashes:
+  dev_only:
+    - "'sha256-y933zYNvpVe5f9j5A+OKECUXiWo8bKB5Yp5sLDD3d0I='"  # air proxy hot-reload; run `make air-csp-hash` to update
+
+auth:
+  session:
+    secure: false

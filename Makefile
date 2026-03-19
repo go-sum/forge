@@ -1,6 +1,5 @@
-ALPINE_VERSION := 3.14.8
-HTMX_VERSION   := 2.0.4
-APP_NAME       := starter-dev
+HTMX_VERSION    := 2.0.4
+APP_NAME        := starter-dev
 DATABASE_URL   ?= postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
 
 APP_NETWORK  := app_network
@@ -18,9 +17,9 @@ define with-svc
 endef
 
 .PHONY: help \
-        build clean lint test test-watch test-up \
+        build clean lint hash-air-csp test test-watch test-up \
         db-apply db-gen db-plan db-dump \
-        css js \
+        assets \
         dev docker-build docker-dev docker-down docker-logs docker-up \
         _ensure-dev-image
 
@@ -37,6 +36,9 @@ clean: ## Remove build artifacts
 
 lint: _ensure-dev-image ## Run golangci-lint
 	$(D_RUN) $(APP_NAME) golangci-lint run ./...
+
+hash-air-csp: _ensure-dev-image ## Recompute CSP hash for air's proxy script and update config/config.development.yaml
+	$(D_RUN) $(APP_NAME) go run ./cli hash-air-csp
 
 test: _ensure-dev-image ## Run tests (auto-starts/stops test_data)
 	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) go test -v -race -count=1 ./...)
@@ -63,18 +65,13 @@ db-dump: _ensure-dev-image ## Dump current live database schema to stdout for pr
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 
-css: _ensure-dev-image ## Compile Tailwind CSS
-	$(D_RUN) $(APP_NAME) tailwindcss -i ./static/css/tailwind.css -o ./public/css/app.css --minify
-
-js: ## Download HTMX and Alpine.js
-	mkdir -p public/js
-	curl -fsSL "https://unpkg.com/htmx.org@$(HTMX_VERSION)/dist/htmx.min.js" -o public/js/htmx.min.js
-	curl -fsSL "https://unpkg.com/@alpinejs/csp@$(ALPINE_VERSION)/dist/cdn.min.js" -o public/js/alpine.min.js
+assets: _ensure-dev-image ## Build all generated frontend assets
+	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(APP_NAME) go run ./cli build-assets --minify
 
 # ── Docker & Dev ──────────────────────────────────────────────────────────────
 
 dev: ## Start all services with hot-reload
-	$(D_COMPOSE) dev up
+	$(D_COMPOSE) dev up --build
 
 docker-build: ## Build production Docker image
 	docker build --target production -t starter:latest .

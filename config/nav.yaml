@@ -1,0 +1,29 @@
+nav:
+  brand:
+    label: Starter
+    href: /
+  sections:
+    - items:
+        - label: Home
+          href: /
+        - label: Explore
+          items:
+            - label: Components
+              href: /_components
+            - label: Admin
+              items:
+                - label: Users
+                  href: /users
+    - items:
+        - label: Login
+          href: /login
+          visibility: guest
+        - label: Register
+          href: /register
+          visibility: guest
+        - type: user_name
+          visibility: user
+        - type: logout
+          label: Logout
+          visibility: user
+        - type: theme_toggle

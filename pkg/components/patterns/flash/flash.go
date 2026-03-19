@@ -4,6 +4,7 @@
 package flash
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 )
@@ -26,7 +27,7 @@ type Message struct {
 
 const cookieName = "flash"
 
-// Set encodes msgs as JSON into a short-lived cookie on w.
+// Set encodes msgs into a cookie-safe value on w.
 func Set(w http.ResponseWriter, msgs []Message) error {
 	data, err := json.Marshal(msgs)
 	if err != nil {
@@ -34,7 +35,7 @@ func Set(w http.ResponseWriter, msgs []Message) error {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
-		Value:    string(data),
+		Value:    base64.RawURLEncoding.EncodeToString(data),
 		Path:     "/",
 		MaxAge:   60,
 		HttpOnly: true,
@@ -48,16 +49,19 @@ func Set(w http.ResponseWriter, msgs []Message) error {
 func GetAll(r *http.Request, w http.ResponseWriter) ([]Message, error) {
 	cookie, err := r.Cookie(cookieName)
 	if err != nil {
-		// No cookie present — not an error.
 		return []Message{}, nil
 	}
 
-	var msgs []Message
-	if err := json.Unmarshal([]byte(cookie.Value), &msgs); err != nil {
+	data, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+	if err != nil {
 		return nil, err
 	}
 
-	// Clear the cookie so messages are shown only once.
+	var msgs []Message
+	if err := json.Unmarshal(data, &msgs); err != nil {
+		return nil, err
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Path:     "/",

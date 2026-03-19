@@ -16,14 +16,15 @@ type TextareaProps struct {
 	Rows        int
 	Disabled    bool
 	Readonly    bool
+	Required    bool
 	HasError    bool
 	Extra       []g.Node
 }
 
 func textareaClass(hasError bool) string {
-	base := "flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+	base := inputBaseClass + " min-h-[60px] px-3 py-2"
 	if hasError {
-		base += " border-destructive ring-destructive/20"
+		base += inputErrorClass
 	}
 	return base
 }
@@ -48,6 +49,9 @@ func Textarea(p TextareaProps) g.Node {
 	}
 	if p.Readonly {
 		nodes = append(nodes, h.ReadOnly())
+	}
+	if p.Required {
+		nodes = append(nodes, h.Required())
 	}
 	if p.HasError {
 		nodes = append(nodes, g.Attr("aria-invalid", "true"))

@@ -13,6 +13,7 @@ const (
 	ChevronLeft  Key = "chevron-left"
 	ChevronRight Key = "chevron-right"
 	ChevronsUp   Key = "chevrons-up"
+	Close        Key = "close"
 	ThemeLight   Key = "theme-light"
 	ThemeDark    Key = "theme-dark"
 	ThemeSystem  Key = "theme-system"

@@ -37,10 +37,14 @@ type InputProps struct {
 	Extra       []g.Node
 }
 
+const inputBaseClass = "flex w-full rounded-md border border-input bg-transparent text-base shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+
+const inputErrorClass = " border-destructive ring-destructive/20"
+
 func inputClass(hasError bool) string {
-	base := "flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+	base := inputBaseClass + " h-9 min-w-0 px-3 py-1"
 	if hasError {
-		base += " border-destructive ring-destructive/20"
+		base += inputErrorClass
 	}
 	return base
 }

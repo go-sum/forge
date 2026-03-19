@@ -7,7 +7,7 @@ import (
 
 // IconProps configures an Icon rendered as an SVG <use> reference into a sprite file.
 type IconProps struct {
-	Src   string   // sprite file path, e.g. "/static/img/svg/lucide-icons.svg"
+	Src   string   // sprite file path, e.g. "/public/img/svg/lucide-icons.svg"
 	ID    string   // symbol id, e.g. "chevron-down"
 	Size  string   // Tailwind size class; defaults to "size-4"
 	Label string   // aria-label text; empty → aria-hidden="true" (decorative)

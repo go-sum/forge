@@ -2,8 +2,14 @@
 package feedback
 
 import (
+	"strings"
+
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
+
+	componenticons "starter/pkg/components/icons"
+	iconrender "starter/pkg/components/icons/render"
+	core "starter/pkg/components/ui/core"
 )
 
 // AlertVariant selects the visual style of an alert.
@@ -29,6 +35,26 @@ func alertVariantClasses(v AlertVariant) string {
 	return "bg-card text-card-foreground"
 }
 
+func alertVariantForType(kind string) AlertVariant {
+	switch strings.ToLower(kind) {
+	case "destructive", "error":
+		return AlertDestructive
+	default:
+		return AlertDefault
+	}
+}
+
+// dismissButton renders a shared dismiss <button> used by Alert and Toast.
+func dismissButton(cls string) g.Node {
+	return h.Button(
+		g.Attr("data-dismiss", ""),
+		h.Class(cls),
+		h.Type("button"),
+		g.Attr("aria-label", "Dismiss"),
+		core.Icon(iconrender.PropsFor(componenticons.Close, core.IconProps{Size: "size-4"})),
+	)
+}
+
 type alertNS struct{}
 
 // Alert groups alert sub-components under a namespace: Alert.Root, Alert.Title, Alert.Description, Alert.List.
@@ -36,7 +62,7 @@ var Alert alertNS
 
 // Root renders a shadcn/ui-style alert. When Dismissible is true, a close
 // button is added; clicking it removes the element from the DOM via the
-// delegated data-dismiss handler in static/js/app.js.
+// delegated data-dismiss handler in js/app.js.
 func (alertNS) Root(p AlertProps, children ...g.Node) g.Node {
 	cls := "relative w-full rounded-lg border px-4 py-3 text-sm grid grid-cols-[0_1fr] gap-y-0.5 items-start " + alertVariantClasses(p.Variant)
 	nodes := []g.Node{
@@ -52,13 +78,7 @@ func (alertNS) Root(p AlertProps, children ...g.Node) g.Node {
 	nodes = append(nodes, g.Group(p.Extra))
 	nodes = append(nodes, g.Group(children))
 	if p.Dismissible {
-		nodes = append(nodes, h.Button(
-			g.Attr("data-dismiss", ""),
-			h.Class("absolute top-3 right-3 opacity-70 hover:opacity-100 transition-opacity"),
-			h.Type("button"),
-			g.Attr("aria-label", "Dismiss"),
-			g.Text("×"),
-		))
+		nodes = append(nodes, dismissButton("absolute top-3 right-3 opacity-70 hover:opacity-100 transition-opacity"))
 	}
 	return h.Div(nodes...)
 }
@@ -79,7 +99,9 @@ func (alertNS) Description(children ...g.Node) g.Node {
 	)
 }
 
-// List renders multiple dismissible default-variant alerts from parallel type/text slices.
+// List renders multiple dismissible alerts from parallel type/text slices.
+// Non-destructive types fall back to AlertDefault because Alert only exposes
+// default and destructive variants.
 func (alertNS) List(types []string, texts []string) g.Node {
 	n := len(types)
 	if len(texts) < n {
@@ -88,7 +110,7 @@ func (alertNS) List(types []string, texts []string) g.Node {
 	nodes := make([]g.Node, n)
 	for i := range n {
 		nodes[i] = Alert.Root(
-			AlertProps{Variant: AlertDefault, Dismissible: true},
+			AlertProps{Variant: alertVariantForType(types[i]), Dismissible: true},
 			Alert.Description(g.Text(texts[i])),
 		)
 	}

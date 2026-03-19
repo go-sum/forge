@@ -1,0 +1,7 @@
+site:
+  title: starter
+  description: ""
+  logo_path: /public/img/logo.svg
+  favicon_path: /public/img/favicon.ico
+  meta_keywords: []
+  og_image: ""

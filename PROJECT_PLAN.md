@@ -17,7 +17,7 @@
 
 The architecture follows a strict layered pattern: **Transport → Service → Repository → Database**, with reusable library packages in `pkg/` and application-specific code in `internal/`.
 
-**Current state:** Phase 01 complete. `go.mod`, `go.sum`, database schema, sqlc-generated code, and query definitions are in place. T0106 requires a running `app_data` container — run `make db-apply` from the host (it auto-starts `app_data` via the `db` profile).
+**Current state:** Phase 01 complete. Phases 02, 04, 05, 06, and 11 complete. Phase 07 partially done (T0701, T0702). Phase 09 partially done (T0904). Phase 12 partially done (T1201, T1203). T0106 requires a running `app_data` container — run `make db-apply` from the host (it auto-starts `app_data` via the `db` profile).
 
 ---
 
@@ -88,19 +88,19 @@ This allows inserting new tasks within any phase without renumbering downstream 
 > Reusable leaf packages for database connectivity, Echo server setup, static asset
 > versioning, and gomponents rendering. No `internal/` imports anywhere in `pkg/`.
 
-- [ ] **T0201** — `pkg/database` — PostgreSQL connection pool
+- [x] **T0201** — `pkg/database` — PostgreSQL connection pool
   - Files: `pkg/database/database.go`
   - Cover: `Config{DSN string}`. `Connect(ctx, cfg) (*pgxpool.Pool, error)` — creates pool, calls `pool.Ping()`. `HealthCheck(ctx, pool) error`. `Close(pool)`. Returns descriptive errors wrapping pgx errors.
 
-- [ ] **T0202** — `pkg/server` — Echo v5 server factory
+- [x] **T0202** — `pkg/server` — Echo v5 server factory
   - Files: `pkg/server/server.go`, `pkg/server/middleware.go`
   - Cover: `Config{Host, Port, Debug, GracefulTimeout, CookieSecure, CSP, CSRFCookieName string}`. `New(cfg) *echo.Echo` — creates Echo instance and applies full middleware stack in order: `RemoveTrailingSlash` (pre-routing), `Recover`, `RequestID`, `Secure` (HSTS + CSP + X-Frame-Options + X-Content-Type-Options), `RequestLogger` (structured slog output), `CSRF` (double-submit cookie, reads `CTX_` config), `staticCacheControl` (1-year TTL for `/public/` paths with `?v=` param, no-cache otherwise). `Start(e, cfg)` — listens on `cfg.Host:cfg.Port`, handles `SIGINT`/`SIGTERM` with `echo.Shutdown(ctx)` and the configured `GracefulTimeout`.
 
-- [ ] **T0203** — `pkg/assets` — Static file cache-busting
+- [x] **T0203** — `pkg/assets` — Static file cache-busting
   - Files: `pkg/assets/assets.go`
   - Cover: `Init(staticDir, urlPrefix string, dev bool) error` — walks `staticDir`, computes 8-char SHA-256 hash of each file, stores `filename → ?v=<hash>` map. `MustInit(...)` — panics on error. `Path(name string) string` — returns `urlPrefix + name` in dev mode (no hash), `urlPrefix + name + "?v=" + hash` in production. Thread-safe after `Init`.
 
-- [ ] **T0204** — `pkg/render` — Gomponents HTTP renderer
+- [x] **T0204** — `pkg/render` — Gomponents HTTP renderer
   - Files: `pkg/render/render.go`
   - Cover: `Component(c *echo.Context, node g.Node) error` — sets `Content-Type: text/html; charset=utf-8`, status 200, renders node to response. `ComponentWithStatus(c *echo.Context, status int, node g.Node) error`. `Fragment(c *echo.Context, node g.Node) error` — same as Component but signals HTMX partial (used by handlers to render partials without layout). All functions render directly to `c.Response()` using `node.Render(w)`.
 
@@ -110,9 +110,9 @@ This allows inserting new tasks within any phase without renumbering downstream 
 
 > JWT token lifecycle and Gorilla session management. Input validation wrapper.
 
-- [ ] **T0301** — `pkg/validate` — Input validation wrapper
+- [x] **T0301** — `pkg/validate` — Input validation wrapper
   - Files: `pkg/validate/validate.go`
-  - Cover: `Validator` struct wrapping `*validator.Validate`. `New() *Validator` — registers custom tag name func to use `form` tag before `json` tag for field name lookup. `Validate(s any) ValidationErrors` where `ValidationErrors` is `map[string]string`. Returns nil if valid. `(e ValidationErrors) ForField(name string) string`. `(e ValidationErrors) HasField(name string) bool`. `(e ValidationErrors) IsEmpty() bool`.
+  - Cover: `Validator` struct wrapping `*validator.Validate`. `New() *Validator`. `Struct(s any) error`. `Var(field any, tag string) error`.
 
 - [ ] **T0302** — `pkg/auth` — JWT + session management
   - Files: `pkg/auth/jwt.go`, `pkg/auth/session.go`
@@ -123,55 +123,71 @@ This allows inserting new tasks within any phase without renumbering downstream 
 ### Phase 04: UX/Request Helpers pkg/
 
 > Request introspection and response utilities for HTMX, flash messages, pagination,
-> and redirect handling. Draws heavily from `examples/pagoga/pkg/`.
+> and redirect handling. Pure UX behaviors — no HTML rendering. All are leaf nodes.
 
-- [ ] **T0401** — `pkg/ctxkeys` — Type-safe context key constants
+- [x] **T0401** — `pkg/ctxkeys` — Type-safe context key constants
   - Files: `pkg/ctxkeys/ctxkeys.go`
-  - Cover: Unexported type `type ctxKey string`. Exported constants: `UserID`, `UserEmail`, `UserRole`, `IsAuthenticated`, `RequestID`, `Logger`, `CSRF`, `Config`. Using a distinct type prevents accidental collisions with third-party packages using bare string keys. Each constant is a `ctxKey` value.
+  - Cover: Unexported `type ctxKey string`. Exported constants: `UserID`, `UserEmail`, `UserRole`, `IsAuthenticated`, `RequestID`, `Logger`, `CSRF`, `Config`.
 
-- [ ] **T0402** — `pkg/htmx` — HTMX request/response helpers
+- [x] **T0402** — `pkg/htmx` — HTMX request/response helpers
   - Files: `pkg/htmx/htmx.go`
-  - Cover: **Request inspection** — `IsRequest(c) bool` (checks `HX-Request: true`). `IsBoosted(c) bool` (`HX-Boosted`). `GetTrigger(c) string` (`HX-Trigger`). `GetTarget(c) string` (`HX-Target`). `GetTriggerName(c) string` (`HX-Trigger-Name`). `GetCurrentURL(c) string` (`HX-Current-URL`). **Response** — `SetRedirect(c, url)` (sets `HX-Redirect`). `SetRefresh(c)` (sets `HX-Refresh: true`). `SetPushURL(c, url)` (`HX-Push-Url`). `SetReplaceURL(c, url)` (`HX-Replace-Url`). `SetTrigger(c, event)` (`HX-Trigger`). `SetTriggerAfterSettle(c, event)` (`HX-Trigger-After-Settle`). `SetRetarget(c, selector)` (`HX-Retarget`). `SetReswap(c, strategy)` (`HX-Reswap`).
+  - Cover: **Request** — `IsRequest`, `IsBoosted`, `GetTrigger`, `GetTarget`, `GetTriggerName`, `GetCurrentURL`. **Response** — `SetRedirect`, `SetRefresh`, `SetPushURL`, `SetReplaceURL`, `SetTrigger`, `SetTriggerAfterSettle`, `SetRetarget`, `SetReswap`.
 
-- [ ] **T0403** — `pkg/flash` — Flash message system
+- [x] **T0403** — `pkg/flash` — Flash message system
   - Files: `pkg/flash/flash.go`
-  - Cover: `Type` string type with constants `TypeSuccess`, `TypeInfo`, `TypeWarning`, `TypeError`. `Message{Type, Text string}`. `Set(w http.ResponseWriter, r *http.Request, store sessions.Store, t Type, text string) error` — stores in session. `GetAll(w, r, store) ([]Message, error)` — reads and clears all flash messages. Convenience helpers: `Success(...)`, `Info(...)`, `Warning(...)`, `Error(...)`. Errors are logged but not bubbled (flash is non-critical).
+  - Cover: `Type` string constants `TypeSuccess = "success"`, `TypeInfo = "info"`, `TypeWarning = "warning"`, `TypeError = "error"`. Values are aligned to daisyUI modifier suffixes for zero-cost type conversion in layout. `Message{Type Type, Text string}`. `Set`, `GetAll` (reads and clears cookie), `Success`, `Info`, `Warning`, `Error`. Errors returned to callers.
 
-- [ ] **T0404** — `pkg/pager` — Pagination helper
+- [x] **T0404** — `pkg/pager` — Pagination helper
   - Files: `pkg/pager/pager.go`
-  - Cover: `Pager{Page, PerPage, TotalItems, TotalPages int}`. `New(r *http.Request, defaultPerPage int) Pager` — reads `?page` and `?per_page` query params, clamps page ≥ 1. `(p *Pager) SetItems(total int)` — calculates `TotalPages`. `(p Pager) GetOffset() int` — returns `(Page-1) * PerPage`. `IsBeginning() bool`, `IsEnd() bool`, `HasPrev() bool`, `HasNext() bool`. `PrevPage() int`, `NextPage() int`.
+  - Cover: `Pager{Page, PerPage, TotalItems, TotalPages int}`. `New(r, defaultPerPage) Pager`. `SetTotal(total int)`. `Offset() int`. `IsFirst()`, `IsLast()`, `PrevPage()`, `NextPage()`.
 
-- [ ] **T0405** — `pkg/redirect` — Smart HTTP/HTMX redirect builder
+- [x] **T0405** — `pkg/redirect` — Smart HTTP/HTMX redirect builder
   - Files: `pkg/redirect/redirect.go`
-  - Cover: `New(c *echo.Context) *Builder`. `(b *Builder) To(url string) *Builder`. `(b *Builder) StatusCode(code int) *Builder` (default 303). `(b *Builder) Go() error` — detects HTMX request: if `HX-Request` and not `HX-Boosted`, sets `HX-Redirect` header + returns `204 No Content`; if `HX-Boosted` or not HTMX, uses standard `c.Redirect()`.
+  - Cover: `New(c) *Builder`. `To(url) *Builder`. `StatusCode(code) *Builder` (default 303). `Go() error` — inlines `HX-Request`/`HX-Boosted` header reads (no `pkg/htmx` import) to preserve leaf-node status.
 
 ---
 
 ### Phase 05: Form Handling pkg/
 
 > Form submission interface with binding, validation, and per-field error tracking.
-> Inspired by `examples/pagoga/pkg/form/`.
+> `pkg/ui/form` components accept `[]string` (plain slices) — callers extract errors
+> from Submission before passing to UI components, maintaining the leaf-node boundary.
 
-- [ ] **T0501** — `pkg/form` — Form submission interface + implementation
+- [x] **T0501** — `pkg/form` — Form submission interface + implementation
   - Files: `pkg/form/form.go`, `pkg/form/submission.go`
-  - Cover: **`Form` interface** — `Submit(c *echo.Context, dest any) error`. `IsSubmitted() bool`. `IsValid() bool`. `IsDone() bool` (submitted AND valid). `FieldHasErrors(field string) bool`. `GetFieldErrors(field string) []string`. `SetFieldError(field, msg string)`. `GetErrors() map[string][]string`. **`Submission` struct** — implements `Form`. `Submit` binds `c.Request()` into `dest` using `echo.BindBody`, then calls validator. Populates `errors map[string][]string` from `validate.ValidationErrors`. `New() *Submission` factory.
+  - Cover: **`Form` interface** — `IsSubmitted()`, `IsValid()`, `IsDone()`, `FieldHasErrors(field)`, `GetFieldErrors(field) []string`, `SetFieldError(field, msg)`, `GetErrors() map[string][]string`. **`Submission` struct** — `New(v *validate.Validator) *Submission`. `Submit(c, dest)` binds via Echo's `Bind`, runs `validate.Validator.Struct`, populates per-field error map from `validator.ValidationErrors`.
 
 ---
 
-### Phase 06: UI Components pkg/
+### Phase 06: Composable UI Primitives pkg/
 
-> Reusable gomponents primitives that views compose into pages. Tailwind v4 utility classes.
-> All components accept `g.Node` children for composability.
+> daisyUI v5 + Tailwind CSS v4 + Gomponents. Organized as sub-packages under `pkg/ui/`.
+> Each sub-package is independently importable and imports only stdlib + gomponents.
+> Components accept plain Go types (`string`, `[]string`, `bool`, `[]g.Node`) — never domain types.
 
-- [ ] **T0601** — `pkg/ui` — Common UI components
-  - Files: `pkg/ui/ui.go`, `pkg/ui/button.go`, `pkg/ui/alert.go`, `pkg/ui/badge.go`, `pkg/ui/field.go`, `pkg/ui/table.go`, `pkg/ui/card.go`
-  - Cover:
-    - **button.go**: `Button(variant, label string, attrs ...g.Node) g.Node`. Variants: `primary` (blue), `secondary` (gray), `danger` (red), `ghost` (transparent). Applies Tailwind classes per variant.
-    - **alert.go**: `Alert(t flash.Type, text string) g.Node` — dismissible alert with Alpine.js `x-data / x-show` pattern. Styled per flash type (green/blue/yellow/red).
-    - **badge.go**: `Badge(label, color string) g.Node` — small inline status pill.
-    - **field.go**: `Field(label, name, inputType, value, errMsg string, attrs ...g.Node) g.Node` — wraps `<label>` + `<input>` + error message `<p>`. Adds red border class when `errMsg` is non-empty.
-    - **table.go**: `Table(headers []string, rows []g.Node) g.Node` — responsive table with `<thead>` + `<tbody>`. `TableRow(cells []g.Node) g.Node`. `TableCell(content g.Node) g.Node`. `TableActions(nodes ...g.Node) g.Node` (right-aligned last column).
-    - **card.go**: `Card(title string, children ...g.Node) g.Node` — rounded card with shadow, optional title in header.
+- [x] **T0601** — Tooling: daisyUI prebuilt CSS
+  - Files: `Makefile`, `Dockerfile`, `static/css/tailwind.css`, `CLAUDE.md`
+  - Cover: `DAISYUI_VERSION := 5.0.14`. `make css` downloads `daisyui.min.css` via curl before Tailwind compile. Dockerfile `assets` stage downloads it alongside htmx/alpine. `tailwind.css` adds `@source "../../pkg/ui/**/*.go"`. `CLAUDE.md` technology stack table updated.
+
+- [x] **T0602** — `pkg/ui/core` — Button
+  - Files: `pkg/ui/core/button.go`
+  - Cover: `ButtonVariant` (`VariantPrimary`, `VariantSecondary`, `VariantError`, `VariantGhost`, `VariantNeutral`). `ButtonSize` (`SizeDefault`, `SizeSm`, `SizeLg`). `ButtonProps`. `Button(p) g.Node`. `LinkButton(p, href) g.Node`.
+
+- [x] **T0603** — `pkg/ui/form` — Form field components
+  - Files: `pkg/ui/form/input.go`, `select.go`, `checkbox.go`, `textarea.go`
+  - Cover: All wrap inputs in daisyUI `fieldset` / `legend` pattern. Errors render as `<p class="fieldset-label text-error">`. `components.Classes` used for conditional error class. `Input`, `Select` (with `SelectOption`), `Checkbox`, `Textarea`.
+
+- [x] **T0604** — `pkg/ui/feedback` — Alert, Badge, Toast
+  - Files: `pkg/ui/feedback/alert.go`, `badge.go`, `toast.go`
+  - Cover: `AlertType` constants (`"success"`, `"info"`, `"warning"`, `"error"`) aligned to `flash.Type` values. `Alert` uses Alpine `dismissible` component. `AlertList(types, texts []string) g.Node`. `BadgeVariant` constants. `Badge`. `ToastItem`. `Toast(items, position) g.Node`.
+
+- [x] **T0605** — `pkg/ui/data` — Table + Card
+  - Files: `pkg/ui/data/table.go`, `card.go`
+  - Cover: `TableProps{Headers, Rows, Zebra, ID}`. `Table`, `Row`, `Cell`, `HeaderCell`, `ActionsCell`. `CardProps{Title, Children, Compact}`. `Card`.
+
+- [x] **T0606** — `pkg/ui/layout` — Generic shells
+  - Files: `pkg/ui/layout/navbar.go`, `sidebar.go`
+  - Cover: `NavbarProps{Brand, StartItems, EndItems}`. `Navbar` — daisyUI navbar-start/center/end. `SidebarProps{Nav, Content}`. `Sidebar` — daisyUI drawer with Alpine `sidebarDrawer`.
 
 ---
 
@@ -180,13 +196,13 @@ This allows inserting new tasks within any phase without renumbering downstream 
 > Koanf-based configuration loading and domain model definitions.
 > The domain types are the shared language between layers.
 
-- [ ] **T0701** — `internal/config` — Koanf configuration
-  - Files: `internal/config/config.go`, `internal/config/loader.go`
-  - Cover: **`Config` struct** with nested `App{Env, Name string}`, `Server{Host, Port, GracefulTimeout, CookieSecure bool, CSP, CSRFCookieName string}`, `Database{URL string}`, `Auth{JWT{Secret, Issuer string, TokenDuration time.Duration}, Session{Name, AuthKey, EncryptKey string, MaxAge int, Secure bool}}`, `Log{Level string}`, `Site{Title, Description, LogoPath, FaviconPath, MetaKeywords, OGImage string}`. All fields tagged with `validate:` rules (required, min length, etc.). **`loader.go`** — `Init() error` uses koanf: load `config/config.yaml` → `config/config.{env}.yaml` (silently skip if missing) → `config/site.yaml` → `CTX_`-prefixed env vars (strip prefix, lowercase, `_` → `.`). Unmarshal into global `App *Config`. Call `validate.New().Validate(App)`. **Helper methods on `*Config`**: `IsDevelopment() bool`, `IsProduction() bool`, `DSN() string`, `Addr() string`.
+- [x] **T0701** — Config — Koanf configuration
+  - Files: `config/config.go`, `pkg/config/loader.go`, `internal/server/router.go`
+  - Cover: **`config/config.go`** — `Config` struct with sub-structs (`AppConfig`, `ServerConfig`, `DatabaseConfig`, `AuthConfig`, `JWTConfig`, `SessionConfig`, `LogConfig`, `SiteConfig`). All fields tagged `koanf:` + `validate:`. `var App *Config` singleton. `Init(baseDir string) error` calls `pkg/config.Load`. Helpers: `IsDevelopment()`, `IsProduction()`, `DSN()`. **`pkg/config/loader.go`** — `Options{EnvPrefix, BaseDir, EnvKey, SiteFile string}`. `Load(target any, opts Options) error` — koanf load order: base config.yaml (required) → env overlay (optional) → CTX_-prefixed env vars via smart `transformKey` → site.yaml (optional, wins over env vars for content). `transformKey` tries candidates from all-dots to all-underscores, returning the first form where `k.Exists()` is true. **`pkg/server.New()`** stripped to bare echo + error handler. **`internal/server/router.go`** — `Setup(e *echo.Echo, cfg pkgserver.Config)` wires app middleware stack.
 
-- [ ] **T0702** — `internal/model` — Domain models
-  - Files: `internal/model/user.go`, `internal/model/errors.go`
-  - Cover: **`user.go`** — `User{ID uuid.UUID, Email, DisplayName, Role string, CreatedAt, UpdatedAt time.Time}` (no `PasswordHash` — enforced security boundary). `CreateUserInput{Email, DisplayName, Password string}` with `form:` and `validate:` tags (email required+email format, display_name min=2 max=255, password required min=8 max=72). `UpdateUserInput{Email, DisplayName, Role string}` — all `omitempty` (empty string = do not change). `LoginInput{Email, Password string}` — both required. **`errors.go`** — `var ErrUserNotFound`, `ErrEmailTaken`, `ErrInvalidCredentials`, `ErrForbidden error` as sentinel errors using `errors.New`.
+- [~] **T0702** — `internal/model` — Domain models
+  - Files: `internal/model/model.go`, `internal/model/errors.go` (errors.go pending)
+  - Cover: **`model.go`** — `User{ID uuid.UUID, Email, DisplayName, Role string, CreatedAt, UpdatedAt time.Time}`. **Pending** — `CreateUserInput`, `UpdateUserInput`, `LoginInput` structs with validate tags. **`errors.go`** — sentinel errors: `ErrUserNotFound`, `ErrEmailTaken`, `ErrInvalidCredentials`, `ErrForbidden`.
 
 ---
 
@@ -221,6 +237,10 @@ This allows inserting new tasks within any phase without renumbering downstream 
 - [ ] **T0903** — `internal/service/user` — User management service
   - Files: `internal/service/user.go`
   - Cover: `UserService{repo repository.UserRepository}`. `List(ctx, page, perPage int) ([]model.User, error)` — cap `perPage` at 100, compute offset, call `repo.List`. `GetByID(ctx, id uuid.UUID) (model.User, error)`. `Update(ctx, id uuid.UUID, input model.UpdateUserInput) (model.User, error)` — pass input fields directly (empty string = COALESCE skips update in SQL). `Delete(ctx, id uuid.UUID) error`. `Count(ctx) (int64, error)`.
+
+- [x] **T0904** — `internal/services` — Application service container
+  - Files: `internal/services/container.go`, `cmd/server/main.go`
+  - Cover: Mirrors `examples/pagoga/pkg/services/container.go` — a single container that owns and initialises **all** application services (infrastructure and domain alike), so `main()` reduces to a clean three-step composition root: create → register routes → start. **`Container` struct** — `Config *config.Config`, `DB *pgxpool.Pool`, `Assets *assets.Assets`, `Web *echo.Echo`, `ServerConfig pkgserver.Config`. **`NewContainer() *Container`** — panics on fatal startup failure (non-recoverable at init time); initialises in dependency order: (1) `config.Init("config")`, (2) structured logger setup (text/stderr in dev, JSON/stdout in prod — absorbs the `initLogger` helper currently in `cmd/server/main.go`), (3) `assets.MustInit(staticDir, staticPrefix, cfg.IsDevelopment())`, (4) `database.Connect(ctx, cfg.DSN())`, (5) build `pkgserver.Config` from cfg, (6) `pkgserver.New(serverCfg)` + `internalserver.Setup(e, serverCfg)`. **`Shutdown() error`** — `database.Close(pool)`. **`cmd/server/main.go`** — refactored to mirror pagoda's entry point: `c := services.NewContainer()`, `defer c.Shutdown()`, register static files + health check on `c.Web`, `pkgserver.Start(c.Web, c.ServerConfig)`. Domain layers (`Repos`, `Services`, `Handler`) are added to the Container struct in T1202; `main.go` gains no new orchestration logic at that point — only the container grows.
 
 ---
 
@@ -257,32 +277,32 @@ This allows inserting new tasks within any phase without renumbering downstream 
 
 ### Phase 11: View Layer
 
-> Type-safe HTML using gomponents. No `html/template`. Components are Go functions
-> returning `g.Node` — compile-time safe, no template parsing overhead.
+> Type-safe HTML using gomponents + daisyUI. No `html/template`. Components are Go
+> functions returning `g.Node`. All pages compose `pkg/ui/*` primitives.
 
-- [ ] **T1101** — `internal/view/layout` — Base page layout + navbar
+- [x] **T1101** — Alpine.js registry expansion
+  - Files: `static/js/app.js`
+  - Cover: Added `confirmDelete` (window.confirm for delete buttons), `sidebarDrawer` (isOpen/toggle/close for drawer), `dropdown` (isOpen/toggle/close for future navbar menus) alongside existing `dismissible`.
+
+- [x] **T1102** — `internal/view/layout` — Base HTML shell + app navbar
   - Files: `internal/view/layout/base.go`, `internal/view/layout/navbar.go`
-  - Cover: **`base.go`** — `Props{Title, CSRFToken string, IsAuthenticated bool, UserName string, Flash []flash.Message, Children []g.Node}`. `Page(p Props) g.Node` — full HTML5 document: `<head>` with charset, viewport, title, `assets.Path("css/app.css")`, CSRF meta tag. `<body>` with `hx-headers` attribute injecting CSRF token for all HTMX requests, disables HTMX runtime style injection (`<meta name="htmx-config" content='{"inlineStyleNonce":""}'>`). Renders `Navbar(p)`, flash alerts loop, `<main>` with children, scripts: `assets.Path("js/htmx.min.js")`, `assets.Path("js/alpine.min.js")` (defer order: app.js before alpine). **`navbar.go`** — `Navbar(p Props) g.Node` — nav bar with site title/logo, auth-conditional links (Login/Register vs Username/Logout).
+  - Cover: **`base.go`** — `Props{Title, CSRFToken string, IsAuthenticated bool, UserName string, Flash []flash.Message, Children []g.Node}`. `Page(p Props) g.Node` — `<html data-theme="light">`, links `daisyui.min.css` then `app.css`, `hx-headers` on `<body>` for CSRF, flash alerts via `flashAlerts()` helper, toast container div, scripts deferred (app.js → htmx → alpine). **`navbar.go`** — `AppNavbar(p Props) g.Node` — brand link, auth-conditional end items (Login/Register vs UserName/Logout form).
 
-- [ ] **T1102** — `internal/view/page/home` — Home page
-  - Files: `internal/view/page/home.go`
-  - Cover: `HomeProps{IsAuthenticated bool, UserName, CSRFToken string}`. `Home(p HomeProps) g.Node` — wraps `layout.Page`. Hero section with headline + subheadline. CTA: if authenticated show link to `/users`; if not show links to `/login` and `/register`. Uses `pkg/ui` Button component.
-
-- [ ] **T1103** — `internal/view/page/auth` — Auth pages
+- [x] **T1103** — `internal/view/page/auth` — Login + Register pages
   - Files: `internal/view/page/auth.go`
-  - Cover: `LoginProps{Form *form.Submission, CSRFToken string, ErrorMsg string}`. `LoginPage(p) g.Node` — card layout, `<form method="POST" action="/login">`, CSRF hidden input, email+password fields via `ui.Field`, error display, Submit button. `RegisterProps{Form *form.Submission, CSRFToken string}`. `RegisterPage(p) g.Node` — similar layout with email, display name, password fields. Per-field error display from `p.Form.GetFieldErrors("email")` etc.
+  - Cover: `LoginProps{Form *pkgform.Submission, CSRFToken, ErrorMsg string}`. `LoginPage`. `RegisterProps{Form *pkgform.Submission, CSRFToken string}`. `RegisterPage`. Both use `uidata.Card` + `uiform.Input` fields with per-field error slices from `p.Form.GetFieldErrors(...)`.
 
-- [ ] **T1104** — `internal/view/page/users` — User list page
+- [x] **T1104** — `internal/view/page/users` — User list page
   - Files: `internal/view/page/users.go`
-  - Cover: `UserListProps{Users []model.User, Pager pager.Pager, CSRFToken string, IsAuthenticated bool, UserName string}`. `UserListPage(p) g.Node` — wraps `layout.Page`. `ui.Table` with headers [Name, Email, Role, Joined, Actions]. Loops users → `partial.UserRow(rowProps)`. Pagination controls (Prev/Next) reading `pager.HasPrev()` / `pager.HasNext()`. HTMX target container with id for out-of-band swaps.
+  - Cover: `UserListProps{Users []model.User, Pager pager.Pager, CSRFToken string, IsAuthenticated bool, UserName string, Flash []flash.Message}`. `UserListPage`. `uidata.Table` with zebra rows + HTMX-enhanced pagination (`hx-get`/`hx-target="#users-table"`/`hx-swap="outerHTML"`).
 
-- [ ] **T1105** — `internal/view/partial/user_form` — Inline edit form
-  - Files: `internal/view/partial/user_form.go`
-  - Cover: `UserFormProps{User model.User, CSRFToken string, Errors validate.ValidationErrors}`. `UserEditForm(p) g.Node` — `<form hx-put="/users/{id}" hx-target="closest tr" hx-swap="outerHTML">` with CSRF hidden field. Email, display name, role fields using `ui.Field`. Per-field error display. Save button (primary), Cancel button (`hx-get="/users/{id}/row"` to restore original row).
+- [x] **T1105** — `internal/view/partial/userpartial` — Inline edit form
+  - Files: `internal/view/partial/userpartial/user_form.go`
+  - Cover: `UserFormProps{User model.User, CSRFToken string, Errors map[string][]string}`. `UserEditForm` renders `<tr>` with `hx-put` form. `uiform.Input` for email/display_name, `uiform.Select` for role. Save (primary submit) + Cancel (`hx-get` to restore row).
 
-- [ ] **T1106** — `internal/view/partial/user_row` — User table row
-  - Files: `internal/view/partial/user_row.go`
-  - Cover: `UserRowProps{User model.User, CSRFToken string}`. `UserRow(p) g.Node` — `<tr id="user-{id}">` with cells for display name, email, role badge, formatted CreatedAt. Actions cell: Edit button (`hx-get="/users/{id}/edit"`, swaps row with form), Delete button (`hx-delete="/users/{id}"`, Alpine.js `x-on:click` confirm dialog, `hx-target="closest tr"`, `hx-swap="outerHTML swap:500ms"`).
+- [x] **T1106** — `internal/view/partial/userpartial` — User table row
+  - Files: `internal/view/partial/userpartial/user_row.go`
+  - Cover: `UserRowProps{User model.User, CSRFToken string}`. `UserRow` renders `<tr id="user-{id}">` with `feedback.Badge` for role, Edit button (`hx-get`/`hx-swap`), Delete button (`x-data="confirmDelete"`, `@click.prevent` Alpine confirm, `hx-delete`, `hx-swap="outerHTML swap:500ms"`). `roleVariant` maps admin→BadgePrimary, user→BadgeNeutral.
 
 ---
 
@@ -291,25 +311,39 @@ This allows inserting new tasks within any phase without renumbering downstream 
 > Wire all layers together into a running application. This is the composition root —
 > the only place where concrete types are instantiated and injected.
 
-- [ ] **T1201** — `cmd/server/logging` — Structured logger setup
-  - Files: `cmd/server/logging.go`
-  - Cover: `SetupLogger(debug bool) *slog.Logger`. Debug mode: `slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})`. Production: `slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})`. Calls `slog.SetDefault(logger)`. Returns logger.
-
-- [ ] **T1202** — `cmd/server/main` — Application bootstrap
+- [x] **T1201** — `cmd/server/main` — Minimal runnable bootstrap
   - Files: `cmd/server/main.go`
-  - Cover: Ordered initialization sequence:
-    1. `config.Init()` — load config (panics on failure)
-    2. `SetupLogger(cfg.Log.Debug)` — structured logging
+  - Cover: Wires only the layers implemented so far, producing a server that starts, connects to the database, and answers requests. Verifies config + database + middleware stack end-to-end before any application logic exists.
+    1. `config.Init("config")` — load layered config; `log.Fatal` on error
+    2. Inline slog setup: `slog.NewTextHandler(os.Stderr, LevelDebug)` in dev, `slog.NewJSONHandler(os.Stdout, LevelInfo)` in prod; `slog.SetDefault`. (Extracted to `SetupLogger` in T1203.)
     3. `assets.MustInit("./public", "/public", cfg.IsDevelopment())` — hash static files
-    4. `database.Connect(ctx, database.Config{DSN: cfg.DSN()})` — pgxpool
+    4. `database.Connect(ctx, database.Config{DSN: cfg.DSN()})` — pgxpool; `log.Fatal` on error; `defer database.Close(pool)`
+    5. Build `pkgserver.Config` from cfg: `Port: strconv.Itoa(cfg.Server.Port)`, `GracefulTimeout: time.Duration(cfg.Server.GracefulTimeout) * time.Second`, `CookieSecure: cfg.Auth.Session.Secure`, `Debug: cfg.IsDevelopment()`
+    6. `server.New(serverCfg)` — bare Echo instance
+    7. `internalserver.Setup(e, serverCfg)` — wire full middleware stack
+    8. `e.Static("/public", "./public")` — serve static assets
+    9. Inline `GET /health` → `{"status":"ok","env":cfg.App.Env}` (replaced by `h.HealthCheck` in T1202)
+    10. `server.Start(e, serverCfg)` — blocking listen + graceful shutdown on signal
+
+- [ ] **T1202** — `cmd/server/main` — Complete bootstrap
+  - Files: `cmd/server/main.go`
+  - Cover: Replaces the T1201 skeleton with the full application stack once all layers exist. Remove inline logger (use `SetupLogger`), remove inline routes (use `h.RegisterRoutes`).
+    1. `config.Init("config")` — unchanged
+    2. `SetupLogger(cfg.IsDevelopment())` — replaces inline slog setup
+    3. `assets.MustInit(...)` — unchanged
+    4. `database.Connect(...)` — unchanged
     5. `auth.NewSessionStore(cfg.Auth.Session)` — Gorilla session store
     6. `validate.New()` — validator instance
     7. `repository.NewRepositories(pool)` — data access layer
     8. `service.NewServices(repos, cfg.Auth.JWT, sessions)` — business logic layer
     9. `handler.New(services, sessions, validator, pool, cfg.Server.CSRFCookieName)` — transport layer
-    10. `server.New(cfg.Server)` — Echo instance with middleware
-    11. `h.RegisterRoutes(e, sessions)` — mount routes
-    12. `server.Start(e, cfg.Server)` — blocking listen + graceful shutdown on signal
+    10. `server.New(serverCfg)` + `internalserver.Setup(e, serverCfg)` — unchanged
+    11. `h.RegisterRoutes(e, sessions)` — replaces inline routes
+    12. `server.Start(e, serverCfg)` — unchanged
+
+- [x] **T1203** — `internal/services` — Config-driven log level
+  - Files: `internal/services/container.go`
+  - Cover: Enhances `container.initLogger()` to read `config.Log.Level` via `parseLogLevel(s string) slog.Level` instead of inferring level from `IsDevelopment()`. Handler format remains environment-driven (text/stderr in dev, JSON/stdout in prod). `parseLogLevel` maps "debug"/"info"/"warn"/"error" to `slog.Level`; the `LogConfig.Level` validate tag (`oneof=debug info warn error`) makes the default branch unreachable. No separate `cmd/server/logging.go` file — the container paradigm established in T0904 owns all infrastructure initialization, so extracting to a standalone function would be an unnecessary indirection.
 
 ---
 

@@ -1,24 +1,23 @@
 // Package redirect provides a builder for issuing HTTP redirects that are
-// HTMX-aware. HX-Request detection uses inline header reads rather than
-// importing pkg/htmx to preserve the leaf-node boundary.
+// HTMX-aware. It depends only on net/http — no framework import.
+// HX-Request detection is done inline to preserve the leaf-node boundary.
 package redirect
 
 import (
 	"net/http"
-
-	"github.com/labstack/echo/v5"
 )
 
 // Builder constructs and executes a redirect response.
 type Builder struct {
-	c      *echo.Context
+	w      http.ResponseWriter
+	r      *http.Request
 	url    string
 	status int
 }
 
-// New starts a redirect builder for the given Echo context.
-func New(c *echo.Context) *Builder {
-	return &Builder{c: c, status: http.StatusSeeOther}
+// New starts a redirect builder for the given request/response pair.
+func New(w http.ResponseWriter, r *http.Request) *Builder {
+	return &Builder{w: w, r: r, status: http.StatusSeeOther}
 }
 
 // To sets the destination URL.
@@ -33,13 +32,15 @@ func (b *Builder) StatusCode(code int) *Builder {
 	return b
 }
 
-// Go executes the redirect. For HTMX requests it sets HX-Redirect instead of
-// issuing a 3xx response, so the client-side swap can follow the redirect.
+// Go executes the redirect. For HTMX requests it sets HX-Redirect and responds
+// with 204 No Content so the client-side swap can follow the redirect. For
+// boosted requests and plain HTTP requests a standard 3xx redirect is issued.
 func (b *Builder) Go() error {
-	r := (*b.c).Request()
-	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
-		(*b.c).Response().Header().Set("HX-Redirect", b.url)
-		return (*b.c).NoContent(http.StatusNoContent)
+	if b.r.Header.Get("HX-Request") == "true" && b.r.Header.Get("HX-Boosted") != "true" {
+		b.w.Header().Set("HX-Redirect", b.url)
+		b.w.WriteHeader(http.StatusNoContent)
+		return nil
 	}
-	return (*b.c).Redirect(b.status, b.url)
+	http.Redirect(b.w, b.r, b.url, b.status)
+	return nil
 }

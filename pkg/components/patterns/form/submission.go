@@ -4,8 +4,14 @@ import (
 	"errors"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v5"
 )
+
+// Binder decodes a request body into dest.
+// echo.Context satisfies this interface via its Bind method, so Echo handlers
+// can pass c directly with no adapter required.
+type Binder interface {
+	Bind(dest any) error
+}
 
 // Submission handles a single form POST: binding, validation, and error tracking.
 // Construct once per request via New and then call Submit.
@@ -23,11 +29,11 @@ func New(v *validator.Validate) *Submission {
 	}
 }
 
-// Submit binds the Echo request body into dest and validates it.
+// Submit binds the request body into dest via b and validates it.
 // Validation errors are stored per-field; binding errors are stored under "_".
-func (s *Submission) Submit(c *echo.Context, dest any) error {
+func (s *Submission) Submit(b Binder, dest any) error {
 	s.submitted = true
-	if err := (*c).Bind(dest); err != nil {
+	if err := b.Bind(dest); err != nil {
 		s.errors["_"] = append(s.errors["_"], err.Error())
 		return nil
 	}
@@ -46,8 +52,6 @@ func (s *Submission) Submit(c *echo.Context, dest any) error {
 func (s *Submission) IsSubmitted() bool { return s.submitted }
 
 func (s *Submission) IsValid() bool { return s.submitted && len(s.errors) == 0 }
-
-func (s *Submission) IsDone() bool { return s.IsValid() }
 
 func (s *Submission) FieldHasErrors(field string) bool {
 	return len(s.errors[field]) > 0

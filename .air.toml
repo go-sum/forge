@@ -2,9 +2,13 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
+  # Run the full asset pipeline before each server rebuild.
+  # CSS, JS, and local sprites always rebuild; remote downloads and remote
+  # sprite fetches are skipped when their targets already exist.
+  pre_cmd = ["go run ./cli build-assets"]
   cmd = "go build -o ./tmp/server ./cmd/server"
   entrypoint = "./tmp/server"
-  include_ext = ["go", "toml"]
+  include_ext = ["go", "toml", "css", "js", "svg", "yaml"]
   exclude_dir = ["tmp", "bin", "db", "public"]
 
 [proxy]

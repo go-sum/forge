@@ -11,6 +11,13 @@ type Option struct {
 	Label string
 }
 
+// OptGroup is a labeled group of options within a <select>.
+type OptGroup struct {
+	Label    string
+	Disabled bool
+	Options  []Option
+}
+
 // SelectProps configures a <select> element.
 type SelectProps struct {
 	ID       string
@@ -19,14 +26,19 @@ type SelectProps struct {
 	Disabled bool
 	HasError bool
 	Options  []Option
+	// Groups renders <optgroup> sections after flat Options.
+	Groups []OptGroup
+	// Selected remains a shorthand for single-select call sites.
 	Selected string
-	Extra    []g.Node
+	// SelectedValues is used when Multiple is true.
+	SelectedValues []string
+	Extra          []g.Node
 }
 
 func selectClass(hasError bool) string {
-	base := "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+	base := inputBaseClass + " h-9 min-w-0 px-3 py-1"
 	if hasError {
-		base += " border-destructive ring-destructive/20"
+		base += inputErrorClass
 	}
 	return base
 }
@@ -43,16 +55,39 @@ func Select(p SelectProps) g.Node {
 	if p.Disabled {
 		nodes = append(nodes, h.Disabled())
 	}
+	if p.Multiple {
+		nodes = append(nodes, g.Attr("multiple", ""))
+	}
 	if p.HasError {
 		nodes = append(nodes, g.Attr("aria-invalid", "true"))
 	}
 	nodes = append(nodes, g.Group(p.Extra))
+
+	selected := make(map[string]struct{}, len(p.SelectedValues))
+	for _, value := range p.SelectedValues {
+		selected[value] = struct{}{}
+	}
+
 	for _, opt := range p.Options {
 		optNodes := []g.Node{h.Value(opt.Value), g.Text(opt.Label)}
-		if opt.Value == p.Selected {
+		if _, ok := selected[opt.Value]; ok || opt.Value == p.Selected {
 			optNodes = append([]g.Node{h.Selected()}, optNodes...)
 		}
 		nodes = append(nodes, h.Option(optNodes...))
+	}
+	for _, grp := range p.Groups {
+		grpNodes := []g.Node{g.Attr("label", grp.Label)}
+		if grp.Disabled {
+			grpNodes = append(grpNodes, h.Disabled())
+		}
+		for _, opt := range grp.Options {
+			optNodes := []g.Node{h.Value(opt.Value), g.Text(opt.Label)}
+			if _, ok := selected[opt.Value]; ok || opt.Value == p.Selected {
+				optNodes = append([]g.Node{h.Selected()}, optNodes...)
+			}
+			grpNodes = append(grpNodes, h.Option(optNodes...))
+		}
+		nodes = append(nodes, h.OptGroup(grpNodes...))
 	}
 	return h.Select(nodes...)
 }

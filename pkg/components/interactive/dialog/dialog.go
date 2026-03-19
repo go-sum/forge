@@ -1,6 +1,6 @@
 // Package dialog provides a native HTML <dialog> modal component.
 // Trigger and content are linked by a shared ID string.
-// The delegated click handler in static/js/app.js calls showModal()/close()
+// The delegated click handler in js/app.js calls showModal()/close()
 // in response to data-dialog-open and data-dialog-close attributes.
 // Native <dialog> provides: focus trap, ESC-to-close, aria-modal, and backdrop.
 package dialog
@@ -10,8 +10,16 @@ import (
 	h "maragu.dev/gomponents/html"
 )
 
+func titleID(dialogID string) string {
+	return dialogID + "-title"
+}
+
+func descriptionID(dialogID string) string {
+	return dialogID + "-description"
+}
+
 // Root is a fragment wrapper; callers place Trigger and Content
-// as siblings anywhere in the tree — they are linked by dialogID, not by DOM nesting.
+// as siblings anywhere in the tree. They are linked by dialogID, not by DOM nesting.
 func Root(children ...g.Node) g.Node {
 	return h.Div(h.Class("contents"), g.Group(children))
 }
@@ -21,16 +29,21 @@ func Root(children ...g.Node) g.Node {
 func Trigger(dialogID string, children ...g.Node) g.Node {
 	return h.Div(
 		g.Attr("data-dialog-open", dialogID),
+		g.Attr("aria-haspopup", "dialog"),
+		g.Attr("aria-controls", dialogID),
 		h.Class("contents cursor-pointer"),
 		g.Group(children),
 	)
 }
 
 // Content renders a native <dialog> element with the given ID.
-// Backdrop styling is provided by `dialog::backdrop` in tailwind.css.
+// Title and Description should use the same dialogID so the generated
+// aria-labelledby and aria-describedby targets exist in the dialog subtree.
 func Content(id string, children ...g.Node) g.Node {
 	return h.Dialog(
 		h.ID(id),
+		g.Attr("aria-labelledby", titleID(id)),
+		g.Attr("aria-describedby", descriptionID(id)),
 		h.Class("w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg backdrop:bg-black/50"),
 		g.Group(children),
 	)
@@ -53,16 +66,18 @@ func Footer(children ...g.Node) g.Node {
 }
 
 // Title renders the dialog heading.
-func Title(children ...g.Node) g.Node {
+func Title(dialogID string, children ...g.Node) g.Node {
 	return h.H2(
+		h.ID(titleID(dialogID)),
 		h.Class("text-lg leading-none font-semibold"),
 		g.Group(children),
 	)
 }
 
 // Description renders a muted description paragraph.
-func Description(children ...g.Node) g.Node {
+func Description(dialogID string, children ...g.Node) g.Node {
 	return h.P(
+		h.ID(descriptionID(dialogID)),
 		h.Class("text-muted-foreground text-sm"),
 		g.Group(children),
 	)

@@ -1,0 +1,53 @@
+paths:
+  source_dir: static       # raw asset sources committed in the repo
+  public_dir: public       # built output served by Echo and copied into the image
+  public_prefix: /public   # URL prefix the app serves from
+
+js:
+  downloads:
+    - name: htmx
+      version: "2.0.4"       # HTMX_VERSION env var overrides at build time
+      url: "https://unpkg.com/htmx.org@{version}/dist/htmx.min.js"
+      target: js/htmx.min.js
+  sync:
+    source: js/
+    target: js/
+    exclude:
+      - htmx.min.js           # managed by downloads above
+
+css:
+  - tool: tailwindcss
+    input: css/tailwind.css
+    output: css/app.css
+
+sprites:
+  lucide-icons:
+    enabled: true
+    target: img/svg/lucide-icons.svg
+    sources:
+      - path: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/"
+        files:
+          - "chevron-down.svg"
+          - "chevron-left.svg"
+          - "chevron-right.svg"
+          - "chevron-up.svg"
+          - "chevrons-left.svg"
+          - "chevrons-up.svg"
+          - "circle-user.svg"
+          - "file-text.svg"
+          - "info.svg"
+          - "menu.svg"
+          - "refresh-cw.svg"
+          - "trash-2.svg"
+          - "triangle-alert.svg"
+          - "x.svg"
+
+  theme-icons:
+    enabled: true
+    target: img/svg/theme-icons.svg
+    sources:
+      - path: "img/svg/"
+        files:
+          - "sun.svg"
+          - "moon.svg"
+          - "monitor.svg"

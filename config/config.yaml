@@ -1,0 +1,32 @@
+app:
+  env: production
+  name: starter
+
+database:
+  url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+
+log:
+  level: info
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  graceful_timeout: 10
+  csp: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+  csrf_cookie_name: _csrf
+
+csp_hashes:
+  always: []
+  dev_only: []
+
+auth:
+  jwt:
+    secret: ""
+    issuer: starter
+    token_duration: 86400  # 24 h
+  session:
+    name: _session
+    auth_key: ""
+    encrypt_key: ""
+    max_age: 86400
+    secure: true

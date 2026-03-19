@@ -20,24 +20,23 @@ const (
 type ToastPosition string
 
 const (
-	PositionTopRight     ToastPosition = "top-4 right-4"
-	PositionTopLeft      ToastPosition = "top-4 left-4"
-	PositionTopCenter    ToastPosition = "top-4 left-1/2 -translate-x-1/2"
-	PositionBottomRight  ToastPosition = "bottom-4 right-4"
-	PositionBottomLeft   ToastPosition = "bottom-4 left-4"
-	PositionBottomCenter ToastPosition = "bottom-4 left-1/2 -translate-x-1/2"
+	PositionTopRight     ToastPosition = "top-right"
+	PositionTopLeft      ToastPosition = "top-left"
+	PositionTopCenter    ToastPosition = "top-center"
+	PositionBottomRight  ToastPosition = "bottom-right"
+	PositionBottomLeft   ToastPosition = "bottom-left"
+	PositionBottomCenter ToastPosition = "bottom-center"
 )
 
 // ToastProps configures a static server-rendered toast notification.
 type ToastProps struct {
-	ID            string
-	Title         string
-	Description   string
-	Variant       ToastVariant
-	Position      ToastPosition
-	Dismissible   bool
-	ShowIndicator bool
-	Extra         []g.Node
+	ID          string
+	Title       string
+	Description string
+	Variant     ToastVariant
+	Position    ToastPosition
+	Dismissible bool
+	Extra       []g.Node
 }
 
 func toastVariantClasses(v ToastVariant) string {
@@ -55,15 +54,44 @@ func toastVariantClasses(v ToastVariant) string {
 	}
 }
 
+func toastAnnouncementAttrs(v ToastVariant) []g.Node {
+	if v == ToastError || v == ToastWarning {
+		return []g.Node{
+			h.Role("alert"),
+			g.Attr("aria-live", "assertive"),
+			g.Attr("aria-atomic", "true"),
+		}
+	}
+	return []g.Node{
+		h.Role("status"),
+		g.Attr("aria-live", "polite"),
+		g.Attr("aria-atomic", "true"),
+	}
+}
+
+func toastPositionClasses(p ToastPosition) string {
+	switch p {
+	case PositionTopRight:
+		return "top-4 right-4"
+	case PositionTopLeft:
+		return "top-4 left-4"
+	case PositionTopCenter:
+		return "top-4 left-1/2 -translate-x-1/2"
+	case PositionBottomLeft:
+		return "bottom-4 left-4"
+	case PositionBottomCenter:
+		return "bottom-4 left-1/2 -translate-x-1/2"
+	default: // PositionBottomRight
+		return "bottom-4 right-4"
+	}
+}
+
 // Toast renders a fixed-position toast notification.
 // For HTMX out-of-band swaps, add hx-swap-oob="true" via Extra.
 func Toast(p ToastProps) g.Node {
-	pos := string(p.Position)
-	if pos == "" {
-		pos = string(PositionBottomRight)
-	}
-	cls := "fixed z-50 max-w-sm rounded-lg border p-4 shadow-md " + pos + " " + toastVariantClasses(p.Variant)
+	cls := "fixed z-50 max-w-sm rounded-lg border p-4 shadow-md " + toastPositionClasses(p.Position) + " " + toastVariantClasses(p.Variant)
 	nodes := []g.Node{h.Class(cls)}
+	nodes = append(nodes, toastAnnouncementAttrs(p.Variant)...)
 	if p.ID != "" {
 		nodes = append(nodes, h.ID(p.ID))
 	}
@@ -78,12 +106,7 @@ func Toast(p ToastProps) g.Node {
 		nodes = append(nodes, h.P(h.Class("text-sm mt-1 opacity-80"), g.Text(p.Description)))
 	}
 	if p.Dismissible {
-		nodes = append(nodes, h.Button(
-			g.Attr("data-dismiss", ""),
-			h.Class("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity text-xs"),
-			h.Type("button"),
-			g.Text("×"),
-		))
+		nodes = append(nodes, dismissButton("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity"))
 	}
 	return h.Div(nodes...)
 }
