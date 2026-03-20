@@ -11,13 +11,17 @@ import (
 
 	"starter/config"
 	internalserver "starter/internal/server"
+	"starter/internal/repository"
+	"starter/internal/service"
 	"starter/pkg/assetconfig"
 	"starter/pkg/assets"
+	"starter/pkg/auth"
 	componenticons "starter/pkg/components/icons"
 	componentinstall "starter/pkg/components/install"
 	"starter/pkg/components/interactive"
 	"starter/pkg/database"
 	pkgserver "starter/pkg/server"
+	"starter/pkg/validate"
 )
 
 const assetConfigPath = assetconfig.DefaultConfigPath
@@ -129,4 +133,31 @@ func (c *Container) initWeb() {
 	}
 	c.Web = pkgserver.New(c.ServerConfig)
 	internalserver.Setup(c.Web, c.ServerConfig)
+}
+
+func (c *Container) initAuth() {
+	c.Sessions = auth.NewSessionStore(auth.SessionConfig{
+		Name:       c.Config.Auth.Session.Name,
+		AuthKey:    c.Config.Auth.Session.AuthKey,
+		EncryptKey: c.Config.Auth.Session.EncryptKey,
+		MaxAge:     c.Config.Auth.Session.MaxAge,
+		Secure:     c.Config.Auth.Session.Secure,
+	})
+}
+
+func (c *Container) initValidator() {
+	c.Validator = validate.New()
+}
+
+func (c *Container) initRepos() {
+	c.Repos = repository.NewRepositories(c.DB)
+}
+
+func (c *Container) initServices() {
+	jwtCfg := auth.JWTConfig{
+		Secret:        c.Config.Auth.JWT.Secret,
+		Issuer:        c.Config.Auth.JWT.Issuer,
+		TokenDuration: time.Duration(c.Config.Auth.JWT.TokenDuration) * time.Second,
+	}
+	c.Services = service.NewServices(c.Repos, c.DB, jwtCfg)
 }

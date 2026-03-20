@@ -7,10 +7,14 @@ import (
 	"log/slog"
 
 	"starter/config"
+	"starter/internal/repository"
+	"starter/internal/service"
 	"starter/pkg/assetconfig"
 	"starter/pkg/assets"
+	"starter/pkg/auth"
 	"starter/pkg/database"
 	pkgserver "starter/pkg/server"
+	"starter/pkg/validate"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
@@ -26,6 +30,10 @@ type Container struct {
 	Web          *echo.Echo
 	ServerConfig pkgserver.Config
 	PublicDir    string // filesystem path to built public assets, e.g. "public"
+	Sessions     *auth.SessionManager
+	Validator    *validate.Validator
+	Repos        *repository.Repositories
+	Services     *service.Services
 }
 
 // NewContainer initialises all services in dependency order.
@@ -37,6 +45,10 @@ func NewContainer() *Container {
 	c.initAssets()
 	c.initDatabase()
 	c.initWeb()
+	c.initAuth()
+	c.initValidator()
+	c.initRepos()
+	c.initServices()
 	return c
 }
 

@@ -24,3 +24,9 @@ func (vl *Validator) Struct(s any) error {
 func (vl *Validator) Var(field any, tag string) error {
 	return vl.v.Var(field, tag)
 }
+
+// Validate returns the underlying go-playground validator instance.
+// Callers that need direct access (e.g. form.Submission) use this accessor.
+func (vl *Validator) Validate() *validator.Validate {
+	return vl.v
+}

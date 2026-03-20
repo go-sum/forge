@@ -4,8 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"starter/internal/handlers"
-	internalserver "starter/internal/server"
+	"starter/internal/handler"
 	"starter/internal/services"
 	pkgserver "starter/pkg/server"
 )
@@ -14,8 +13,8 @@ func main() {
 	c := services.NewContainer()
 	defer c.Shutdown()
 
-	h := handlers.New(c.DB, c.Config)
-	internalserver.RegisterRoutes(c.Web, h, c.ServerConfig.PublicPrefix, c.PublicDir)
+	h := handler.New(c.Services, c.Sessions, c.Validator, c.DB, c.ServerConfig.CSRFCookieName)
+	h.RegisterRoutes(c.Web, c.Sessions, c.ServerConfig.PublicPrefix, c.PublicDir)
 
 	if err := pkgserver.Start(c.Web, c.ServerConfig); err != nil {
 		slog.Error("server error", "error", err)

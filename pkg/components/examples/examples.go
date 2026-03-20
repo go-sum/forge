@@ -15,6 +15,7 @@ import (
 	"starter/pkg/components/interactive/pagination"
 	"starter/pkg/components/interactive/tabs"
 	"starter/pkg/components/interactive/tooltip"
+	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/ui/core"
 	"starter/pkg/components/ui/data"
 	"starter/pkg/components/ui/feedback"
@@ -48,9 +49,11 @@ func Page() g.Node {
 					tocItem("dialog", "Dialog"),
 					tocItem("dropdown", "Dropdown"),
 					tocItem("form-fields", "Form Fields"),
+					tocItem("htmx-patterns", "HTMX Patterns"),
 					tocItem("labels", "Labels"),
 					tocItem("pagination", "Pagination"),
 					tocItem("popover", "Popover"),
+					tocItem("progressive-tiers", "Progressive Tiers"),
 					tocItem("progress", "Progress"),
 					tocItem("separators", "Separators"),
 					tocItem("skeleton", "Skeleton"),
@@ -59,6 +62,14 @@ func Page() g.Node {
 					tocItem("toast", "Toast"),
 					tocItem("tooltip", "Tooltip"),
 				),
+			),
+		),
+
+		section("progressive-tiers", "Progressive Tiers",
+			h.Div(h.Class("grid gap-4 md:grid-cols-3"),
+				example("Tier 1 — Native-first", h.P(g.Text("Server-rendered HTML with native platform behaviour first: dialog, details, forms, links, and CSS state."))),
+				example("Tier 2 — HTMX patterns", h.P(g.Text("HTML-over-the-wire behaviours expressed with typed hx-* helpers so async UX stays local to the component markup."))),
+				example("Tier 3 — Islands / custom elements", h.P(g.Text("Opt-in client islands for the few cases where native HTML plus HTMX is not enough; keep them narrow and predictable."))),
 			),
 		),
 
@@ -235,6 +246,66 @@ func Page() g.Node {
 					dropdown.Item(dropdown.ItemProps{Label: "Sign Out", Href: "#"}),
 				),
 			)),
+		),
+		section("htmx-patterns", "HTMX Patterns",
+			h.Div(h.Class("grid gap-4 md:grid-cols-2"),
+				example("Live search input", uiform.Input(uiform.InputProps{
+					ID:          "search-users",
+					Name:        "q",
+					Placeholder: "Search users...",
+					Extra: componenthtmx.LiveSearch(componenthtmx.LiveSearchProps{
+						Path:      "/users/search",
+						Target:    "#search-results",
+						Indicator: "#search-indicator",
+						PushURL:   true,
+					}),
+				})),
+				example("Inline validation", uiform.Input(uiform.InputProps{
+					ID:    "validate-email",
+					Name:  "email",
+					Type:  uiform.TypeEmail,
+					Extra: componenthtmx.InlineValidation(componenthtmx.InlineValidationProps{Path: "/validate/email", Target: "#email-field"}),
+				})),
+				example("Paginated table link", core.Button(core.ButtonProps{
+					Label:   "Next page",
+					Variant: core.VariantGhost,
+					Size:    core.SizeSm,
+					Extra: componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
+						Path:      "/users",
+						Page:      2,
+						Target:    "#users-table",
+						Indicator: "#table-indicator",
+						PushURL:   true,
+					}),
+				})),
+				example("Async dialog trigger", core.Button(core.ButtonProps{
+					Label: "Load User Dialog",
+					Extra: componenthtmx.AsyncDialogTrigger(componenthtmx.AsyncDialogProps{
+						Path:     "/users/new",
+						DialogID: "async-user-dialog",
+						Target:   "#async-user-dialog-body",
+					}),
+				})),
+				example("Dependent select", uiform.Select(uiform.SelectProps{
+					ID:   "country",
+					Name: "country",
+					Options: []uiform.Option{
+						{Value: "se", Label: "Sweden"},
+						{Value: "us", Label: "United States"},
+					},
+					Extra: componenthtmx.DependentSelect(componenthtmx.DependentSelectProps{
+						Path:   "/regions",
+						Target: "#region-field",
+					}),
+				})),
+				example("OOB toast", componenthtmx.ToastOOB(componenthtmx.ToastOOBProps{
+					Toast: feedback.ToastProps{
+						Description: "Saved in the background",
+						Variant:     feedback.ToastSuccess,
+						Dismissible: true,
+					},
+				})),
+			),
 		),
 		section("form-fields", "Form Fields",
 			example("Text input", uiform.Input(uiform.InputProps{

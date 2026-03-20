@@ -6,6 +6,25 @@ nav:
     - items:
         - label: Home
           href: /
+        - label: Explore
+          items:
+            - label: Components
+              href: /_components
+            - label: Admin
+              items:
+                - label: Users
+                  href: /users
     - align: end
       items:
+        - label: Login
+          href: /login
+          visibility: guest
+        - label: Register
+          href: /register
+          visibility: guest
+        - slot: user_name
+          visibility: user
+        - slot: logout
+          label: Logout
+          visibility: user
         - slot: theme_toggle
