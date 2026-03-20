@@ -45,7 +45,8 @@ func Set(w http.ResponseWriter, msgs []Message) error {
 }
 
 // GetAll reads and clears all flash messages from the request cookie.
-// Returns an empty slice (not nil) when no messages are set.
+// Returns a non-nil empty slice when no flash cookie is present.
+// Returns nil and an error if the cookie value cannot be decoded.
 func GetAll(r *http.Request, w http.ResponseWriter) ([]Message, error) {
 	cookie, err := r.Cookie(cookieName)
 	if err != nil {

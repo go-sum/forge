@@ -2,6 +2,7 @@ package config
 
 import (
 	pkgconfig "starter/pkg/config"
+	layout "starter/pkg/components/ui/layout"
 )
 
 // envPrefix is stripped from environment variable names before key mapping.
@@ -22,7 +23,7 @@ type Config struct {
 	Auth      AuthConfig      `koanf:"auth"`
 	Log       LogConfig       `koanf:"log"`
 	Site      SiteConfig      `koanf:"site"`
-	Nav       NavConfig       `koanf:"nav"`
+	Nav       layout.NavConfig `koanf:"nav"`
 	CSPHashes CSPHashesConfig `koanf:"csp_hashes"`
 }
 
@@ -73,41 +74,6 @@ type SiteConfig struct {
 	FaviconPath  string   `koanf:"favicon_path"`
 	MetaKeywords []string `koanf:"meta_keywords"`
 	OGImage      string   `koanf:"og_image"`
-}
-
-type NavConfig struct {
-	Brand    NavBrand     `koanf:"brand"`
-	Sections []NavSection `koanf:"sections"`
-}
-
-type NavBrand struct {
-	Label    string `koanf:"label"`
-	Href     string `koanf:"href"`
-	LogoPath string `koanf:"logo_path"`
-}
-
-type NavSection struct {
-	Label string    `koanf:"label"`
-	Items []NavItem `koanf:"items"`
-}
-
-// NavItem models both leaf links and recursive menu parents.
-// Special item types render built-in controls such as separators, theme toggle,
-// user name, and logout.
-type NavItem struct {
-	Type       string    `koanf:"type" validate:"omitempty,oneof=separator user_name logout theme_toggle"`
-	Visibility string    `koanf:"visibility" validate:"omitempty,oneof=all guest user"`
-	Label      string    `koanf:"label"`
-	Href       string    `koanf:"href"`
-	Items      []NavItem `koanf:"items"`
-}
-
-func (i NavItem) IsSeparator() bool {
-	return i.Type == "separator"
-}
-
-func (i NavItem) HasChildren() bool {
-	return len(i.Items) > 0
 }
 
 // Init populates the App singleton from YAML files and CTX_-prefixed env vars in baseDir.

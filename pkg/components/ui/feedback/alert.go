@@ -103,10 +103,7 @@ func (alertNS) Description(children ...g.Node) g.Node {
 // Non-destructive types fall back to AlertDefault because Alert only exposes
 // default and destructive variants.
 func (alertNS) List(types []string, texts []string) g.Node {
-	n := len(types)
-	if len(texts) < n {
-		n = len(texts)
-	}
+	n := min(len(texts), len(types))
 	nodes := make([]g.Node, n)
 	for i := range n {
 		nodes[i] = Alert.Root(

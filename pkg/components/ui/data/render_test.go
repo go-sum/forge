@@ -4,21 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestCardRendersStructuredSections(t *testing.T) {
-	got := renderNode(t, Card.Root(
+	got := testutil.RenderNode(t, Card.Root(
 		Card.Header(Card.Title(g.Text("Users")), Card.Description(g.Text("Manage user accounts."))),
 		Card.Content(g.Text("Body")),
 		Card.Footer(g.Text("Footer")),
@@ -39,7 +30,7 @@ func TestCardRendersStructuredSections(t *testing.T) {
 }
 
 func TestTableRendersWrapperAndSelectedRow(t *testing.T) {
-	got := renderNode(t, Table.Root(
+	got := testutil.RenderNode(t, Table.Root(
 		Table.Caption(g.Text("Team members")),
 		Table.Header(Table.Row(RowProps{}, Table.Head(g.Text("Name")))),
 		Table.Body(Table.Row(RowProps{Selected: true}, Table.Cell(g.Text("Ada")))),

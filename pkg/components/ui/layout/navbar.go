@@ -2,25 +2,64 @@
 package layout
 
 import (
-	"starter/config"
 	componenticons "starter/pkg/components/icons"
 	iconrender "starter/pkg/components/icons/render"
-	"starter/pkg/components/interactive"
 	"starter/pkg/components/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
 
+// NavConfig is the top-level navigation configuration parsed from nav.yaml.
+type NavConfig struct {
+	Brand    NavBrand     `koanf:"brand"`
+	Sections []NavSection `koanf:"sections"`
+}
+
+// NavBrand configures the logo/wordmark shown at the start of the nav bar.
+type NavBrand struct {
+	Label    string `koanf:"label"`
+	Href     string `koanf:"href"`
+	LogoPath string `koanf:"logo_path"`
+}
+
+// NavSection is a named group of NavItems within the navigation menu.
+type NavSection struct {
+	Label string    `koanf:"label"`
+	Items []NavItem `koanf:"items"`
+}
+
+// NavItem models both leaf links and recursive menu parents.
+// Special item types render built-in controls such as separators, theme toggle,
+// user name, and logout.
+type NavItem struct {
+	Type       string    `koanf:"type" validate:"omitempty,oneof=separator user_name logout theme_toggle"`
+	Visibility string    `koanf:"visibility" validate:"omitempty,oneof=all guest user"`
+	Label      string    `koanf:"label"`
+	Href       string    `koanf:"href"`
+	Items      []NavItem `koanf:"items"`
+}
+
+func (i NavItem) IsSeparator() bool {
+	return i.Type == "separator"
+}
+
+func (i NavItem) HasChildren() bool {
+	return len(i.Items) > 0
+}
+
 const defaultNavMenuID = "navmenu"
 
 // NavMenuProps configures a responsive navigation menu.
 type NavMenuProps struct {
 	ID              string
-	Config          config.NavConfig
+	Config          NavConfig
 	CSRFToken       string
 	IsAuthenticated bool
 	UserName        string
+	// ThemeSelector is the rendered theme-toggle node injected by the caller.
+	// When nil, theme_toggle items render nothing.
+	ThemeSelector g.Node
 }
 
 func navMenuID(id string) string {
@@ -56,7 +95,7 @@ func NavMenu(p NavMenuProps) g.Node {
 	)
 }
 
-func brandNode(brand config.NavBrand) g.Node {
+func brandNode(brand NavBrand) g.Node {
 	label := brand.Label
 	if label == "" {
 		label = "Starter"
@@ -155,7 +194,7 @@ func renderDesktopSections(p NavMenuProps) []g.Node {
 	return nodes
 }
 
-func renderDesktopSection(section config.NavSection, p NavMenuProps) g.Node {
+func renderDesktopSection(section NavSection, p NavMenuProps) g.Node {
 	items := []g.Node{}
 	for _, item := range section.Items {
 		node := renderDesktopItem(item, p, 0)
@@ -179,7 +218,7 @@ func renderDesktopSection(section config.NavSection, p NavMenuProps) g.Node {
 	return h.Div(h.Class("flex min-w-0 items-center gap-3"), g.Group(children))
 }
 
-func renderDesktopItem(item config.NavItem, p NavMenuProps, level int) g.Node {
+func renderDesktopItem(item NavItem, p NavMenuProps, level int) g.Node {
 	if !itemVisible(item, p.IsAuthenticated) {
 		return nil
 	}
@@ -211,7 +250,7 @@ func renderDesktopItem(item config.NavItem, p NavMenuProps, level int) g.Node {
 	}
 }
 
-func renderDesktopParent(item config.NavItem, p NavMenuProps, level int) g.Node {
+func renderDesktopParent(item NavItem, p NavMenuProps, level int) g.Node {
 	if item.Label == "" {
 		return nil
 	}
@@ -258,10 +297,10 @@ func renderDesktopParent(item config.NavItem, p NavMenuProps, level int) g.Node 
 	)
 }
 
-func renderDesktopSpecialItem(item config.NavItem, p NavMenuProps) g.Node {
+func renderDesktopSpecialItem(item NavItem, p NavMenuProps) g.Node {
 	switch item.Type {
 	case "theme_toggle":
-		return interactive.ThemeSelector()
+		return p.ThemeSelector
 	case "user_name":
 		if !p.IsAuthenticated || p.UserName == "" {
 			return nil
@@ -279,14 +318,14 @@ func renderDesktopSpecialItem(item config.NavItem, p NavMenuProps) g.Node {
 			h.Method("post"),
 			h.Action("/logout"),
 			h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-			core.Button(core.Props{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit"}),
+			core.Button(core.ButtonProps{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit"}),
 		)
 	default:
 		return nil
 	}
 }
 
-func desktopSubmenuNodes(item config.NavItem, p NavMenuProps, level int) []g.Node {
+func desktopSubmenuNodes(item NavItem, p NavMenuProps, level int) []g.Node {
 	nodes := []g.Node{}
 	if item.Href != "" && item.Label != "" {
 		nodes = append(nodes, h.A(
@@ -319,7 +358,7 @@ func renderMobileSections(p NavMenuProps) []g.Node {
 	return nodes
 }
 
-func renderMobileSection(section config.NavSection, p NavMenuProps) g.Node {
+func renderMobileSection(section NavSection, p NavMenuProps) g.Node {
 	items := []g.Node{}
 	for _, item := range section.Items {
 		node := renderMobileItem(item, p, 0)
@@ -343,7 +382,7 @@ func renderMobileSection(section config.NavSection, p NavMenuProps) g.Node {
 	return h.Div(h.Class("flex flex-col gap-2"), g.Group(children))
 }
 
-func renderMobileItem(item config.NavItem, p NavMenuProps, level int) g.Node {
+func renderMobileItem(item NavItem, p NavMenuProps, level int) g.Node {
 	if !itemVisible(item, p.IsAuthenticated) {
 		return nil
 	}
@@ -366,7 +405,7 @@ func renderMobileItem(item config.NavItem, p NavMenuProps, level int) g.Node {
 	}
 }
 
-func renderMobileParent(item config.NavItem, p NavMenuProps, level int) g.Node {
+func renderMobileParent(item NavItem, p NavMenuProps, level int) g.Node {
 	if item.Label == "" {
 		return nil
 	}
@@ -392,13 +431,13 @@ func renderMobileParent(item config.NavItem, p NavMenuProps, level int) g.Node {
 	)
 }
 
-func renderMobileSpecialItem(item config.NavItem, p NavMenuProps) g.Node {
+func renderMobileSpecialItem(item NavItem, p NavMenuProps) g.Node {
 	switch item.Type {
 	case "theme_toggle":
 		return h.Div(
 			h.Class("flex items-center justify-between px-4 py-4 transition-colors hover:bg-accent/60"),
 			h.Span(h.Class("text-sm text-muted-foreground"), g.Text("Theme")),
-			interactive.ThemeSelector(),
+			p.ThemeSelector,
 		)
 	case "user_name":
 		if !p.IsAuthenticated || p.UserName == "" {
@@ -417,14 +456,14 @@ func renderMobileSpecialItem(item config.NavItem, p NavMenuProps) g.Node {
 			h.Method("post"),
 			h.Action("/logout"),
 			h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-			core.Button(core.Props{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit", FullWidth: true}),
+			core.Button(core.ButtonProps{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit", FullWidth: true}),
 		)
 	default:
 		return nil
 	}
 }
 
-func mobileSubmenuNodes(item config.NavItem, p NavMenuProps, level int) []g.Node {
+func mobileSubmenuNodes(item NavItem, p NavMenuProps, level int) []g.Node {
 	nodes := []g.Node{}
 	if item.Href != "" && item.Label != "" {
 		nodes = append(nodes, h.A(
@@ -446,7 +485,7 @@ func mobileSubmenuNodes(item config.NavItem, p NavMenuProps, level int) []g.Node
 	return append(nodes, childNodes...)
 }
 
-func itemVisible(item config.NavItem, isAuthenticated bool) bool {
+func itemVisible(item NavItem, isAuthenticated bool) bool {
 	switch item.Visibility {
 	case "guest":
 		return !isAuthenticated

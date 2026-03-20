@@ -55,43 +55,51 @@ func Link(href string, isActive bool, children ...g.Node) g.Node {
 }
 
 // Previous renders a "previous" navigation button.
+// Renders a <span> when disabled to carry correct semantics for assistive technology.
 func Previous(href string, disabled bool) g.Node {
-	cls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+	icon := core.Icon(iconrender.PropsFor(componenticons.ChevronLeft, core.IconProps{}))
+	ariaLabel := g.Attr("aria-label", "Go to previous page")
 	if disabled {
-		cls += " pointer-events-none opacity-50"
-	} else {
-		cls += " hover:bg-accent hover:text-accent-foreground"
+		return h.Span(
+			h.Class(baseCls+" pointer-events-none opacity-50"),
+			g.Attr("aria-disabled", "true"),
+			ariaLabel,
+			icon,
+			h.Span(g.Text("Previous")),
+		)
 	}
-	nodes := []g.Node{h.Class(cls)}
-	if !disabled {
-		nodes = append(nodes, h.Href(href))
-	}
-	nodes = append(nodes, g.Attr("aria-label", "Go to previous page"))
-	nodes = append(nodes,
-		core.Icon(iconrender.PropsFor(componenticons.ChevronLeft, core.IconProps{})),
+	return h.A(
+		h.Class(baseCls+" hover:bg-accent hover:text-accent-foreground"),
+		h.Href(href),
+		ariaLabel,
+		icon,
 		h.Span(g.Text("Previous")),
 	)
-	return h.A(nodes...)
 }
 
 // Next renders a "next" navigation button.
+// Renders a <span> when disabled to carry correct semantics for assistive technology.
 func Next(href string, disabled bool) g.Node {
-	cls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+	icon := core.Icon(iconrender.PropsFor(componenticons.ChevronRight, core.IconProps{}))
+	ariaLabel := g.Attr("aria-label", "Go to next page")
 	if disabled {
-		cls += " pointer-events-none opacity-50"
-	} else {
-		cls += " hover:bg-accent hover:text-accent-foreground"
+		return h.Span(
+			h.Class(baseCls+" pointer-events-none opacity-50"),
+			g.Attr("aria-disabled", "true"),
+			ariaLabel,
+			h.Span(g.Text("Next")),
+			icon,
+		)
 	}
-	nodes := []g.Node{h.Class(cls)}
-	if !disabled {
-		nodes = append(nodes, h.Href(href))
-	}
-	nodes = append(nodes, g.Attr("aria-label", "Go to next page"))
-	nodes = append(nodes,
+	return h.A(
+		h.Class(baseCls+" hover:bg-accent hover:text-accent-foreground"),
+		h.Href(href),
+		ariaLabel,
 		h.Span(g.Text("Next")),
-		core.Icon(iconrender.PropsFor(componenticons.ChevronRight, core.IconProps{})),
+		icon,
 	)
-	return h.A(nodes...)
 }
 
 // Ellipsis renders a "…" placeholder for skipped page ranges.

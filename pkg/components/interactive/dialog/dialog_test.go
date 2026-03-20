@@ -4,21 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestContentUsesGeneratedLabelAndDescriptionIDs(t *testing.T) {
-	got := renderNode(t, Content("confirm-dialog",
+	got := testutil.RenderNode(t, Content("confirm-dialog",
 		Header(
 			Title("confirm-dialog", g.Text("Confirm")),
 			Description("confirm-dialog", g.Text("Are you sure?")),

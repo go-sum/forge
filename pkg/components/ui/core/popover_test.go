@@ -4,11 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
 func TestPopoverRootRendersDetailsWithDataPopover(t *testing.T) {
-	got := renderNode(t, Popover.Root(PopoverRootProps{ID: "info"},
+	got := testutil.RenderNode(t, Popover.Root(PopoverRootProps{ID: "info"},
 		Popover.Trigger(PopoverTriggerProps{}, g.Text("Open")),
 		Popover.Content(PopoverContentProps{}, g.Text("Hello")),
 	))
@@ -30,7 +31,7 @@ func TestPopoverRootRendersDetailsWithDataPopover(t *testing.T) {
 }
 
 func TestPopoverTriggerClassAppended(t *testing.T) {
-	got := renderNode(t, Popover.Trigger(PopoverTriggerProps{
+	got := testutil.RenderNode(t, Popover.Trigger(PopoverTriggerProps{
 		Class: "rounded-md border px-3 py-2",
 	}, g.Text("Click")))
 
@@ -43,21 +44,21 @@ func TestPopoverTriggerClassAppended(t *testing.T) {
 }
 
 func TestPopoverContentAlignRight(t *testing.T) {
-	got := renderNode(t, Popover.Content(PopoverContentProps{Align: "right"}, g.Text("x")))
+	got := testutil.RenderNode(t, Popover.Content(PopoverContentProps{Align: "right"}, g.Text("x")))
 	if !strings.Contains(got, "right-0") {
 		t.Errorf("Popover.Content(right) missing right-0 in: %s", got)
 	}
 }
 
 func TestPopoverContentAlignCenter(t *testing.T) {
-	got := renderNode(t, Popover.Content(PopoverContentProps{Align: "center"}, g.Text("x")))
+	got := testutil.RenderNode(t, Popover.Content(PopoverContentProps{Align: "center"}, g.Text("x")))
 	if !strings.Contains(got, "left-1/2") || !strings.Contains(got, "-translate-x-1/2") {
 		t.Errorf("Popover.Content(center) missing centering classes in: %s", got)
 	}
 }
 
 func TestPopoverRootCustomClass(t *testing.T) {
-	got := renderNode(t, Popover.Root(PopoverRootProps{Class: "relative inline-flex"}, g.Text("x")))
+	got := testutil.RenderNode(t, Popover.Root(PopoverRootProps{Class: "relative inline-flex"}, g.Text("x")))
 	if !strings.Contains(got, `class="relative inline-flex"`) {
 		t.Errorf("Popover.Root() did not override class in: %s", got)
 	}

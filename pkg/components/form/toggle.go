@@ -12,6 +12,7 @@ type ToggleProps struct {
 	Value    string
 	Checked  bool
 	Disabled bool
+	Required bool
 	Extra    []g.Node
 }
 
@@ -39,6 +40,9 @@ func buildToggleInput(inputType string, p ToggleProps) []g.Node {
 	}
 	if p.Disabled {
 		nodes = append(nodes, h.Disabled())
+	}
+	if p.Required {
+		nodes = append(nodes, g.Attr("required", ""))
 	}
 	nodes = append(nodes, g.Group(p.Extra))
 	return nodes

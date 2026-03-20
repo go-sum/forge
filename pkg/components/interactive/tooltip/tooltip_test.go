@@ -4,21 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestClickVariantRendersDetailsWithPopoverHook(t *testing.T) {
-	got := renderNode(t, ClickRoot(
+	got := testutil.RenderNode(t, ClickRoot(
 		ClickTrigger(g.Attr("aria-describedby", "click-tip"), g.Text("?")),
 		ClickContent("click-tip", g.Text("Help text")),
 	))
@@ -45,7 +36,7 @@ func TestClickVariantRendersDetailsWithPopoverHook(t *testing.T) {
 }
 
 func TestContentAndTriggerAttrsExposeTooltipSemantics(t *testing.T) {
-	got := renderNode(t, Root(
+	got := testutil.RenderNode(t, Root(
 		Trigger(g.El("button", append([]g.Node{g.Attr("type", "button")}, TriggerAttrs("help-tip")...)...)),
 		Content("help-tip", g.Text("Helpful text")),
 	))

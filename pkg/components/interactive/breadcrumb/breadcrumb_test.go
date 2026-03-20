@@ -4,21 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestBreadcrumbRendersAccessibleTrail(t *testing.T) {
-	got := renderNode(t, Root(List(
+	got := testutil.RenderNode(t, Root(List(
 		Item(Link("/", g.Text("Home"))),
 		Item(Separator()),
 		Item(Page(g.Text("Settings"))),

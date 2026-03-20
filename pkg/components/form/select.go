@@ -24,6 +24,7 @@ type SelectProps struct {
 	Name     string
 	Multiple bool
 	Disabled bool
+	Required bool
 	HasError bool
 	Options  []Option
 	// Groups renders <optgroup> sections after flat Options.
@@ -54,6 +55,9 @@ func Select(p SelectProps) g.Node {
 	}
 	if p.Disabled {
 		nodes = append(nodes, h.Disabled())
+	}
+	if p.Required {
+		nodes = append(nodes, g.Attr("required", ""))
 	}
 	if p.Multiple {
 		nodes = append(nodes, g.Attr("multiple", ""))

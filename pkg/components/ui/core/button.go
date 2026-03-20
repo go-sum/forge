@@ -27,8 +27,8 @@ const (
 	SizeLg      Size = "lg"
 )
 
-// Props configures a Button. Set Href to render an <a> instead of <button>.
-type Props struct {
+// ButtonProps configures a Button. Set Href to render an <a> instead of <button>.
+type ButtonProps struct {
 	ID      string
 	Label   string
 	Variant Variant
@@ -74,7 +74,7 @@ func sizeClasses(s Size) string {
 	}
 }
 
-func buttonClass(p Props) string {
+func buttonClass(p ButtonProps) string {
 	cls := baseClasses + " " + variantClasses(p.Variant) + " " + sizeClasses(p.Size)
 	if p.FullWidth {
 		cls += " w-full"
@@ -92,7 +92,7 @@ func buttonType(t string) string {
 	return t
 }
 
-func buttonContent(p Props) g.Node {
+func buttonContent(p ButtonProps) g.Node {
 	if len(p.Children) > 0 {
 		return g.Group(p.Children)
 	}
@@ -101,7 +101,7 @@ func buttonContent(p Props) g.Node {
 
 // Button renders a <button> or <a> with shadcn/ui styling.
 // When Href is set, renders an <a> element (link variant).
-func Button(p Props) g.Node {
+func Button(p ButtonProps) g.Node {
 	if p.Href != "" {
 		nodes := []g.Node{h.Class(buttonClass(p))}
 		if p.Disabled {

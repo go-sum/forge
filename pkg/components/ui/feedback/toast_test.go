@@ -3,10 +3,12 @@ package feedback
 import (
 	"strings"
 	"testing"
+
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestToastErrorUsesAlertAnnouncementSemantics(t *testing.T) {
-	got := renderNode(t, Toast(ToastProps{
+	got := testutil.RenderNode(t, Toast(ToastProps{
 		Title:       "Error",
 		Description: "Save failed",
 		Variant:     ToastError,

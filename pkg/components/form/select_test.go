@@ -4,21 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestSelectRendersOptGroups(t *testing.T) {
-	got := renderNode(t, Select(SelectProps{
+	got := testutil.RenderNode(t, Select(SelectProps{
 		ID:       "role",
 		Name:     "role",
 		Selected: "admin",
@@ -37,7 +27,7 @@ func TestSelectRendersOptGroups(t *testing.T) {
 }
 
 func TestSelectMultipleRendersMultipleAttribute(t *testing.T) {
-	got := renderNode(t, Select(SelectProps{
+	got := testutil.RenderNode(t, Select(SelectProps{
 		ID:       "roles",
 		Name:     "roles",
 		Multiple: true,

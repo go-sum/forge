@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"starter/config"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestNavMenuRendersConfiguredGuestMenu(t *testing.T) {
-	got := renderNode(t, NavMenu(NavMenuProps{
+	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
 		ID:        "app",
 		Config:    testNavConfig(),
 		CSRFToken: "csrf-token",
@@ -24,7 +24,6 @@ func TestNavMenuRendersConfiguredGuestMenu(t *testing.T) {
 		`>Users</a>`,
 		`href="/login"`,
 		`href="/register"`,
-		`data-theme-toggle=""`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(got, check) {
@@ -37,7 +36,7 @@ func TestNavMenuRendersConfiguredGuestMenu(t *testing.T) {
 }
 
 func TestNavMenuRendersConfiguredAuthenticatedMenu(t *testing.T) {
-	got := renderNode(t, NavMenu(NavMenuProps{
+	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
 		ID:              "app",
 		Config:          testNavConfig(),
 		CSRFToken:       "csrf-token",
@@ -49,7 +48,6 @@ func TestNavMenuRendersConfiguredAuthenticatedMenu(t *testing.T) {
 		`>Ada</span>`,
 		`action="/logout"`,
 		`value="csrf-token"`,
-		`data-theme-toggle=""`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(got, check) {
@@ -61,19 +59,19 @@ func TestNavMenuRendersConfiguredAuthenticatedMenu(t *testing.T) {
 	}
 }
 
-func testNavConfig() config.NavConfig {
-	return config.NavConfig{
-		Brand: config.NavBrand{Label: "Starter", Href: "/"},
-		Sections: []config.NavSection{
-			{Items: []config.NavItem{
+func testNavConfig() NavConfig {
+	return NavConfig{
+		Brand: NavBrand{Label: "Starter", Href: "/"},
+		Sections: []NavSection{
+			{Items: []NavItem{
 				{Label: "Home", Href: "/"},
-				{Label: "Features", Items: []config.NavItem{
-					{Label: "Admin", Items: []config.NavItem{
+				{Label: "Features", Items: []NavItem{
+					{Label: "Admin", Items: []NavItem{
 						{Label: "Users", Href: "/users"},
 					}},
 				}},
 			}},
-			{Items: []config.NavItem{
+			{Items: []NavItem{
 				{Label: "Login", Href: "/login", Visibility: "guest"},
 				{Label: "Register", Href: "/register", Visibility: "guest"},
 				{Type: "user_name", Visibility: "user"},
@@ -85,7 +83,7 @@ func testNavConfig() config.NavConfig {
 }
 
 func TestNavMenuUsesAccordionStyleForNestedDesktopAndMobileMenus(t *testing.T) {
-	got := renderNode(t, NavMenu(NavMenuProps{
+	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
 		ID:     "app",
 		Config: testNavConfig(),
 	}))

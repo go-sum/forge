@@ -3,10 +3,12 @@ package form
 import (
 	"strings"
 	"testing"
+
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestFileUploadRendersInputAndDropZone(t *testing.T) {
-	got := renderNode(t, FileUpload(FileUploadProps{
+	got := testutil.RenderNode(t, FileUpload(FileUploadProps{
 		ID:     "avatar",
 		Name:   "avatar",
 		Accept: "image/*",
@@ -31,7 +33,7 @@ func TestFileUploadRendersInputAndDropZone(t *testing.T) {
 }
 
 func TestFileUploadMultipleAndError(t *testing.T) {
-	got := renderNode(t, FileUpload(FileUploadProps{
+	got := testutil.RenderNode(t, FileUpload(FileUploadProps{
 		ID:       "docs",
 		Name:     "docs",
 		Multiple: true,
@@ -51,7 +53,7 @@ func TestFileUploadMultipleAndError(t *testing.T) {
 }
 
 func TestFileUploadDisabled(t *testing.T) {
-	got := renderNode(t, FileUpload(FileUploadProps{
+	got := testutil.RenderNode(t, FileUpload(FileUploadProps{
 		ID:       "x",
 		Name:     "x",
 		Disabled: true,

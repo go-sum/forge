@@ -81,15 +81,24 @@ func toastPositionClasses(p ToastPosition) string {
 		return "bottom-4 left-4"
 	case PositionBottomCenter:
 		return "bottom-4 left-1/2 -translate-x-1/2"
-	default: // PositionBottomRight
+	case PositionBottomRight:
 		return "bottom-4 right-4"
+	default:
+		return ""
 	}
 }
 
-// Toast renders a fixed-position toast notification.
+// Toast renders a toast notification. When Position is set, the toast is
+// fixed-positioned and self-contained. When Position is "" (zero value), the
+// toast renders as a plain card suitable for injection into a container div.
 // For HTMX out-of-band swaps, add hx-swap-oob="true" via Extra.
 func Toast(p ToastProps) g.Node {
-	cls := "fixed z-50 max-w-sm rounded-lg border p-4 shadow-md " + toastPositionClasses(p.Position) + " " + toastVariantClasses(p.Variant)
+	cardCls := "rounded-lg border p-4 shadow-md " + toastVariantClasses(p.Variant)
+	var fixedCls string
+	if p.Position != "" {
+		fixedCls = "fixed z-50 max-w-sm " + toastPositionClasses(p.Position) + " "
+	}
+	cls := fixedCls + cardCls
 	nodes := []g.Node{h.Class(cls)}
 	nodes = append(nodes, toastAnnouncementAttrs(p.Variant)...)
 	if p.ID != "" {

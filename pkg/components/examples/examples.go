@@ -155,32 +155,32 @@ func Page() g.Node {
 			h.Div(h.Class("grid grid-cols-2 gap-4"),
 				example("Variants", h.Div(
 					h.Class("flex flex-wrap gap-2"),
-					core.Button(core.Props{Label: "Default"}),
-					core.Button(core.Props{Label: "Destructive", Variant: core.VariantDestructive}),
-					core.Button(core.Props{Label: "Outline", Variant: core.VariantOutline}),
-					core.Button(core.Props{Label: "Secondary", Variant: core.VariantSecondary}),
-					core.Button(core.Props{Label: "Ghost", Variant: core.VariantGhost}),
-					core.Button(core.Props{Label: "Link", Variant: core.VariantLink}),
+					core.Button(core.ButtonProps{Label: "Default"}),
+					core.Button(core.ButtonProps{Label: "Destructive", Variant: core.VariantDestructive}),
+					core.Button(core.ButtonProps{Label: "Outline", Variant: core.VariantOutline}),
+					core.Button(core.ButtonProps{Label: "Secondary", Variant: core.VariantSecondary}),
+					core.Button(core.ButtonProps{Label: "Ghost", Variant: core.VariantGhost}),
+					core.Button(core.ButtonProps{Label: "Link", Variant: core.VariantLink}),
 				)),
 				example("Sizes", h.Div(
 					h.Class("flex flex-wrap items-center gap-2"),
-					core.Button(core.Props{Label: "Large", Size: core.SizeLg}),
-					core.Button(core.Props{Label: "Default"}),
-					core.Button(core.Props{Label: "Small", Size: core.SizeSm}),
+					core.Button(core.ButtonProps{Label: "Large", Size: core.SizeLg}),
+					core.Button(core.ButtonProps{Label: "Default"}),
+					core.Button(core.ButtonProps{Label: "Small", Size: core.SizeSm}),
 				)),
 				example("Link (as <a>)", h.Div(
 					h.Class("flex gap-2"),
-					core.Button(core.Props{Label: "Go Home", Href: "/", Variant: core.VariantSecondary}),
-					core.Button(core.Props{Label: "Users", Href: "/users", Variant: core.VariantGhost, Size: core.SizeSm}),
-					core.Button(core.Props{Href: "/users", Variant: core.VariantOutline, Size: core.SizeSm, Children: []g.Node{
+					core.Button(core.ButtonProps{Label: "Go Home", Href: "/", Variant: core.VariantSecondary}),
+					core.Button(core.ButtonProps{Label: "Users", Href: "/users", Variant: core.VariantGhost, Size: core.SizeSm}),
+					core.Button(core.ButtonProps{Href: "/users", Variant: core.VariantOutline, Size: core.SizeSm, Children: []g.Node{
 						core.Icon(iconrender.Props("lucide-icons", "users", core.IconProps{})),
 						g.Text("Team"),
 					}}),
 				)),
 				example("Disabled", h.Div(
 					h.Class("flex gap-2"),
-					core.Button(core.Props{Label: "Disabled", Disabled: true}),
-					core.Button(core.Props{Label: "Disabled Outline", Variant: core.VariantOutline, Disabled: true}),
+					core.Button(core.ButtonProps{Label: "Disabled", Disabled: true}),
+					core.Button(core.ButtonProps{Label: "Disabled Outline", Variant: core.VariantOutline, Disabled: true}),
 				)),
 			),
 		),
@@ -196,7 +196,7 @@ func Page() g.Node {
 					h.P(g.Text("This is the main body of the card. Cards compose header, content, and footer sub-components.")),
 				),
 				data.Card.Footer(
-					core.Button(core.Props{Label: "Action", Size: core.SizeSm}),
+					core.Button(core.ButtonProps{Label: "Action", Size: core.SizeSm}),
 				),
 			)),
 		),
@@ -205,7 +205,7 @@ func Page() g.Node {
 		section("dialog", "Dialog",
 			example("Modal dialog with trigger", dialog.Root(
 				dialog.Trigger("example-dialog",
-					core.Button(core.Props{Label: "Open Dialog"}),
+					core.Button(core.ButtonProps{Label: "Open Dialog"}),
 				),
 				dialog.Content("example-dialog",
 					dialog.Header(
@@ -214,9 +214,9 @@ func Page() g.Node {
 					),
 					dialog.Footer(
 						dialog.Close(
-							core.Button(core.Props{Label: "Cancel", Variant: core.VariantOutline}),
+							core.Button(core.ButtonProps{Label: "Cancel", Variant: core.VariantOutline}),
 						),
-						core.Button(core.Props{Label: "Confirm", Variant: core.VariantDestructive}),
+						core.Button(core.ButtonProps{Label: "Confirm", Variant: core.VariantDestructive}),
 					),
 				),
 			)),
@@ -434,8 +434,8 @@ func Page() g.Node {
 						data.Table.Cell(core.Badge(core.BadgeProps{Children: []g.Node{g.Text("Active")}})),
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
-								core.Button(core.Props{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
-								core.Button(core.Props{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
 							),
 						),
 					),
@@ -445,8 +445,8 @@ func Page() g.Node {
 						data.Table.Cell(core.Badge(core.BadgeProps{Variant: core.BadgeSecondary, Children: []g.Node{g.Text("Inactive")}})),
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
-								core.Button(core.Props{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
-								core.Button(core.Props{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
 							),
 						),
 					),
@@ -487,17 +487,12 @@ func Page() g.Node {
 		// ── Toast ───────────────────────────────────────
 		section("toast", "Toast",
 			example("Variants", h.Div(
-				h.Class("grid grid-cols-2 gap-3"),
-				toastPreview("", "Event created", "Your event has been created."),
-				toastPreview("success", "Success", "Changes saved successfully."),
-				toastPreview("error", "Error", "Something went wrong."),
-				toastPreview("warning", "Warning", "This action is irreversible."),
-				toastPreview("info", "Info", "New updates are available."),
-			)),
-			example("Dismissible (click ×)", h.Div(
-				h.Class("grid grid-cols-2 gap-3"),
-				toastPreview("", "Notification", "Click the × button to dismiss."),
-				toastPreview("success", "Saved", "Your changes have been saved."),
+				h.Class("flex flex-col gap-2"),
+				feedback.Toast(feedback.ToastProps{Title: "Event created", Description: "Your event has been created.", Dismissible: true}),
+				feedback.Toast(feedback.ToastProps{Title: "Success", Description: "Changes saved.", Variant: feedback.ToastSuccess, Dismissible: true}),
+				feedback.Toast(feedback.ToastProps{Title: "Error", Description: "Something went wrong.", Variant: feedback.ToastError, Dismissible: true}),
+				feedback.Toast(feedback.ToastProps{Title: "Warning", Description: "This action is irreversible.", Variant: feedback.ToastWarning, Dismissible: true}),
+				feedback.Toast(feedback.ToastProps{Title: "Info", Description: "New updates are available.", Variant: feedback.ToastInfo, Dismissible: true}),
 			)),
 			example("Interactive — click to trigger (auto-dismisses after 5s)", h.Div(
 				h.Class("flex flex-wrap gap-2"),
@@ -506,11 +501,11 @@ func Page() g.Node {
 				toastTriggerButton("toast-tmpl-error", "Error"),
 				toastTriggerButton("toast-tmpl-warning", "Warning"),
 				toastTriggerButton("toast-tmpl-info", "Info"),
-				toastTemplate("toast-tmpl-default", "", "Event created", "Your event has been created."),
-				toastTemplate("toast-tmpl-success", "success", "Success", "Changes saved successfully."),
-				toastTemplate("toast-tmpl-error", "error", "Error", "Something went wrong."),
-				toastTemplate("toast-tmpl-warning", "warning", "Warning", "This action is irreversible."),
-				toastTemplate("toast-tmpl-info", "info", "Info", "New updates are available."),
+				toastTemplate("toast-tmpl-default", feedback.ToastDefault, "Event created", "Your event has been created."),
+				toastTemplate("toast-tmpl-success", feedback.ToastSuccess, "Success", "Changes saved successfully."),
+				toastTemplate("toast-tmpl-error", feedback.ToastError, "Error", "Something went wrong."),
+				toastTemplate("toast-tmpl-warning", feedback.ToastWarning, "Warning", "This action is irreversible."),
+				toastTemplate("toast-tmpl-info", feedback.ToastInfo, "Info", "New updates are available."),
 			)),
 		),
 
@@ -549,7 +544,7 @@ func Page() g.Node {
 		section("tooltip", "Tooltip",
 			example("Hover or focus for tooltip", tooltip.Root(
 				tooltip.Trigger(
-					core.Button(core.Props{
+					core.Button(core.ButtonProps{
 						Label:   "Focus me",
 						Variant: core.VariantOutline,
 						Extra:   tooltip.TriggerAttrs("example-tooltip"),
@@ -613,51 +608,9 @@ func tocItem(id, label string) g.Node {
 	)
 }
 
-// toastVariantClass returns the colour classes for a toast variant.
-func toastVariantClass(variant string) string {
-	switch variant {
-	case "success":
-		return "border-success/20 bg-success/10 text-success"
-	case "error":
-		return "border-destructive/20 bg-destructive/10 text-destructive"
-	case "warning":
-		return "border-warning/20 bg-warning/10 text-warning"
-	case "info":
-		return "border-blue-200 bg-blue-50 text-blue-900"
-	default:
-		return "border-border bg-background text-foreground"
-	}
-}
-
-// toastPreview renders an inline (non-fixed) dismissible toast for variant showcase.
-func toastPreview(variant, title, desc string) g.Node {
-	role := "status"
-	live := "polite"
-	if variant == "error" || variant == "warning" {
-		role = "alert"
-		live = "assertive"
-	}
-	return h.Div(
-		h.Class("relative rounded-lg border p-4 shadow-md "+toastVariantClass(variant)),
-		h.Role(role),
-		g.Attr("aria-live", live),
-		g.Attr("aria-atomic", "true"),
-		g.Attr("data-dismissible", ""),
-		h.P(h.Class("font-medium text-sm"), g.Text(title)),
-		h.P(h.Class("text-sm mt-1 opacity-80"), g.Text(desc)),
-		h.Button(
-			g.Attr("data-dismiss", ""),
-			h.Class("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity text-xs"),
-			h.Type("button"),
-			g.Attr("aria-label", "Dismiss"),
-			g.Text("×"),
-		),
-	)
-}
-
 // toastTriggerButton renders a button that clones a <template> toast into #toast-container.
 func toastTriggerButton(templateID, label string) g.Node {
-	return core.Button(core.Props{
+	return core.Button(core.ButtonProps{
 		Label:   label,
 		Variant: core.VariantOutline,
 		Size:    core.SizeSm,
@@ -666,29 +619,14 @@ func toastTriggerButton(templateID, label string) g.Node {
 }
 
 // toastTemplate renders a hidden <template> containing a toast for JS cloning.
-func toastTemplate(id, variant, title, desc string) g.Node {
-	role := "status"
-	live := "polite"
-	if variant == "error" || variant == "warning" {
-		role = "alert"
-		live = "assertive"
-	}
+// Position "" → container mode; JS injects the cloned node into #toast-container.
+func toastTemplate(id string, variant feedback.ToastVariant, title, desc string) g.Node {
 	return g.El("template", h.ID(id),
-		h.Div(
-			h.Class("relative rounded-lg border p-4 shadow-md "+toastVariantClass(variant)),
-			h.Role(role),
-			g.Attr("aria-live", live),
-			g.Attr("aria-atomic", "true"),
-			g.Attr("data-dismissible", ""),
-			h.P(h.Class("font-medium text-sm"), g.Text(title)),
-			h.P(h.Class("text-sm mt-1 opacity-80"), g.Text(desc)),
-			h.Button(
-				g.Attr("data-dismiss", ""),
-				h.Class("absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity text-xs"),
-				h.Type("button"),
-				g.Attr("aria-label", "Dismiss"),
-				g.Text("×"),
-			),
-		),
+		feedback.Toast(feedback.ToastProps{
+			Title:       title,
+			Description: desc,
+			Variant:     variant,
+			Dismissible: true,
+		}),
 	)
 }

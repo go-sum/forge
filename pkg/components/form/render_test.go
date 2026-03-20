@@ -3,11 +3,13 @@ package form
 import (
 	"strings"
 	"testing"
+
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestFieldRendersDescriptionAndErrorsWithControlWiring(t *testing.T) {
 	errors := []string{"Email is required"}
-	got := renderNode(t, Field(FieldProps{
+	got := testutil.RenderNode(t, Field(FieldProps{
 		ID:          "email",
 		Label:       "Email",
 		Description: "Used to sign in.",
@@ -38,24 +40,24 @@ func TestFieldRendersDescriptionAndErrorsWithControlWiring(t *testing.T) {
 }
 
 func TestCheckboxRadioAndSwitchRenderTypes(t *testing.T) {
-	checkbox := renderNode(t, Checkbox(CheckboxProps{ID: "terms", Name: "terms", Checked: true}))
+	checkbox := testutil.RenderNode(t, Checkbox(CheckboxProps{ID: "terms", Name: "terms", Checked: true}))
 	if !strings.Contains(checkbox, ` type="checkbox"`) || !strings.Contains(checkbox, ` checked`) {
 		t.Fatalf("Checkbox() output = %s", checkbox)
 	}
 
-	radio := renderNode(t, Radio(RadioProps{ID: "role-admin", Name: "role", Value: "admin"}))
+	radio := testutil.RenderNode(t, Radio(RadioProps{ID: "role-admin", Name: "role", Value: "admin"}))
 	if !strings.Contains(radio, ` type="radio"`) || !strings.Contains(radio, ` value="admin"`) {
 		t.Fatalf("Radio() output = %s", radio)
 	}
 
-	switchControl := renderNode(t, Switch(SwitchProps{ID: "notifications", Name: "notifications", Checked: true}))
+	switchControl := testutil.RenderNode(t, Switch(SwitchProps{ID: "notifications", Name: "notifications", Checked: true}))
 	if !strings.Contains(switchControl, ` role="switch"`) || !strings.Contains(switchControl, ` class="sr-only peer"`) {
 		t.Fatalf("Switch() output = %s", switchControl)
 	}
 }
 
 func TestFieldSetRendersLegendDescriptionAndErrors(t *testing.T) {
-	got := renderNode(t, FieldSet(FieldSetProps{
+	got := testutil.RenderNode(t, FieldSet(FieldSetProps{
 		ID:          "notify",
 		Legend:      "Notifications",
 		Description: "Pick one.",
@@ -79,7 +81,7 @@ func TestFieldSetRendersLegendDescriptionAndErrors(t *testing.T) {
 }
 
 func TestFieldSetDisabledPropagates(t *testing.T) {
-	got := renderNode(t, FieldSet(FieldSetProps{Legend: "Group", Disabled: true}))
+	got := testutil.RenderNode(t, FieldSet(FieldSetProps{Legend: "Group", Disabled: true}))
 	if !strings.Contains(got, `<fieldset`) {
 		t.Fatalf("FieldSet() output missing <fieldset in %s", got)
 	}
@@ -89,7 +91,7 @@ func TestFieldSetDisabledPropagates(t *testing.T) {
 }
 
 func TestTextareaRendersRowsAndErrorState(t *testing.T) {
-	got := renderNode(t, Textarea(TextareaProps{
+	got := testutil.RenderNode(t, Textarea(TextareaProps{
 		ID:       "bio",
 		Name:     "bio",
 		Rows:     4,

@@ -4,21 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
 )
 
-func renderNode(t *testing.T, node g.Node) string {
-	t.Helper()
-
-	var buf strings.Builder
-	if err := node.Render(&buf); err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	return buf.String()
-}
-
 func TestTriggerAndContentExposeARIAWiring(t *testing.T) {
-	got := renderNode(t, Root("settings-tabs", "account",
+	got := testutil.RenderNode(t, Root("settings-tabs", "account",
 		List(
 			Trigger("settings-tabs", "account", true, g.Text("Account")),
 		),

@@ -3,10 +3,12 @@ package feedback
 import (
 	"strings"
 	"testing"
+
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestProgressRendersLabelAndComputedPercentage(t *testing.T) {
-	got := renderNode(t, Progress(ProgressProps{
+	got := testutil.RenderNode(t, Progress(ProgressProps{
 		ID:        "sync-progress",
 		Label:     "Syncing",
 		Value:     25,
