@@ -2,6 +2,8 @@
 package layout
 
 import (
+	"strings"
+
 	componenticons "starter/pkg/components/icons"
 	iconrender "starter/pkg/components/icons/render"
 	"starter/pkg/components/ui/core"
@@ -10,92 +12,313 @@ import (
 	h "maragu.dev/gomponents/html"
 )
 
-// NavConfig is the top-level navigation configuration parsed from nav.yaml.
-type NavConfig struct {
-	Brand    NavBrand     `koanf:"brand"`
-	Sections []NavSection `koanf:"sections"`
-}
+// NavbarVisibility controls whether an item renders for guest, user, or all states.
+type NavbarVisibility string
 
-// NavBrand configures the logo/wordmark shown at the start of the nav bar.
-type NavBrand struct {
-	Label    string `koanf:"label"`
-	Href     string `koanf:"href"`
-	LogoPath string `koanf:"logo_path"`
-}
+const (
+	VisibilityAll   NavbarVisibility = "all"
+	VisibilityGuest NavbarVisibility = "guest"
+	VisibilityUser  NavbarVisibility = "user"
+)
 
-// NavSection is a named group of NavItems within the navigation menu.
-type NavSection struct {
-	Label string    `koanf:"label"`
-	Items []NavItem `koanf:"items"`
-}
+// NavbarSectionAlign controls where a section sits in the desktop and mobile layout.
+type NavbarSectionAlign string
 
-// NavItem models both leaf links and recursive menu parents.
-// Special item types render built-in controls such as separators, theme toggle,
-// user name, and logout.
-type NavItem struct {
-	Type       string    `koanf:"type" validate:"omitempty,oneof=separator user_name logout theme_toggle"`
-	Visibility string    `koanf:"visibility" validate:"omitempty,oneof=all guest user"`
-	Label      string    `koanf:"label"`
-	Href       string    `koanf:"href"`
-	Items      []NavItem `koanf:"items"`
-}
+const (
+	AlignStart NavbarSectionAlign = "start"
+	AlignEnd   NavbarSectionAlign = "end"
+)
 
-func (i NavItem) IsSeparator() bool {
-	return i.Type == "separator"
-}
-
-func (i NavItem) HasChildren() bool {
-	return len(i.Items) > 0
-}
-
-const defaultNavMenuID = "navmenu"
-
-// NavMenuProps configures a responsive navigation menu.
-type NavMenuProps struct {
+// NavbarProps configures a responsive navigation shell.
+type NavbarProps struct {
 	ID              string
-	Config          NavConfig
-	CSRFToken       string
+	Brand           NavbarBrand
+	Sections        []NavbarSection
 	IsAuthenticated bool
-	UserName        string
-	// ThemeSelector is the rendered theme-toggle node injected by the caller.
-	// When nil, theme_toggle items render nothing.
-	ThemeSelector g.Node
+	CurrentPath     string
 }
 
-func navMenuID(id string) string {
+// NavbarBrand configures the logo/wordmark shown at the start of the nav bar.
+type NavbarBrand struct {
+	Label    string
+	Href     string
+	LogoPath string
+}
+
+// NavbarSection groups related items and can be aligned to the leading or trailing edge.
+type NavbarSection struct {
+	Label string
+	Align NavbarSectionAlign
+	Items []NavbarItem
+}
+
+// NavbarItem is the typed item model rendered by Navbar.
+type NavbarItem interface {
+	navbarItem()
+	render(navbarItemContext) g.Node
+	visible(NavbarContext) bool
+}
+
+// NavbarContext carries request-state needed to render items consistently.
+type NavbarContext struct {
+	CurrentPath     string
+	IsAuthenticated bool
+}
+
+// NavHiddenField renders a hidden input inside a NavForm.
+type NavHiddenField struct {
+	Name  string `koanf:"name" validate:"required"`
+	Value string `koanf:"value"`
+}
+
+// NavLink renders a standard navigation link.
+type NavLink struct {
+	Visibility  NavbarVisibility
+	Label       string
+	Href        string
+	Icon        componenticons.Key
+	MatchPrefix bool
+}
+
+func (NavLink) navbarItem() {}
+
+func (i NavLink) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavLink) render(ctx navbarItemContext) g.Node {
+	if i.Label == "" || i.Href == "" {
+		return nil
+	}
+
+	current := linkIsCurrent(ctx.CurrentPath, i.Href, i.MatchPrefix)
+	nodes := []g.Node{
+		h.Href(i.Href),
+		h.Class(navLinkClass(ctx.viewport, ctx.depth, current)),
+	}
+	if current {
+		nodes = append(nodes, g.Attr("aria-current", "page"))
+	}
+	nodes = append(nodes, navItemContent(i.Icon, i.Label)...)
+	return h.A(nodes...)
+}
+
+// NavGroup renders a dropdown on desktop and an accordion section on mobile.
+type NavGroup struct {
+	Visibility  NavbarVisibility
+	Label       string
+	Href        string
+	Icon        componenticons.Key
+	MatchPrefix bool
+	Items       []NavbarItem
+}
+
+func (NavGroup) navbarItem() {}
+
+func (i NavGroup) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavGroup) render(ctx navbarItemContext) g.Node {
+	if i.Label == "" {
+		return nil
+	}
+
+	nodes := submenuNodes(i.Href, i.Label, i.MatchPrefix, i.Icon, i.Items, ctx)
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	if ctx.viewport == viewportDesktop && ctx.depth == 0 {
+		return h.Details(
+			h.Class("group relative"),
+			groupSummary(i.Label, i.Icon, ctx),
+			h.Div(
+				h.Class("absolute left-0 top-full z-50 mt-px flex min-w-[16rem] flex-col divide-y divide-border rounded-md border border-border bg-popover shadow-lg"),
+				g.Group(nodes),
+			),
+		)
+	}
+
+	return h.Details(
+		g.Attr("data-nav-group", string(ctx.viewport)),
+		h.Class(groupContainerClass(ctx.viewport, ctx.depth)),
+		groupSummary(i.Label, i.Icon, ctx),
+		h.Div(
+			h.Class(groupPanelClass(ctx.viewport, ctx.depth)),
+			g.Group(nodes),
+		),
+	)
+}
+
+// NavSeparator renders a visual separator between related items.
+type NavSeparator struct {
+	Visibility NavbarVisibility
+}
+
+func (NavSeparator) navbarItem() {}
+
+func (i NavSeparator) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavSeparator) render(ctx navbarItemContext) g.Node {
+	if ctx.viewport == viewportDesktop && ctx.depth == 0 {
+		return nil
+	}
+	return navSeparator(ctx.viewport, ctx.depth)
+}
+
+// NavText renders non-interactive text, useful for user names or status labels.
+type NavText struct {
+	Visibility NavbarVisibility
+	Text       string
+	Icon       componenticons.Key
+}
+
+func (NavText) navbarItem() {}
+
+func (i NavText) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavText) render(ctx navbarItemContext) g.Node {
+	if i.Text == "" {
+		return nil
+	}
+
+	cls := "text-sm text-muted-foreground"
+	if ctx.viewport == viewportMobile {
+		cls = "block px-4 py-4 text-sm font-medium text-foreground"
+	}
+	nodes := []g.Node{h.Class(cls)}
+	nodes = append(nodes, navItemContent(i.Icon, i.Text)...)
+	return h.Span(nodes...)
+}
+
+// NavNode renders arbitrary caller-supplied nodes for desktop and mobile contexts.
+type NavNode struct {
+	Visibility NavbarVisibility
+	Desktop    g.Node
+	Mobile     g.Node
+}
+
+func (NavNode) navbarItem() {}
+
+func (i NavNode) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavNode) render(ctx navbarItemContext) g.Node {
+	if ctx.viewport == viewportDesktop {
+		return i.Desktop
+	}
+	if i.Mobile != nil {
+		return i.Mobile
+	}
+	return i.Desktop
+}
+
+// NavForm renders an inline form action such as logout.
+type NavForm struct {
+	Visibility   NavbarVisibility
+	Label        string
+	Action       string
+	Method       string
+	Icon         componenticons.Key
+	HiddenFields []NavHiddenField
+}
+
+func (NavForm) navbarItem() {}
+
+func (i NavForm) visible(ctx NavbarContext) bool {
+	return visibilityMatches(i.Visibility, ctx.IsAuthenticated)
+}
+
+func (i NavForm) render(ctx navbarItemContext) g.Node {
+	if i.Action == "" {
+		return nil
+	}
+
+	label := i.Label
+	if label == "" {
+		label = "Submit"
+	}
+	method := i.Method
+	if method == "" {
+		method = "post"
+	}
+
+	button := core.Button(core.ButtonProps{
+		Variant:   core.VariantGhost,
+		Size:      core.SizeSm,
+		Type:      "submit",
+		FullWidth: ctx.viewport == viewportMobile,
+		Children:  buttonChildren(i.Icon, label),
+	})
+
+	nodes := []g.Node{
+		h.Method(method),
+		h.Action(i.Action),
+	}
+	for _, field := range i.HiddenFields {
+		if field.Name == "" {
+			continue
+		}
+		nodes = append(nodes, h.Input(h.Type("hidden"), h.Name(field.Name), h.Value(field.Value)))
+	}
+	nodes = append(nodes, button)
+	return h.Form(nodes...)
+}
+
+type navbarViewport string
+
+const (
+	viewportDesktop navbarViewport = "desktop"
+	viewportMobile  navbarViewport = "mobile"
+)
+
+type navbarItemContext struct {
+	NavbarContext
+	viewport navbarViewport
+	depth    int
+}
+
+const defaultNavbarID = "navbar"
+
+func navbarID(id string) string {
 	if id == "" {
-		return defaultNavMenuID
+		return defaultNavbarID
 	}
 	return id
 }
 
-// NavMenu renders a CSS-only responsive navigation menu. Desktop uses horizontal
-// sections with native <details> dropdowns; mobile uses a drawer sidebar.
-func NavMenu(p NavMenuProps) g.Node {
-	drawerID := navMenuID(p.ID)
+// Navbar renders a CSS-first responsive navigation shell with dropdown groups on desktop and a drawer accordion on mobile.
+func Navbar(p NavbarProps) g.Node {
+	drawerID := navbarID(p.ID)
 
 	return h.Nav(
 		h.Class("w-full border-b bg-background"),
 		h.Div(
 			h.Class("container mx-auto flex h-14 items-center px-4"),
-			h.Div(h.Class("mr-4 flex shrink-0"), brandNode(p.Config.Brand)),
+			h.Div(h.Class("mr-4 flex shrink-0"), brandNode(p.Brand)),
 			h.Div(
 				h.Class("hidden min-w-0 flex-1 items-center md:flex"),
 				desktopNavRegion(p),
 			),
 			mobileToggleButton(drawerID),
 		),
-		h.Div(
+		g.If(len(p.Sections) > 0, h.Div(
 			h.Class("md:hidden"),
 			Sidebar(SidebarProps{
 				ID:  drawerID,
 				Nav: mobileDrawer(drawerID, p),
 			}),
-		),
+		)),
 	)
 }
 
-func brandNode(brand NavBrand) g.Node {
+func brandNode(brand NavbarBrand) g.Node {
 	label := brand.Label
 	if label == "" {
 		label = "Starter"
@@ -122,6 +345,254 @@ func brandNode(brand NavBrand) g.Node {
 	)
 }
 
+func desktopNavRegion(p NavbarProps) g.Node {
+	start := renderSections(viewportDesktop, p, AlignStart)
+	end := renderSections(viewportDesktop, p, AlignEnd)
+
+	return h.Div(
+		h.Class("flex min-w-0 flex-1 items-center justify-between gap-6"),
+		h.Div(h.Class("flex min-w-0 flex-1 items-center gap-6"), g.Group(start)),
+		h.Div(h.Class("flex items-center gap-3"), g.Group(end)),
+	)
+}
+
+func mobileDrawer(id string, p NavbarProps) g.Node {
+	start := renderSections(viewportMobile, p, AlignStart)
+	end := renderSections(viewportMobile, p, AlignEnd)
+
+	children := []g.Node{
+		h.Div(
+			h.Class("flex items-center justify-between border-b border-border px-4 py-4"),
+			brandNode(p.Brand),
+			mobileCloseButton(id),
+		),
+		h.Div(
+			h.Class("flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-5"),
+			h.Div(h.Class("flex flex-col gap-8"), g.Group(start)),
+		),
+	}
+	if len(end) > 0 {
+		children = append(children,
+			h.Div(
+				h.Class("border-t border-border px-4 py-5"),
+				h.Div(h.Class("flex flex-col gap-6"), g.Group(end)),
+			),
+		)
+	}
+
+	return h.Div(
+		h.Class("flex h-full flex-col"),
+		g.Group(children),
+	)
+}
+
+func renderSections(viewport navbarViewport, p NavbarProps, align NavbarSectionAlign) []g.Node {
+	ctx := NavbarContext{CurrentPath: p.CurrentPath, IsAuthenticated: p.IsAuthenticated}
+	nodes := make([]g.Node, 0, len(p.Sections))
+	for _, section := range p.Sections {
+		if sectionAlign(section.Align) != align {
+			continue
+		}
+		node := renderSection(viewport, section, ctx)
+		if node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
+}
+
+func sectionAlign(align NavbarSectionAlign) NavbarSectionAlign {
+	if align == AlignEnd {
+		return AlignEnd
+	}
+	return AlignStart
+}
+
+func renderSection(viewport navbarViewport, section NavbarSection, ctx NavbarContext) g.Node {
+	items := renderItems(section.Items, navbarItemContext{NavbarContext: ctx, viewport: viewport})
+	if len(items) == 0 && section.Label == "" {
+		return nil
+	}
+
+	if viewport == viewportDesktop {
+		children := []g.Node{}
+		if section.Label != "" {
+			children = append(children, h.Span(
+				h.Class("text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"),
+				g.Text(section.Label),
+			))
+		}
+		children = append(children, h.Div(h.Class("flex items-stretch gap-2"), g.Group(items)))
+		return h.Div(h.Class("flex min-w-0 items-center gap-3"), g.Group(children))
+	}
+
+	children := []g.Node{}
+	if section.Label != "" {
+		children = append(children, h.P(
+			h.Class("px-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"),
+			g.Text(section.Label),
+		))
+	}
+	children = append(children, h.Div(h.Class("w-full divide-y divide-border rounded-lg border border-border"), g.Group(items)))
+	return h.Div(h.Class("flex flex-col gap-2"), g.Group(children))
+}
+
+func renderItems(items []NavbarItem, ctx navbarItemContext) []g.Node {
+	nodes := make([]g.Node, 0, len(items))
+	for _, item := range items {
+		if item == nil || !item.visible(ctx.NavbarContext) {
+			continue
+		}
+		node := item.render(ctx)
+		if node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
+}
+
+func submenuNodes(href, label string, matchPrefix bool, icon componenticons.Key, items []NavbarItem, ctx navbarItemContext) []g.Node {
+	nodes := []g.Node{}
+	if href != "" && label != "" {
+		current := linkIsCurrent(ctx.CurrentPath, href, matchPrefix)
+		linkNodes := []g.Node{
+			h.Href(href),
+			h.Class(navLinkClass(ctx.viewport, ctx.depth+1, current)),
+		}
+		if current {
+			linkNodes = append(linkNodes, g.Attr("aria-current", "page"))
+		}
+		linkNodes = append(linkNodes, navItemContent(icon, label)...)
+		nodes = append(nodes, h.A(linkNodes...))
+	}
+
+	childNodes := renderItems(items, navbarItemContext{
+		NavbarContext: ctx.NavbarContext,
+		viewport:      ctx.viewport,
+		depth:         ctx.depth + 1,
+	})
+	if len(nodes) > 0 && len(childNodes) > 0 {
+		nodes = append(nodes, navSeparator(ctx.viewport, ctx.depth+1))
+	}
+	return append(nodes, childNodes...)
+}
+
+func navLinkClass(viewport navbarViewport, depth int, current bool) string {
+	base := "transition-colors hover:bg-accent/60 hover:text-accent-foreground"
+	if current {
+		base += " bg-accent/60 text-accent-foreground"
+	}
+	if viewport == viewportDesktop && depth == 0 {
+		return "inline-flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-foreground " + base
+	}
+	if viewport == viewportDesktop {
+		return "block w-full px-4 py-3 text-sm font-medium " + base
+	}
+	return "block w-full px-4 py-4 text-sm font-medium " + base
+}
+
+func groupSummary(label string, icon componenticons.Key, ctx navbarItemContext) g.Node {
+	children := navItemContent(icon, label)
+	children = append(children, chevronIcon())
+
+	if ctx.viewport == viewportDesktop && ctx.depth == 0 {
+		return h.Summary(
+			h.Class("navmenu-summary flex list-none cursor-pointer items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
+			g.Group(children),
+		)
+	}
+
+	return h.Summary(
+		h.Class("navmenu-summary flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
+		g.Group(children),
+	)
+}
+
+func groupContainerClass(viewport navbarViewport, depth int) string {
+	if viewport == viewportDesktop && depth > 0 {
+		return "border-t border-border/70 bg-background"
+	}
+	return "bg-background"
+}
+
+func groupPanelClass(viewport navbarViewport, depth int) string {
+	if viewport == viewportDesktop && depth > 0 {
+		return "flex flex-col divide-y divide-border border-t border-border/70"
+	}
+	return "flex flex-col divide-y divide-border border-t border-border"
+}
+
+func navSeparator(viewport navbarViewport, depth int) g.Node {
+	return core.Separator(core.SeparatorProps{
+		Extra: []g.Node{h.Class(separatorClass(viewport, depth))},
+	})
+}
+
+func separatorClass(viewport navbarViewport, depth int) string {
+	if viewport == viewportMobile {
+		return "mx-2 my-2"
+	}
+	if depth > 0 {
+		return "my-2"
+	}
+	return "mx-2 my-2"
+}
+
+func navItemContent(icon componenticons.Key, label string) []g.Node {
+	nodes := []g.Node{}
+	if icon != "" {
+		nodes = append(nodes, core.Icon(iconrender.PropsFor(icon, core.IconProps{
+			Size: "size-4 shrink-0 text-muted-foreground",
+		})))
+	}
+	nodes = append(nodes, h.Span(g.Text(label)))
+	return nodes
+}
+
+func buttonChildren(icon componenticons.Key, label string) []g.Node {
+	if icon == "" {
+		return []g.Node{g.Text(label)}
+	}
+	return []g.Node{
+		core.Icon(iconrender.PropsFor(icon, core.IconProps{Size: "size-4 shrink-0"})),
+		g.Text(label),
+	}
+}
+
+func chevronIcon() g.Node {
+	return core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{
+		Size: "navmenu-chevron size-4 shrink-0 text-muted-foreground transition-transform",
+	}))
+}
+
+func linkIsCurrent(currentPath, href string, matchPrefix bool) bool {
+	if currentPath == "" || href == "" {
+		return false
+	}
+	if currentPath == href {
+		return true
+	}
+	if !matchPrefix || href == "/" {
+		return false
+	}
+	prefix := strings.TrimSuffix(href, "/")
+	if prefix == "" {
+		return false
+	}
+	return strings.HasPrefix(currentPath, prefix+"/")
+}
+
+func visibilityMatches(visibility NavbarVisibility, isAuthenticated bool) bool {
+	switch visibility {
+	case VisibilityGuest:
+		return !isAuthenticated
+	case VisibilityUser:
+		return isAuthenticated
+	default:
+		return true
+	}
+}
+
 func mobileToggleButton(id string) g.Node {
 	nodes := append([]g.Node{
 		h.Class("ml-auto inline-flex items-center justify-center rounded-md p-2 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:hidden"),
@@ -138,36 +609,6 @@ func mobileToggleButton(id string) g.Node {
 	return h.Label(nodes...)
 }
 
-func desktopNavRegion(p NavMenuProps) g.Node {
-	sections := renderDesktopSections(p)
-	if len(sections) == 0 {
-		return h.Div(h.Class("flex flex-1 items-center gap-2"))
-	}
-	return h.Div(
-		h.Class("flex min-w-0 flex-1 items-center justify-between gap-6"),
-		g.Group(sections),
-	)
-}
-
-func mobileDrawer(id string, p NavMenuProps) g.Node {
-	sections := renderMobileSections(p)
-	return h.Div(
-		h.Class("flex h-full flex-col"),
-		h.Div(
-			h.Class("flex items-center justify-between border-b border-border px-4 py-4"),
-			brandNode(p.Config.Brand),
-			mobileCloseButton(id),
-		),
-		h.Div(
-			h.Class("flex min-h-0 flex-1 flex-col justify-between gap-8 overflow-y-auto px-4 py-5"),
-			h.Div(
-				h.Class("flex flex-1 flex-col justify-between gap-8"),
-				g.Group(sections),
-			),
-		),
-	)
-}
-
 func mobileCloseButton(id string) g.Node {
 	nodes := append([]g.Node{
 		h.Class("inline-flex items-center justify-center rounded-md p-2 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"),
@@ -181,317 +622,4 @@ func mobileCloseButton(id string) g.Node {
 		),
 	)
 	return h.Label(nodes...)
-}
-
-func renderDesktopSections(p NavMenuProps) []g.Node {
-	nodes := []g.Node{}
-	for _, section := range p.Config.Sections {
-		node := renderDesktopSection(section, p)
-		if node != nil {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-func renderDesktopSection(section NavSection, p NavMenuProps) g.Node {
-	items := []g.Node{}
-	for _, item := range section.Items {
-		node := renderDesktopItem(item, p, 0)
-		if node != nil {
-			items = append(items, node)
-		}
-	}
-	if len(items) == 0 && section.Label == "" {
-		return nil
-	}
-
-	children := []g.Node{}
-	if section.Label != "" {
-		children = append(children, h.Span(
-			h.Class("text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"),
-			g.Text(section.Label),
-		))
-	}
-	children = append(children, h.Div(h.Class("flex items-stretch gap-0"), g.Group(items)))
-
-	return h.Div(h.Class("flex min-w-0 items-center gap-3"), g.Group(children))
-}
-
-func renderDesktopItem(item NavItem, p NavMenuProps, level int) g.Node {
-	if !itemVisible(item, p.IsAuthenticated) {
-		return nil
-	}
-
-	switch {
-	case item.IsSeparator():
-		if level == 0 {
-			return nil
-		}
-		return h.Div(h.Class("my-2 h-px bg-border"), h.Role("separator"))
-	case item.HasChildren():
-		return renderDesktopParent(item, p, level)
-	case item.Type != "":
-		return renderDesktopSpecialItem(item, p)
-	case item.Label == "" || item.Href == "":
-		return nil
-	case level == 0:
-		return h.A(
-			h.Href(item.Href),
-			h.Class("inline-flex items-center px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			g.Text(item.Label),
-		)
-	default:
-		return h.A(
-			h.Href(item.Href),
-			h.Class("block w-full px-4 py-3 text-sm transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			g.Text(item.Label),
-		)
-	}
-}
-
-func renderDesktopParent(item NavItem, p NavMenuProps, level int) g.Node {
-	if item.Label == "" {
-		return nil
-	}
-
-	nodes := desktopSubmenuNodes(item, p, level+1)
-	if len(nodes) == 0 && item.Href == "" {
-		return nil
-	}
-
-	summaryClass := "navmenu-summary flex list-none cursor-pointer items-center text-sm transition-colors hover:bg-accent/60 hover:text-accent-foreground"
-	panelClass := "absolute z-50 min-w-[16rem] border border-border bg-popover shadow-lg"
-	icon := core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{
-		Size: "navmenu-chevron size-4 shrink-0 text-muted-foreground transition-transform",
-	}))
-
-	if level == 0 {
-		return h.Details(
-			h.Class("group relative"),
-			h.Summary(
-				h.Class(summaryClass+" gap-2 px-4 py-3 font-medium"),
-				h.Span(g.Text(item.Label)),
-				icon,
-			),
-			h.Div(
-				h.Class(panelClass+" left-0 top-full mt-px flex flex-col divide-y divide-border"),
-				g.Group(nodes),
-			),
-		)
-	}
-
-	return h.Details(
-		h.Class("border-t border-border/70 bg-background"),
-		h.Summary(
-			h.Class("navmenu-summary flex list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			h.Span(g.Text(item.Label)),
-			core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{
-				Size: "navmenu-chevron size-4 shrink-0 text-muted-foreground transition-transform",
-			})),
-		),
-		h.Div(
-			h.Class("flex flex-col divide-y divide-border border-t border-border/70"),
-			g.Group(nodes),
-		),
-	)
-}
-
-func renderDesktopSpecialItem(item NavItem, p NavMenuProps) g.Node {
-	switch item.Type {
-	case "theme_toggle":
-		return p.ThemeSelector
-	case "user_name":
-		if !p.IsAuthenticated || p.UserName == "" {
-			return nil
-		}
-		return h.Span(h.Class("text-sm text-muted-foreground"), g.Text(p.UserName))
-	case "logout":
-		if !p.IsAuthenticated {
-			return nil
-		}
-		label := item.Label
-		if label == "" {
-			label = "Logout"
-		}
-		return h.Form(
-			h.Method("post"),
-			h.Action("/logout"),
-			h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-			core.Button(core.ButtonProps{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit"}),
-		)
-	default:
-		return nil
-	}
-}
-
-func desktopSubmenuNodes(item NavItem, p NavMenuProps, level int) []g.Node {
-	nodes := []g.Node{}
-	if item.Href != "" && item.Label != "" {
-		nodes = append(nodes, h.A(
-			h.Href(item.Href),
-			h.Class("block w-full px-4 py-4 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			g.Text(item.Label),
-		))
-	}
-	childNodes := []g.Node{}
-	for _, child := range item.Items {
-		node := renderDesktopItem(child, p, level)
-		if node != nil {
-			childNodes = append(childNodes, node)
-		}
-	}
-	if len(nodes) > 0 && len(childNodes) > 0 {
-		nodes = append(nodes, h.Div(h.Class("my-2 h-px bg-border"), h.Role("separator")))
-	}
-	return append(nodes, childNodes...)
-}
-
-func renderMobileSections(p NavMenuProps) []g.Node {
-	nodes := []g.Node{}
-	for _, section := range p.Config.Sections {
-		node := renderMobileSection(section, p)
-		if node != nil {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-func renderMobileSection(section NavSection, p NavMenuProps) g.Node {
-	items := []g.Node{}
-	for _, item := range section.Items {
-		node := renderMobileItem(item, p, 0)
-		if node != nil {
-			items = append(items, node)
-		}
-	}
-	if len(items) == 0 && section.Label == "" {
-		return nil
-	}
-
-	children := []g.Node{}
-	if section.Label != "" {
-		children = append(children, h.P(
-			h.Class("px-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"),
-			g.Text(section.Label),
-		))
-	}
-	children = append(children, h.Div(h.Class("w-full divide-y divide-border border-y border-border"), g.Group(items)))
-
-	return h.Div(h.Class("flex flex-col gap-2"), g.Group(children))
-}
-
-func renderMobileItem(item NavItem, p NavMenuProps, level int) g.Node {
-	if !itemVisible(item, p.IsAuthenticated) {
-		return nil
-	}
-
-	switch {
-	case item.IsSeparator():
-		return h.Div(h.Class("mx-2 my-2 h-px bg-border"), h.Role("separator"))
-	case item.HasChildren():
-		return renderMobileParent(item, p, level)
-	case item.Type != "":
-		return renderMobileSpecialItem(item, p)
-	case item.Label == "" || item.Href == "":
-		return nil
-	default:
-		return h.A(
-			h.Href(item.Href),
-			h.Class("block w-full px-4 py-4 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			g.Text(item.Label),
-		)
-	}
-}
-
-func renderMobileParent(item NavItem, p NavMenuProps, level int) g.Node {
-	if item.Label == "" {
-		return nil
-	}
-
-	nodes := mobileSubmenuNodes(item, p, level+1)
-	if len(nodes) == 0 && item.Href == "" {
-		return nil
-	}
-
-	return h.Details(
-		h.Class("bg-background"),
-		h.Summary(
-			h.Class("navmenu-summary flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			h.Span(g.Text(item.Label)),
-			core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{
-				Size: "navmenu-chevron size-4 shrink-0 text-muted-foreground transition-transform",
-			})),
-		),
-		h.Div(
-			h.Class("flex flex-col divide-y divide-border border-t border-border"),
-			g.Group(nodes),
-		),
-	)
-}
-
-func renderMobileSpecialItem(item NavItem, p NavMenuProps) g.Node {
-	switch item.Type {
-	case "theme_toggle":
-		return h.Div(
-			h.Class("flex items-center justify-between px-4 py-4 transition-colors hover:bg-accent/60"),
-			h.Span(h.Class("text-sm text-muted-foreground"), g.Text("Theme")),
-			p.ThemeSelector,
-		)
-	case "user_name":
-		if !p.IsAuthenticated || p.UserName == "" {
-			return nil
-		}
-		return h.Span(h.Class("block px-4 py-4 text-sm font-medium text-foreground"), g.Text(p.UserName))
-	case "logout":
-		if !p.IsAuthenticated {
-			return nil
-		}
-		label := item.Label
-		if label == "" {
-			label = "Logout"
-		}
-		return h.Form(
-			h.Method("post"),
-			h.Action("/logout"),
-			h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-			core.Button(core.ButtonProps{Label: label, Variant: core.VariantGhost, Size: core.SizeSm, Type: "submit", FullWidth: true}),
-		)
-	default:
-		return nil
-	}
-}
-
-func mobileSubmenuNodes(item NavItem, p NavMenuProps, level int) []g.Node {
-	nodes := []g.Node{}
-	if item.Href != "" && item.Label != "" {
-		nodes = append(nodes, h.A(
-			h.Href(item.Href),
-			h.Class("block w-full px-4 py-4 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
-			g.Text(item.Label),
-		))
-	}
-	childNodes := []g.Node{}
-	for _, child := range item.Items {
-		node := renderMobileItem(child, p, level)
-		if node != nil {
-			childNodes = append(childNodes, node)
-		}
-	}
-	if len(nodes) > 0 && len(childNodes) > 0 {
-		nodes = append(nodes, h.Div(h.Class("mx-2 my-2 h-px bg-border"), h.Role("separator")))
-	}
-	return append(nodes, childNodes...)
-}
-
-func itemVisible(item NavItem, isAuthenticated bool) bool {
-	switch item.Visibility {
-	case "guest":
-		return !isAuthenticated
-	case "user":
-		return isAuthenticated
-	default:
-		return true
-	}
 }

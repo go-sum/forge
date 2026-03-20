@@ -52,7 +52,7 @@ func Separator(p SeparatorProps) g.Node {
 			h.Div(
 				h.Class("relative flex flex-col items-center h-full"),
 				h.Span(
-					h.Class("absolute h-full border-l w-[1px]"+decorationClass(p.Decoration)),
+					h.Class("absolute h-full w-[1px] border-l border-border"+decorationClass(p.Decoration)),
 					g.Attr("aria-hidden", "true"),
 				),
 				g.If(p.Label != "",
@@ -69,7 +69,7 @@ func Separator(p SeparatorProps) g.Node {
 		h.Div(
 			h.Class("relative flex items-center w-full"),
 			h.Span(
-				h.Class("absolute w-full border-t h-[1px]"+decorationClass(p.Decoration)),
+				h.Class("absolute h-[1px] w-full border-t border-border"+decorationClass(p.Decoration)),
 				g.Attr("aria-hidden", "true"),
 			),
 			g.If(p.Label != "",

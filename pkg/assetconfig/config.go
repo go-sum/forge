@@ -31,10 +31,10 @@ type Paths struct {
 	PublicPrefix string `yaml:"public_prefix"`
 }
 
-// JSConfig configures JavaScript asset downloading and syncing.
+// JSConfig configures JavaScript asset downloading and bundling.
 type JSConfig struct {
 	Downloads []JSDownload `yaml:"downloads"`
-	Sync      JSSyncConfig `yaml:"sync"`
+	Bundles   []JSBundle   `yaml:"bundles"`
 }
 
 // JSDownload describes a third-party JS file to fetch.
@@ -46,12 +46,10 @@ type JSDownload struct {
 	Target  string `yaml:"target"`
 }
 
-// JSSyncConfig copies local JS source files into the public target directory,
-// preserving files listed in Exclude (e.g. downloaded third-party assets).
-type JSSyncConfig struct {
-	Source  string   `yaml:"source"`
-	Target  string   `yaml:"target"`
-	Exclude []string `yaml:"exclude"`
+// JSBundle describes one browser bundle emitted from a source entrypoint.
+type JSBundle struct {
+	Entry  string `yaml:"entry"`
+	Target string `yaml:"target"`
 }
 
 // CSSConfig describes one CSS compilation step driven by an external tool.
@@ -137,8 +135,10 @@ func (c *Config) normalize() {
 		c.JS.Downloads[i].Target = resolvePublicPath(c.Paths, c.JS.Downloads[i].Target)
 	}
 
-	c.JS.Sync.Source = resolveSourcePath(c.Paths, c.JS.Sync.Source)
-	c.JS.Sync.Target = resolvePublicPath(c.Paths, c.JS.Sync.Target)
+	for i := range c.JS.Bundles {
+		c.JS.Bundles[i].Entry = resolveSourcePath(c.Paths, c.JS.Bundles[i].Entry)
+		c.JS.Bundles[i].Target = resolvePublicPath(c.Paths, c.JS.Bundles[i].Target)
+	}
 
 	for i := range c.CSS {
 		c.CSS[i].Input = resolveSourcePath(c.Paths, c.CSS[i].Input)

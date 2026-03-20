@@ -23,7 +23,7 @@ type Props struct {
 }
 
 // Page renders a complete HTML5 document with shadcn/ui theming, CSRF injection,
-// flash alerts, and deferred script loading (app.js first, then htmx).
+// flash alerts, and deferred script loading for the bundled app runtime and htmx.
 func Page(p Props) g.Node {
 	var navCfg uilayout.NavConfig
 	if config.App != nil {
@@ -53,10 +53,8 @@ func Page(p Props) g.Node {
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
 					Config:          navCfg,
-					CSRFToken:       p.CSRFToken,
 					IsAuthenticated: p.IsAuthenticated,
-					UserName:        p.UserName,
-					ThemeSelector:   interactive.ThemeSelector(),
+					Slots:           pageNavSlots(p),
 				}),
 				h.Main(
 					h.Class("container mx-auto px-4 py-6"),
@@ -68,10 +66,25 @@ func Page(p Props) g.Node {
 					h.Class("fixed bottom-4 right-4 z-50 flex flex-col gap-2"),
 					flash.Render(p.Flash),
 				),
-				// app.js must load before htmx (attaches htmx:afterSettle listener for tabs re-init).
+				// app.js bundles the shared component runtime and must load before htmx.
 				h.Script(h.Src(assets.Path("js/app.js")), h.Defer()),
 				h.Script(h.Src(assets.Path("js/htmx.min.js")), h.Defer()),
 			),
 		),
 	)
+}
+
+func pageNavSlots(p Props) uilayout.NavSlots {
+	return uilayout.NavSlots{
+		"user_name": uilayout.TextSlot(p.UserName),
+		"logout": uilayout.FormSlot(uilayout.FormSlotProps{
+			Label:  "Logout",
+			Action: "/logout",
+			HiddenFields: []uilayout.NavHiddenField{{
+				Name:  "_csrf",
+				Value: p.CSRFToken,
+			}},
+		}),
+		"theme_toggle": uilayout.ControlSlot("Theme", interactive.ThemeSelector()),
+	}
 }

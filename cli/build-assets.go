@@ -14,6 +14,8 @@ import (
 	"starter/pkg/assetconfig"
 	"strings"
 	"syscall"
+
+	"github.com/evanw/esbuild/pkg/api"
 )
 
 type assetBuildOptions struct {
@@ -29,7 +31,7 @@ func runBuildAssets() {
 	fs.SetOutput(os.Stderr)
 
 	configPath := fs.String("config", assetconfig.DefaultConfigPath, "path to assets config file")
-	minify := fs.Bool("minify", false, "minify compiled CSS")
+	minify := fs.Bool("minify", false, "minify compiled CSS and JS")
 	cssOnly := fs.Bool("css-only", false, "build only CSS")
 	jsOnly := fs.Bool("js-only", false, "build only JS assets")
 	spritesOnly := fs.Bool("sprites-only", false, "build only SVG sprites")
@@ -94,7 +96,7 @@ func buildAssets(opts assetBuildOptions) error {
 	}
 
 	if opts.BuildJS {
-		if err := buildJS(cfg.JS); err != nil {
+		if err := buildJS(cfg.JS, opts.Minify); err != nil {
 			return err
 		}
 	}
@@ -111,19 +113,30 @@ func buildAssets(opts assetBuildOptions) error {
 	return nil
 }
 
-func buildJS(cfg assetconfig.JSConfig) error {
+func buildJS(cfg assetconfig.JSConfig, minify bool) error {
+	if err := removeStaleJSOutputs(cfg); err != nil {
+		return err
+	}
+
 	for _, dl := range cfg.Downloads {
 		if err := downloadJS(dl); err != nil {
 			return err
 		}
 	}
-	return syncJS(cfg.Sync)
+
+	for _, bundle := range cfg.Bundles {
+		if err := bundleJS(bundle, minify); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // downloadJS fetches a third-party JS file as described by dl.
 // The download is skipped when the target file already exists, avoiding
 // redundant network round-trips on every dev rebuild. Delete the target
-// file to force a re-download (or run `make js`).
+// file to force a re-download on the next asset build.
 // The version is read from the {NAME}_VERSION environment variable first,
 // falling back to the value in .assets.yaml.
 func downloadJS(dl assetconfig.JSDownload) error {
@@ -170,43 +183,69 @@ func resolveVersion(name, defaultVersion string) string {
 	return defaultVersion
 }
 
-func syncJS(cfg assetconfig.JSSyncConfig) error {
-	if cfg.Source == "" || cfg.Target == "" {
+func bundleJS(cfg assetconfig.JSBundle, minify bool) error {
+	if cfg.Entry == "" || cfg.Target == "" {
 		return nil
 	}
-	if err := os.MkdirAll(cfg.Target, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", cfg.Target, err)
+	if err := os.MkdirAll(filepath.Dir(cfg.Target), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(cfg.Target), err)
 	}
 
-	excluded := make(map[string]bool, len(cfg.Exclude))
-	for _, e := range cfg.Exclude {
-		excluded[e] = true
+	result := api.Build(api.BuildOptions{
+		EntryPoints:       []string{cfg.Entry},
+		Bundle:            true,
+		Write:             true,
+		Outfile:           cfg.Target,
+		Platform:          api.PlatformBrowser,
+		Format:            api.FormatIIFE,
+		TreeShaking:       api.TreeShakingTrue,
+		Target:            api.ES2017,
+		MinifyWhitespace:  minify,
+		MinifyIdentifiers: minify,
+		MinifySyntax:      minify,
+		LegalComments:     api.LegalCommentsNone,
+	})
+	if len(result.Errors) > 0 {
+		return fmt.Errorf("bundle %s: %s", cfg.Entry, result.Errors[0].Text)
 	}
+	return nil
+}
 
-	// Remove stale outputs not covered by downloads or excluded explicitly.
-	outputs, err := filepath.Glob(filepath.Join(cfg.Target, "*.js"))
-	if err != nil {
-		return fmt.Errorf("glob %s: %w", cfg.Target, err)
-	}
-	for _, path := range outputs {
-		if excluded[filepath.Base(path)] {
+func removeStaleJSOutputs(cfg assetconfig.JSConfig) error {
+	managed := make(map[string]bool, len(cfg.Downloads)+len(cfg.Bundles))
+	dirs := make(map[string]bool, len(cfg.Downloads)+len(cfg.Bundles))
+
+	for _, dl := range cfg.Downloads {
+		if dl.Target == "" {
 			continue
 		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("remove %s: %w", path, err)
+		managed[filepath.Clean(dl.Target)] = true
+		dirs[filepath.Dir(dl.Target)] = true
+	}
+	for _, bundle := range cfg.Bundles {
+		if bundle.Target == "" {
+			continue
+		}
+		managed[filepath.Clean(bundle.Target)] = true
+		dirs[filepath.Dir(bundle.Target)] = true
+	}
+
+	for dir := range dirs {
+		outputs, err := filepath.Glob(filepath.Join(dir, "*.js"))
+		if err != nil {
+			return fmt.Errorf("glob %s: %w", dir, err)
+		}
+		for _, path := range outputs {
+			clean := filepath.Clean(path)
+			if managed[clean] {
+				continue
+			}
+			if err := os.Remove(clean); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("remove %s: %w", clean, err)
+			}
 		}
 	}
 
-	sources, err := filepath.Glob(filepath.Join(cfg.Source, "*.js"))
-	if err != nil {
-		return fmt.Errorf("glob %s: %w", cfg.Source, err)
-	}
-	for _, src := range sources {
-		dst := filepath.Join(cfg.Target, filepath.Base(src))
-		if err := copyFile(src, dst); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

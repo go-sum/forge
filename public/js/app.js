@@ -1,226 +1,297 @@
-// Vanilla JS interaction handlers.
-// Uses event delegation (no inline onclick attrs) for CSP 'script-src self' compliance.
-// All hooks use data-* attributes; no Alpine.js required.
-(function () {
-
-  function sidebarPanelID(id) {
-    return id + '-panel';
+(() => {
+  // static/js/lib/dom.js
+  var delegates = /* @__PURE__ */ new Map();
+  var upgradeHandlers = [];
+  var delegatesBound = false;
+  function toElement(node) {
+    if (!node) {
+      return null;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      return node;
+    }
+    return node.parentElement || null;
   }
-
-  function sidebarBackdropID(id) {
-    return id + '-backdrop';
+  function find(root, selector) {
+    var scope = root || document;
+    if (!scope || !selector) {
+      return null;
+    }
+    if (scope.matches && scope.matches(selector)) {
+      return scope;
+    }
+    if (!scope.querySelector) {
+      return null;
+    }
+    return scope.querySelector(selector);
   }
-
-  // --- Theme ---
-  function cycleTheme() {
-    const order = ['light', 'dark', 'system'];
-    const html = document.documentElement;
-    const cur = html.dataset.themePreference || 'system';
-    const next = order[(order.indexOf(cur) + 1) % order.length];
-    html.dataset.themePreference = next;
-    localStorage.setItem('themePreference', next);
-    html.classList.toggle('dark',
-      next === 'dark' || (next === 'system' && matchMedia('(prefers-color-scheme: dark)').matches));
+  function findAll(root, selector) {
+    var scope = root || document;
+    if (!scope || !selector || !scope.querySelectorAll) {
+      return [];
+    }
+    var matches = Array.from(scope.querySelectorAll(selector));
+    if (scope.matches && scope.matches(selector)) {
+      matches.unshift(scope);
+    }
+    return matches;
   }
-
-  // --- Tabs ---
-  function activateTab(container, trigger, focus) {
-    const triggers = Array.from(container.querySelectorAll('[role="tab"]'));
-    const panels = Array.from(container.querySelectorAll('[role="tabpanel"]'));
-    const activeClasses = ['bg-background', 'text-foreground', 'shadow'];
-
-    triggers.forEach(function (candidate) {
-      const active = candidate === trigger;
-      candidate.setAttribute('aria-selected', active ? 'true' : 'false');
-      candidate.setAttribute('tabindex', active ? '0' : '-1');
-      activeClasses.forEach(function (className) {
-        candidate.classList.toggle(className, active);
+  function closest(target, selector) {
+    var element = toElement(target);
+    if (!element || !selector || !element.closest) {
+      return null;
+    }
+    return element.closest(selector);
+  }
+  function remove(node) {
+    if (node && typeof node.remove === "function") {
+      node.remove();
+    }
+  }
+  function toggleClass(node, name, on) {
+    if (node && node.classList) {
+      node.classList.toggle(name, on);
+    }
+  }
+  function data(node, key) {
+    if (!node || !node.dataset) {
+      return "";
+    }
+    return node.dataset[key] || "";
+  }
+  function delegate(eventName, selector, handler) {
+    var handlers = delegates.get(eventName) || [];
+    handlers.push({ selector, handler });
+    delegates.set(eventName, handlers);
+  }
+  function registerUpgrade(handler) {
+    upgradeHandlers.push(handler);
+  }
+  function bindDelegates() {
+    if (delegatesBound) {
+      return;
+    }
+    delegatesBound = true;
+    delegates.forEach(function(handlers, eventName) {
+      document.addEventListener(eventName, function(event) {
+        handlers.forEach(function(entry) {
+          if (!entry.selector) {
+            entry.handler(event, null);
+            return;
+          }
+          var match = closest(event.target, entry.selector);
+          if (match) {
+            entry.handler(event, match);
+          }
+        });
       });
     });
-
-    panels.forEach(function (panel) {
-      panel.hidden = panel.dataset.tab !== trigger.dataset.tab;
+  }
+  function upgrade(root) {
+    bindDelegates();
+    var scope = root || document;
+    upgradeHandlers.forEach(function(handler) {
+      handler(scope);
     });
+  }
 
+  // static/js/components/dialog.js
+  delegate("click", "[data-dialog-open]", function(event, opener) {
+    var dialog = document.getElementById(opener.dataset.dialogOpen);
+    if (dialog) {
+      dialog.showModal();
+    }
+  });
+  delegate("click", "[data-dialog-close]", function(event, closer) {
+    var dialog = closer.closest("dialog");
+    if (dialog) {
+      dialog.close();
+    }
+  });
+
+  // static/js/components/feedback.js
+  function queueToastRemoval(node) {
+    setTimeout(function() {
+      if (!node.parentNode) {
+        return;
+      }
+      node.style.transition = "opacity 300ms ease-out";
+      node.style.opacity = "0";
+      setTimeout(function() {
+        remove(node);
+      }, 300);
+    }, 5e3);
+  }
+  delegate("click", "[data-dismiss]", function(event, dismiss) {
+    var dismissible = dismiss.closest("[data-dismissible]");
+    if (dismissible) {
+      remove(dismissible);
+    }
+  });
+  delegate("click", "[data-toast-trigger]", function(event, trigger) {
+    var tmpl = document.getElementById(trigger.dataset.toastTrigger);
+    var container = document.getElementById("toast-container");
+    var content = tmpl && tmpl.content ? tmpl.content.firstElementChild : null;
+    if (!container || !content) {
+      return;
+    }
+    var node = content.cloneNode(true);
+    container.appendChild(node);
+    queueToastRemoval(node);
+  });
+
+  // static/js/components/fileupload.js
+  function updateFileName(zone, input) {
+    var display = find(zone, "[data-file-name]");
+    if (!display) {
+      return;
+    }
+    var files = input.files;
+    if (files.length === 0) {
+      display.textContent = "";
+    } else if (files.length === 1) {
+      display.textContent = files[0].name;
+    } else {
+      display.textContent = files.length + " files selected";
+    }
+  }
+  function clearDragging(zone) {
+    delete zone.dataset.dragging;
+  }
+  delegate("dragover", "[data-file-upload]", function(event, zone) {
+    event.preventDefault();
+    zone.dataset.dragging = "";
+  });
+  delegate("dragleave", "[data-file-upload]", function(event, zone) {
+    if (zone.contains(event.relatedTarget)) {
+      return;
+    }
+    clearDragging(zone);
+  });
+  delegate("drop", "[data-file-upload]", function(event, zone) {
+    event.preventDefault();
+    clearDragging(zone);
+    var input = find(zone, 'input[type="file"]');
+    if (!input || input.disabled) {
+      return;
+    }
+    var incoming = event.dataTransfer.files;
+    var dt = new DataTransfer();
+    var limit = input.multiple ? incoming.length : 1;
+    for (var i = 0; i < limit; i++) {
+      dt.items.add(incoming[i]);
+    }
+    input.files = dt.files;
+    updateFileName(zone, input);
+  });
+  delegate("change", 'input[type="file"]', function(event, input) {
+    var zone = closest(input, "[data-file-upload]");
+    if (!zone) {
+      return;
+    }
+    updateFileName(zone, input);
+  });
+
+  // static/js/components/popover.js
+  delegate("click", null, function(event) {
+    document.querySelectorAll("details[data-popover][open]").forEach(function(details) {
+      if (!details.contains(event.target)) {
+        details.open = false;
+      }
+    });
+  });
+
+  // static/js/components/tabs.js
+  var activeClasses = ["bg-background", "text-foreground", "shadow"];
+  function activateTab(container, trigger, focus) {
+    var triggers = findAll(container, '[role="tab"]');
+    var panels = findAll(container, '[role="tabpanel"]');
+    var activeTab = data(trigger, "tab");
+    triggers.forEach(function(candidate) {
+      var active = candidate === trigger;
+      candidate.setAttribute("aria-selected", active ? "true" : "false");
+      candidate.setAttribute("tabindex", active ? "0" : "-1");
+      activeClasses.forEach(function(className) {
+        toggleClass(candidate, className, active);
+      });
+    });
+    panels.forEach(function(panel) {
+      panel.hidden = data(panel, "tab") !== activeTab;
+    });
     if (focus) {
       trigger.focus();
     }
   }
-
-  function initTabs(container) {
-    if (container.dataset.tabsInitialized === 'true') {
+  function mount(container) {
+    if (container.dataset.tabsInitialized === "true") {
       return;
     }
-
-    const triggers = Array.from(container.querySelectorAll('[role="tab"]'));
+    var triggers = findAll(container, '[role="tab"]');
     if (!triggers.length) {
       return;
     }
-
-    container.dataset.tabsInitialized = 'true';
-    const selected = triggers.find(function (trigger) {
-      return trigger.getAttribute('aria-selected') === 'true';
+    container.dataset.tabsInitialized = "true";
+    var selected = triggers.find(function(trigger) {
+      return trigger.getAttribute("aria-selected") === "true";
     }) || triggers[0];
-
     activateTab(container, selected, false);
-
-    triggers.forEach(function (trigger, index) {
-      trigger.addEventListener('click', function () {
+    triggers.forEach(function(trigger, index) {
+      trigger.addEventListener("click", function() {
         activateTab(container, trigger, false);
       });
-
-      trigger.addEventListener('keydown', function (event) {
-        let nextIndex = index;
-        if (event.key === 'ArrowRight') {
+      trigger.addEventListener("keydown", function(event) {
+        var nextIndex = index;
+        if (event.key === "ArrowRight") {
           nextIndex = (index + 1) % triggers.length;
-        } else if (event.key === 'ArrowLeft') {
+        } else if (event.key === "ArrowLeft") {
           nextIndex = (index - 1 + triggers.length) % triggers.length;
-        } else if (event.key === 'Home') {
+        } else if (event.key === "Home") {
           nextIndex = 0;
-        } else if (event.key === 'End') {
+        } else if (event.key === "End") {
           nextIndex = triggers.length - 1;
         } else {
           return;
         }
-
         event.preventDefault();
         activateTab(container, triggers[nextIndex], true);
       });
     });
   }
-
-  document.querySelectorAll('[data-tabs]').forEach(initTabs);
-  document.addEventListener('htmx:afterSettle', function (e) {
-    if (e.detail.elt && e.detail.elt.querySelectorAll) {
-      e.detail.elt.querySelectorAll('[data-tabs]').forEach(initTabs);
-    }
+  registerUpgrade(function(root) {
+    findAll(root, "[data-tabs]").forEach(mount);
   });
 
-  // --- Delegated click handler ---
-  document.addEventListener('click', function (e) {
-    // Dismiss alert / toast — removes element from DOM.
-    var dismiss = e.target.closest('[data-dismiss]');
-    if (dismiss) {
-      var dismissible = dismiss.closest('[data-dismissible]');
-      if (dismissible) dismissible.remove();
+  // static/js/components/theme.js
+  function cycleTheme() {
+    var order = ["light", "dark", "system"];
+    var html = document.documentElement;
+    var current = html.dataset.themePreference || "system";
+    var next = order[(order.indexOf(current) + 1) % order.length];
+    html.dataset.themePreference = next;
+    localStorage.setItem("themePreference", next);
+    html.classList.toggle(
+      "dark",
+      next === "dark" || next === "system" && matchMedia("(prefers-color-scheme: dark)").matches
+    );
+  }
+  delegate("click", "[data-theme-toggle]", function() {
+    cycleTheme();
+  });
+
+  // static/js/components.js
+  function init() {
+    if (document.documentElement.dataset.componentsInitialized === "true") {
       return;
     }
-
-    // Toast trigger — clone <template> content into #toast-container with auto-dismiss.
-    var toastBtn = e.target.closest('[data-toast-trigger]');
-    if (toastBtn) {
-      var tmpl = document.getElementById(toastBtn.dataset.toastTrigger);
-      var container = document.getElementById('toast-container');
-      if (tmpl && container) {
-        var node = tmpl.content.firstElementChild.cloneNode(true);
-        container.appendChild(node);
-        setTimeout(function () {
-          if (!node.parentNode) return;
-          node.style.transition = 'opacity 300ms ease-out';
-          node.style.opacity = '0';
-          setTimeout(function () { node.remove(); }, 300);
-        }, 5000);
+    document.documentElement.dataset.componentsInitialized = "true";
+    upgrade(document);
+    document.addEventListener("htmx:afterSettle", function(event) {
+      if (event.detail && event.detail.elt) {
+        upgrade(event.detail.elt);
       }
-      return;
-    }
-
-    // Theme toggle button.
-    if (e.target.closest('[data-theme-toggle]')) {
-      cycleTheme();
-      return;
-    }
-
-    // Open native <dialog>.
-    var opener = e.target.closest('[data-dialog-open]');
-    if (opener) {
-      var dlg = document.getElementById(opener.dataset.dialogOpen);
-      if (dlg) dlg.showModal();
-      return;
-    }
-
-    // Close native <dialog> — walks up to the nearest <dialog> ancestor.
-    if (e.target.closest('[data-dialog-close]')) {
-      var dlgClose = e.target.closest('dialog');
-      if (dlgClose) dlgClose.close();
-      return;
-    }
-
-    // Sidebar toggle (mobile hamburger).
-    var sidebarToggle = e.target.closest('[data-sidebar-toggle]');
-    if (sidebarToggle) {
-      var sidebarID = sidebarToggle.dataset.sidebarToggle || 'sidebar';
-      var sidebar = document.getElementById(sidebarPanelID(sidebarID));
-      var backdrop = document.getElementById(sidebarBackdropID(sidebarID));
-      if (sidebar) sidebar.classList.toggle('-translate-x-full');
-      if (backdrop) backdrop.classList.toggle('hidden');
-      return;
-    }
-
-    // Sidebar close (backdrop click).
-    var sidebarCloseTrigger = e.target.closest('[data-sidebar-close]');
-    if (sidebarCloseTrigger) {
-      var closeID = sidebarCloseTrigger.dataset.sidebarClose || 'sidebar';
-      var sidebarClose = document.getElementById(sidebarPanelID(closeID));
-      var backdropClose = document.getElementById(sidebarBackdropID(closeID));
-      if (sidebarClose) sidebarClose.classList.add('-translate-x-full');
-      if (backdropClose) backdropClose.classList.add('hidden');
-      return;
-    }
-
-    // Click outside an open popover/dropdown (<details data-popover>) to close it.
-    document.querySelectorAll('details[data-popover][open]').forEach(function (d) {
-      if (!d.contains(e.target)) d.open = false;
     });
-  });
-
-  // --- File upload ---
-  function updateFileName(zone, input) {
-    var display = zone.querySelector('[data-file-name]');
-    if (!display) return;
-    var files = input.files;
-    if (files.length === 0) {
-      display.textContent = '';
-    } else if (files.length === 1) {
-      display.textContent = files[0].name;
-    } else {
-      display.textContent = files.length + ' files selected';
-    }
   }
 
-  document.addEventListener('dragover', function (e) {
-    var zone = e.target.closest('[data-file-upload]');
-    if (!zone) return;
-    e.preventDefault();
-    zone.dataset.dragging = '';
-  });
-
-  document.addEventListener('dragleave', function (e) {
-    var zone = e.target.closest('[data-file-upload]');
-    if (!zone || zone.contains(e.relatedTarget)) return;
-    delete zone.dataset.dragging;
-  });
-
-  document.addEventListener('drop', function (e) {
-    var zone = e.target.closest('[data-file-upload]');
-    if (!zone) return;
-    e.preventDefault();
-    delete zone.dataset.dragging;
-    var input = zone.querySelector('input[type="file"]');
-    if (!input || input.disabled) return;
-    var dt = new DataTransfer();
-    var incoming = e.dataTransfer.files;
-    var limit = input.multiple ? incoming.length : 1;
-    for (var i = 0; i < limit; i++) dt.items.add(incoming[i]);
-    input.files = dt.files;
-    updateFileName(zone, input);
-  });
-
-  document.addEventListener('change', function (e) {
-    var input = e.target.closest('input[type="file"]');
-    if (!input) return;
-    var zone = input.closest('[data-file-upload]');
-    if (!zone) return;
-    updateFileName(zone, input);
-  });
-
+  // static/js/app.js
+  init();
 })();

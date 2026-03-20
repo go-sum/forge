@@ -9,7 +9,7 @@ type popoverNS struct{}
 
 // Popover groups the CSS-first popover sub-components under a namespace.
 // It uses native <details>/<summary> for click-toggle with no JavaScript.
-// data-popover hooks the shared outside-click delegated listener in js/app.js.
+// data-popover hooks the shared delegated runtime in static/js/components.js.
 var Popover popoverNS
 
 // PopoverRootProps configures the popover root element.

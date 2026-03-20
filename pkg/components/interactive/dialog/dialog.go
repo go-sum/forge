@@ -1,6 +1,6 @@
 // Package dialog provides a native HTML <dialog> modal component.
 // Trigger and content are linked by a shared ID string.
-// The delegated click handler in js/app.js calls showModal()/close()
+// The delegated click handler in static/js/components.js calls showModal()/close()
 // in response to data-dialog-open and data-dialog-close attributes.
 // Native <dialog> provides: focus trap, ESC-to-close, aria-modal, and backdrop.
 package dialog
@@ -25,7 +25,7 @@ func Root(children ...g.Node) g.Node {
 }
 
 // Trigger renders a wrapper that opens the <dialog> with the given ID
-// when clicked. The delegated handler in app.js calls showModal().
+// when clicked. The delegated handler in static/js/components.js calls showModal().
 func Trigger(dialogID string, children ...g.Node) g.Node {
 	return h.Div(
 		g.Attr("data-dialog-open", dialogID),
@@ -84,7 +84,7 @@ func Description(dialogID string, children ...g.Node) g.Node {
 }
 
 // Close renders a wrapper that closes the nearest parent <dialog> on click.
-// The delegated handler in app.js calls dialog.close().
+// The delegated handler in static/js/components.js calls dialog.close().
 func Close(children ...g.Node) g.Node {
 	return h.Div(
 		g.Attr("data-dialog-close", ""),

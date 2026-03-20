@@ -280,9 +280,9 @@ This allows inserting new tasks within any phase without renumbering downstream 
 > Type-safe HTML using gomponents + daisyUI. No `html/template`. Components are Go
 > functions returning `g.Node`. All pages compose `pkg/ui/*` primitives.
 
-- [x] **T1101** — Alpine.js registry expansion
-  - Files: `static/js/app.js`
-  - Cover: Added `confirmDelete` (window.confirm for delete buttons), `sidebarDrawer` (isOpen/toggle/close for drawer), `dropdown` (isOpen/toggle/close for future navbar menus) alongside existing `dismissible`.
+- [x] **T1101** — Shared JS runtime split and bundling
+  - Files: `static/js/app.js`, `static/js/components.js`, `public/js/app.js`
+  - Cover: `static/js/components.js` owns the reusable delegated handlers consumed by `pkg/components/`. `static/js/app.js` remains the app entrypoint and imports that module. `go run ./cli build-assets` bundles them into a single `public/js/app.js` for runtime delivery.
 
 - [x] **T1102** — `internal/view/layout` — Base HTML shell + app navbar
   - Files: `internal/view/layout/base.go`, `internal/view/layout/navbar.go`

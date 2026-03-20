@@ -4,7 +4,7 @@
 //   - Hover variant (Root/Trigger/Content): shown on CSS hover and focus-within.
 //   - Click variant (ClickRoot/ClickTrigger/ClickContent): shown on click via
 //     native <details>/<summary> toggle. Useful for touch/mobile where hover
-//     is unavailable. Shares the data-popover outside-click listener in app.js.
+//     is unavailable. Shares the data-popover outside-click listener in static/js/components.js.
 package tooltip
 
 import (
@@ -50,7 +50,7 @@ func Content(id string, children ...g.Node) g.Node {
 // ── Click variant ────────────────────────────────────────────────────────────
 
 // ClickRoot renders a click-activated tooltip using core.Popover.Root.
-// data-popover hooks the shared outside-click listener in js/app.js.
+// data-popover hooks the shared outside-click listener in static/js/components.js.
 func ClickRoot(children ...g.Node) g.Node {
 	return core.Popover.Root(core.PopoverRootProps{
 		Class: "relative inline-flex",

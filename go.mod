@@ -3,6 +3,7 @@ module starter
 go 1.26.0
 
 require (
+	github.com/evanw/esbuild v0.25.12
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0

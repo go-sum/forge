@@ -9,11 +9,9 @@ js:
       version: "2.0.4"       # HTMX_VERSION env var overrides at build time
       url: "https://unpkg.com/htmx.org@{version}/dist/htmx.min.js"
       target: js/htmx.min.js
-  sync:
-    source: js/
-    target: js/
-    exclude:
-      - htmx.min.js           # managed by downloads above
+  bundles:
+    - entry: js/app.js
+      target: js/app.js
 
 css:
   - tool: tailwindcss

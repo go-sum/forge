@@ -1,6 +1,6 @@
 // Package tabs provides an accessible tabs component using ARIA roles and data attributes.
 // The initial active state is rendered server-side (SSR-ready, works without JS).
-// app.js wires click and keyboard navigation at runtime.
+// static/js/components.js wires click and keyboard navigation at runtime.
 package tabs
 
 import (

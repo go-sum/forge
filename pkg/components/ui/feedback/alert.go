@@ -62,7 +62,7 @@ var Alert alertNS
 
 // Root renders a shadcn/ui-style alert. When Dismissible is true, a close
 // button is added; clicking it removes the element from the DOM via the
-// delegated data-dismiss handler in js/app.js.
+// delegated data-dismiss handler in static/js/components.js.
 func (alertNS) Root(p AlertProps, children ...g.Node) g.Node {
 	cls := "relative w-full rounded-lg border px-4 py-3 text-sm grid grid-cols-[0_1fr] gap-y-0.5 items-start " + alertVariantClasses(p.Variant)
 	nodes := []g.Node{

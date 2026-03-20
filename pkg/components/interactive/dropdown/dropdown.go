@@ -1,6 +1,6 @@
 // Package dropdown provides a native HTML dropdown menu using <details>/<summary>.
 // Open/close is handled natively by the browser. A delegated outside-click
-// listener in js/app.js closes any open [data-popover] details element
+// listener in static/js/components.js closes any open [data-popover] details element
 // when the user clicks outside of it. The dropdown is a styled menu variant
 // of the generic popover pattern (pkg/components/interactive/popover).
 package dropdown

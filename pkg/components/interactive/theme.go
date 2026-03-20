@@ -69,8 +69,8 @@ func ThemeScript() g.Node {
 // change is instant without a page reload.
 //
 // Icon visibility is controlled by CSS rules keyed on data-theme-preference on
-// <html>; no inline JS is needed.  The delegated click handler in
-// js/app.js responds to data-theme-toggle.
+// <html>; no inline JS is needed. The delegated click handler in
+// static/js/components.js responds to data-theme-toggle.
 func ThemeSelector() g.Node {
 	return h.Button(
 		g.Attr("data-theme-toggle", ""),

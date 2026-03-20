@@ -18,16 +18,29 @@ Your stylesheet must include the Tailwind utilities used by files under `pkg/com
 
 ## 2. JavaScript contract
 
-Your page runtime must include the delegated handlers from `static/js/app.js` for:
+Your page runtime must include the delegated handlers from `static/js/components.js`.
+That shared entry now fans out to focused behavior modules plus a tiny internal DOM toolkit.
+In the starter app, `go run ./cli build-assets` bundles that module into `public/js/app.js`.
+Those handlers provide:
 
 - tabs keyboard and activation behavior
+- file-upload drag/drop and filename updates
 - dismissible alerts and toasts
 - theme toggling
 - dialog open/close hooks
-- sidebar toggles via `data-sidebar-toggle` / `data-sidebar-close`
-- dropdown outside-click closing
+- popover, dropdown, and click-tooltip outside-click closing
 
-## 3. Registry installation
+## 3. Progressive Enhancement Tiers
+
+The component library follows three explicit tiers:
+
+1. **Native-first** — pure HTML/CSS components that work without any JS runtime.
+2. **HTMX-first** — HTML-over-the-wire patterns built with typed `pkg/components/patterns/htmx` helpers.
+3. **Islands / custom elements** — narrow opt-in client components for cases where native HTML plus HTMX is not enough.
+
+Default to the lowest tier that solves the problem. Most components should stop at Tier 1 or Tier 2.
+
+## 4. Registry installation
 
 Use `starter/pkg/components/install` to populate either isolated registries or the package-global defaults.
 

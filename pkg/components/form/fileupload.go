@@ -30,7 +30,7 @@ func fileUploadClass(hasError bool) string {
 }
 
 // FileUpload renders a styled drag-and-drop drop zone wrapping a hidden <input type="file">.
-// JS in js/app.js delegates drag/drop/change events via [data-file-upload].
+// static/js/components.js delegates drag/drop/change events via [data-file-upload].
 func FileUpload(p FileUploadProps, children ...g.Node) g.Node {
 	// Label (drop zone) attributes
 	nodes := []g.Node{

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestIconBadgeAndLabelRenderAccessibleMarkup(t *testing.T) {
@@ -27,7 +27,7 @@ func TestIconBadgeAndLabelRenderAccessibleMarkup(t *testing.T) {
 
 func TestSeparatorAndSkeletonRenderExpectedClasses(t *testing.T) {
 	separator := testutil.RenderNode(t, Separator(SeparatorProps{Orientation: OrientationVertical, Decoration: DecorationDashed, Label: "OR"}))
-	checks := []string{`aria-orientation="vertical"`, `border-dashed`, `>OR</span>`}
+	checks := []string{`aria-orientation="vertical"`, `border-border`, `border-dashed`, `>OR</span>`}
 	for _, check := range checks {
 		if !strings.Contains(separator, check) {
 			t.Fatalf("Separator() output missing %q in %s", check, separator)

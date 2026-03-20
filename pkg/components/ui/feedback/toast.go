@@ -91,9 +91,10 @@ func toastPositionClasses(p ToastPosition) string {
 // Toast renders a toast notification. When Position is set, the toast is
 // fixed-positioned and self-contained. When Position is "" (zero value), the
 // toast renders as a plain card suitable for injection into a container div.
-// For HTMX out-of-band swaps, add hx-swap-oob="true" via Extra.
+// For HTMX out-of-band swaps, add hx-swap-oob via Extra or use
+// pkg/components/patterns/htmx.ToastOOB.
 func Toast(p ToastProps) g.Node {
-	cardCls := "rounded-lg border p-4 shadow-md " + toastVariantClasses(p.Variant)
+	cardCls := "relative rounded-lg border p-4 shadow-md " + toastVariantClasses(p.Variant)
 	var fixedCls string
 	if p.Position != "" {
 		fixedCls = "fixed z-50 max-w-sm " + toastPositionClasses(p.Position) + " "

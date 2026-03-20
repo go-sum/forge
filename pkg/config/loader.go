@@ -48,6 +48,9 @@ type Options struct {
 	// over environment variables (site titles, logo paths, etc. belong to the app,
 	// not the deployment). Missing files are silently skipped.
 	ContentFiles []ContentFile
+
+	// ValidatorSetup registers any custom validations needed by the caller's schema.
+	ValidatorSetup func(v *validator.Validate)
 }
 
 // Load merges configuration from multiple sources into target and validates it.
@@ -120,6 +123,9 @@ func Load(target any, opts Options) error {
 	// 6. Per-file validation: each ContentFile with a non-nil Target gets its
 	// own validation pass so errors are attributed to the specific file.
 	v := validator.New()
+	if opts.ValidatorSetup != nil {
+		opts.ValidatorSetup(v)
+	}
 	for _, cf := range opts.ContentFiles {
 		if cf.Target == nil {
 			continue

@@ -1,5 +1,6 @@
-// Package htmx provides helpers for reading HTMX request headers and writing
-// HTMX response headers. It depends only on net/http — no framework import.
+// Package htmx provides typed attribute builders plus request/response helpers
+// for server-first HTMX components. It depends only on net/http and pkg/components
+// tiers below patterns.
 package htmx
 
 import "net/http"

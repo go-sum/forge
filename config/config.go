@@ -1,8 +1,8 @@
 package config
 
 import (
+	uilayout "starter/pkg/components/ui/layout"
 	pkgconfig "starter/pkg/config"
-	layout "starter/pkg/components/ui/layout"
 )
 
 // envPrefix is stripped from environment variable names before key mapping.
@@ -17,14 +17,14 @@ type CSPHashesConfig struct {
 }
 
 type Config struct {
-	App       AppConfig       `koanf:"app"`
-	Server    ServerConfig    `koanf:"server"`
-	Database  DatabaseConfig  `koanf:"database"`
-	Auth      AuthConfig      `koanf:"auth"`
-	Log       LogConfig       `koanf:"log"`
-	Site      SiteConfig      `koanf:"site"`
-	Nav       layout.NavConfig `koanf:"nav"`
-	CSPHashes CSPHashesConfig `koanf:"csp_hashes"`
+	App       AppConfig          `koanf:"app"`
+	Server    ServerConfig       `koanf:"server"`
+	Database  DatabaseConfig     `koanf:"database"`
+	Auth      AuthConfig         `koanf:"auth"`
+	Log       LogConfig          `koanf:"log"`
+	Site      SiteConfig         `koanf:"site"`
+	Nav       uilayout.NavConfig `koanf:"nav"`
+	CSPHashes CSPHashesConfig    `koanf:"csp_hashes"`
 }
 
 type AppConfig struct {
@@ -80,9 +80,10 @@ type SiteConfig struct {
 func Init(baseDir string) error {
 	cfg := &Config{}
 	if err := pkgconfig.Load(cfg, pkgconfig.Options{
-		EnvPrefix: envPrefix,
-		BaseDir:   baseDir,
-		EnvKey:    "app.env",
+		EnvPrefix:      envPrefix,
+		BaseDir:        baseDir,
+		EnvKey:         "app.env",
+		ValidatorSetup: uilayout.RegisterNavValidations,
 		ContentFiles: []pkgconfig.ContentFile{
 			{Filename: "site.yaml", Target: &cfg.Site},
 			{Filename: "nav.yaml", Target: &cfg.Nav},
