@@ -31,14 +31,21 @@ func Page() g.Node {
 		h.Class("max-w-4xl mx-auto space-y-12 py-8"),
 		// Header
 		h.Div(
-			h.H1(h.Class("text-3xl font-bold mb-1"), g.Text("Component Examples")),
-			h.P(h.Class("text-muted-foreground"), g.Text("Live reference for every visual component in pkg/components/.")),
+			h.Class("space-y-2"),
+			h.H1(h.Class("text-2xl font-bold"), g.Text("Component Examples")),
+			h.P(
+				h.Class("max-w-2xl text-sm text-muted-foreground"),
+				g.Text("Live reference for every visual component in pkg/components/, arranged to match the starter's default visual language."),
+			),
 		),
 		// Table of Contents
 		data.Card.Root(
-			data.Card.Header(data.Card.Title(g.Text("Contents"))),
+			data.Card.Header(
+				data.Card.Title(g.Text("Contents")),
+				data.Card.Description(g.Text("Jump to a component family and compare the preferred variants side by side.")),
+			),
 			data.Card.Content(
-				h.Ul(h.Class("columns-3 gap-x-6 text-sm space-y-1"),
+				h.Ul(h.Class("columns-1 gap-x-6 space-y-1 text-sm sm:columns-2 lg:columns-3"),
 					tocItem("accordion", "Accordion"),
 					tocItem("alerts", "Alerts"),
 					tocItem("avatars", "Avatars"),
@@ -93,7 +100,7 @@ func Page() g.Node {
 
 		// ── Alerts ──────────────────────────────────────
 		section("alerts", "Alerts",
-			h.Div(h.Class("grid grid-cols-2 gap-4"),
+			h.Div(h.Class("grid gap-4 md:grid-cols-2"),
 				example("Default (dismissible)", feedback.Alert.Root(
 					feedback.AlertProps{Variant: feedback.AlertDefault, Dismissible: true},
 					feedback.Alert.Title(g.Text("Note")),
@@ -109,7 +116,7 @@ func Page() g.Node {
 
 		// ── Avatars ──────────────────────────────────────
 		section("avatars", "Avatars",
-			h.Div(h.Class("grid grid-cols-2 gap-4"),
+			h.Div(h.Class("grid gap-4 md:grid-cols-2"),
 				example("Image and placeholder", h.Div(
 					h.Class("flex gap-4"),
 					core.Avatar.Image(componentassets.PublicPath("img/svg/avatar.svg"), "shadcn"),
@@ -163,11 +170,12 @@ func Page() g.Node {
 
 		// ── Buttons ──────────────────────────────────────
 		section("buttons", "Buttons",
-			h.Div(h.Class("grid grid-cols-2 gap-4"),
+			h.Div(h.Class("grid gap-4 md:grid-cols-2"),
 				example("Variants", h.Div(
 					h.Class("flex flex-wrap gap-2"),
 					core.Button(core.ButtonProps{Label: "Default"}),
 					core.Button(core.ButtonProps{Label: "Destructive", Variant: core.VariantDestructive}),
+					core.Button(core.ButtonProps{Label: "Destructive Ghost", Variant: core.VariantDestructiveGhost}),
 					core.Button(core.ButtonProps{Label: "Outline", Variant: core.VariantOutline}),
 					core.Button(core.ButtonProps{Label: "Secondary", Variant: core.VariantSecondary}),
 					core.Button(core.ButtonProps{Label: "Ghost", Variant: core.VariantGhost}),
@@ -498,7 +506,7 @@ func Page() g.Node {
 						data.Table.Head(g.Text("")),
 					),
 				),
-				data.Table.Body(
+				data.Table.Body(data.BodyProps{},
 					data.Table.Row(data.RowProps{},
 						data.Table.Cell(g.Text("Alice Johnson")),
 						data.Table.Cell(g.Text("Admin")),
@@ -506,7 +514,7 @@ func Page() g.Node {
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
 								core.Button(core.ButtonProps{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
-								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructiveGhost, Size: core.SizeSm}),
 							),
 						),
 					),
@@ -517,7 +525,7 @@ func Page() g.Node {
 						data.Table.Cell(
 							h.Div(h.Class("flex justify-end gap-2"),
 								core.Button(core.ButtonProps{Label: "Edit", Variant: core.VariantGhost, Size: core.SizeSm}),
-								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructive, Size: core.SizeSm}),
+								core.Button(core.ButtonProps{Label: "Delete", Variant: core.VariantDestructiveGhost, Size: core.SizeSm}),
 							),
 						),
 					),
@@ -648,7 +656,7 @@ func section(id, title string, content ...g.Node) g.Node {
 		h.Div(
 			h.Class("flex items-center justify-between mb-4 scroll-mt-6"),
 			h.H2(
-				h.Class("text-xl font-semibold"),
+				h.Class("text-lg font-semibold"),
 				h.A(h.Href("#"+id), h.Class("hover:underline"), g.Text(title)),
 			),
 			h.A(
@@ -664,10 +672,12 @@ func section(id, title string, content ...g.Node) g.Node {
 
 // example renders a named example box with a label and the component.
 func example(name string, node g.Node) g.Node {
-	return h.Div(
-		h.Class("border border-border rounded-lg p-4"),
-		h.P(h.Class("text-xs font-mono text-muted-foreground mb-3"), g.Text(name)),
-		node,
+	return data.Card.Root(
+		h.Div(
+			h.Class("p-4"),
+			h.P(h.Class("mb-3 text-xs font-mono text-muted-foreground"), g.Text(name)),
+			node,
+		),
 	)
 }
 

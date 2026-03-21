@@ -58,7 +58,7 @@ func (popoverNS) Root(p PopoverRootProps, children ...g.Node) g.Node {
 // The <summary> is the sole interactive element — do NOT nest <button> or <a>
 // inside; doing so is invalid HTML and breaks the native click-to-toggle behaviour.
 func (popoverNS) Trigger(p PopoverTriggerProps, children ...g.Node) g.Node {
-	cls := "list-none cursor-pointer"
+	cls := "list-none cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
 	if p.Class != "" {
 		cls += " " + p.Class
 	}

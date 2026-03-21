@@ -200,6 +200,22 @@
       }
     });
   });
+  delegate("click", "details[data-popover] a, details[data-popover] button:not(summary)", function(event, item) {
+    var details = item.closest("details[data-popover]");
+    if (!details) return;
+    details.open = false;
+    var summary = details.querySelector("summary");
+    if (summary) summary.focus();
+  });
+  delegate("keydown", null, function(event) {
+    if (event.key !== "Escape") return;
+    var open = document.querySelector("details[data-popover][open]");
+    if (!open) return;
+    event.preventDefault();
+    open.open = false;
+    var summary = open.querySelector("summary");
+    if (summary) summary.focus();
+  });
 
   // static/js/components/tabs.js
   var activeClasses = ["bg-background", "text-foreground", "shadow"];

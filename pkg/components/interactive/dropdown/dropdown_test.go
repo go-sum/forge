@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestTriggerRendersStyledSummary(t *testing.T) {
@@ -20,9 +20,12 @@ func TestTriggerRendersStyledSummary(t *testing.T) {
 	if !strings.Contains(got, `Options`) {
 		t.Fatalf("Trigger() output missing label text: %s", got)
 	}
+	if !strings.Contains(got, `focus-visible:ring-[3px]`) {
+		t.Fatalf("Trigger() output missing focus-visible styling: %s", got)
+	}
 }
 
-func TestDisabledLinkItemOmitsHref(t *testing.T) {
+func TestDisabledLinkItemOmitsHrefAndDoesNotClaimMenuSemantics(t *testing.T) {
 	got := testutil.RenderNode(t, Item(ItemProps{Label: "View Profile", Href: "/profile", Disabled: true}))
 
 	if strings.Contains(got, ` href="/profile"`) {
@@ -31,7 +34,18 @@ func TestDisabledLinkItemOmitsHref(t *testing.T) {
 	if !strings.Contains(got, ` aria-disabled="true"`) {
 		t.Fatalf("Item() output missing aria-disabled for disabled link: %s", got)
 	}
-	if !strings.Contains(got, ` role="menuitem"`) {
-		t.Fatalf("Item() output missing menuitem role: %s", got)
+	if strings.Contains(got, ` role="menuitem"`) {
+		t.Fatalf("Item() output unexpectedly claimed menuitem role: %s", got)
+	}
+	if !strings.Contains(got, `focus-visible:ring-[3px]`) {
+		t.Fatalf("Item() output missing focus-visible styling: %s", got)
+	}
+}
+
+func TestContentUsesPopoverSemanticsInsteadOfMenuRole(t *testing.T) {
+	got := testutil.RenderNode(t, Content(g.Text("Body")))
+
+	if strings.Contains(got, ` role="menu"`) {
+		t.Fatalf("Content() output unexpectedly claimed menu role: %s", got)
 	}
 }

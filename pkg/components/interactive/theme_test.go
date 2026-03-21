@@ -22,7 +22,14 @@ func TestThemeScriptRendersExpectedBootstrapCode(t *testing.T) {
 
 func TestThemeSelectorRendersToggleButton(t *testing.T) {
 	got := testutil.RenderNode(t, ThemeSelector())
-	checks := []string{` data-theme-toggle=""`, ` aria-label="Toggle theme"`, `theme-icon-light`, `theme-icon-dark`, `theme-icon-system`}
+	checks := []string{
+		` data-theme-toggle=""`,
+		` aria-label="Toggle theme"`,
+		`theme-icon-light`,
+		`theme-icon-dark`,
+		`theme-icon-system`,
+		`focus-visible:ring-[3px]`,
+	}
 	for _, check := range checks {
 		if !strings.Contains(got, check) {
 			t.Fatalf("ThemeSelector() output missing %q in %s", check, got)

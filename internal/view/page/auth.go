@@ -19,9 +19,12 @@ func LoginPage(req view.Request, form *pkgform.Submission, input model.LoginInpu
 	return req.Page(
 		"Login",
 		h.Div(
-			h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
+			h.Class("mx-auto w-full max-w-sm px-4 py-12 sm:py-16"),
 			uidata.Card.Root(
-				uidata.Card.Header(uidata.Card.Title(g.Text("Sign In"))),
+				uidata.Card.Header(
+					uidata.Card.Title(g.Text("Sign In")),
+					uidata.Card.Description(g.Text("Enter your account details to continue into the application.")),
+				),
 				uidata.Card.Content(loginForm(req, form, input)),
 			),
 		),
@@ -38,7 +41,7 @@ func loginForm(req view.Request, form *pkgform.Submission, input model.LoginInpu
 	return h.Form(
 		h.Method("post"),
 		h.Action(routes.Login),
-		h.Class("w-full flex flex-col gap-3"),
+		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, view.FormError(formErrors)),
 		uiform.Field(uiform.FieldProps{
@@ -75,7 +78,7 @@ func loginForm(req view.Request, form *pkgform.Submission, input model.LoginInpu
 			Extra:     []g.Node{h.Class("mt-2")},
 		}),
 		h.P(
-			h.Class("text-sm text-center mt-2"),
+			h.Class("pt-1 text-center text-sm text-muted-foreground"),
 			g.Text("Don't have an account? "),
 			h.A(h.Href(routes.Register), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Register")),
 		),
@@ -87,9 +90,12 @@ func RegisterPage(req view.Request, form *pkgform.Submission, input model.Create
 	return req.Page(
 		"Register",
 		h.Div(
-			h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
+			h.Class("mx-auto w-full max-w-sm px-4 py-12 sm:py-16"),
 			uidata.Card.Root(
-				uidata.Card.Header(uidata.Card.Title(g.Text("Create Account"))),
+				uidata.Card.Header(
+					uidata.Card.Title(g.Text("Create Account")),
+					uidata.Card.Description(g.Text("Set up an account so you can start working with the starter's app flows.")),
+				),
 				uidata.Card.Content(registerForm(req, form, input)),
 			),
 		),
@@ -107,7 +113,7 @@ func registerForm(req view.Request, form *pkgform.Submission, input model.Create
 	return h.Form(
 		h.Method("post"),
 		h.Action(routes.Register),
-		h.Class("w-full flex flex-col gap-3"),
+		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, view.FormError(formErrors)),
 		uiform.Field(uiform.FieldProps{
@@ -157,10 +163,9 @@ func registerForm(req view.Request, form *pkgform.Submission, input model.Create
 			Extra:     []g.Node{h.Class("mt-2")},
 		}),
 		h.P(
-			h.Class("text-sm text-center mt-2"),
+			h.Class("pt-1 text-center text-sm text-muted-foreground"),
 			g.Text("Already have an account? "),
 			h.A(h.Href(routes.Login), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Sign in")),
 		),
 	)
 }
-

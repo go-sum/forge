@@ -48,17 +48,22 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 			h.ColSpan("5"),
 			h.Form(
 				g.Group(componenthtmx.Attrs(componenthtmx.AttrsProps{
-					Put:    routes.UserPath(id),
-					Target: "closest tr",
-					Swap:   componenthtmx.SwapOuterHTML,
+					Put:       routes.UserPath(id),
+					Target:    "closest tr",
+					Swap:      componenthtmx.SwapOuterHTML,
+					Indicator: "#users-loading",
 				})),
-				h.Class("flex flex-wrap gap-3 items-end p-2"),
+				h.Class("grid gap-4 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1.1fr)_12rem_auto] xl:items-end"),
 				h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
-				view.FormError(data.Errors["_"]),
+				h.Div(
+					h.Class("sm:col-span-2 xl:col-span-4"),
+					view.FormError(data.Errors["_"]),
+				),
 				uiform.Field(uiform.FieldProps{
 					ID:     emailID,
 					Label:  "Email",
 					Errors: data.Errors["Email"],
+					Extra:  []g.Node{h.Class("min-w-0")},
 					Control: uiform.Input(uiform.InputProps{
 						ID:       emailID,
 						Name:     "email",
@@ -72,6 +77,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 					ID:     nameID,
 					Label:  "Display Name",
 					Errors: data.Errors["DisplayName"],
+					Extra:  []g.Node{h.Class("min-w-0")},
 					Control: uiform.Input(uiform.InputProps{
 						ID:       nameID,
 						Name:     "display_name",
@@ -84,6 +90,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 					ID:     roleID,
 					Label:  "Role",
 					Errors: data.Errors["Role"],
+					Extra:  []g.Node{h.Class("min-w-0")},
 					Control: uiform.Select(uiform.SelectProps{
 						ID:       roleID,
 						Name:     "role",
@@ -97,7 +104,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 					}),
 				}),
 				h.Div(
-					h.Class("flex gap-2 mt-4"),
+					h.Class("flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1 xl:justify-end"),
 					core.Button(core.ButtonProps{
 						Label: "Save",
 						Size:  core.SizeSm,
@@ -108,9 +115,10 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 						Variant: core.VariantGhost,
 						Size:    core.SizeSm,
 						Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-							Get:    routes.UserRowPath(id),
-							Target: "closest tr",
-							Swap:   componenthtmx.SwapOuterHTML,
+							Get:       routes.UserRowPath(id),
+							Target:    "closest tr",
+							Swap:      componenthtmx.SwapOuterHTML,
+							Indicator: "#users-loading",
 						}),
 					}),
 				),
@@ -118,4 +126,3 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 		),
 	)
 }
-

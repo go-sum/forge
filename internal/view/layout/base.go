@@ -15,6 +15,7 @@ import (
 // Props configures the full-page HTML shell.
 type Props struct {
 	Title           string
+	CurrentPath     string
 	CSRFToken       string
 	IsAuthenticated bool
 	UserName        string
@@ -57,6 +58,7 @@ func Page(p Props) g.Node {
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
 					Config:          p.NavConfig,
+					CurrentPath:     p.CurrentPath,
 					IsAuthenticated: p.IsAuthenticated,
 					Slots:           pageNavSlots(p),
 				}),

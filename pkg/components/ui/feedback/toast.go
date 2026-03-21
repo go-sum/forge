@@ -42,15 +42,15 @@ type ToastProps struct {
 func toastVariantClasses(v ToastVariant) string {
 	switch v {
 	case ToastSuccess:
-		return "border-success/20 bg-success/10 text-success"
+		return "backdrop-blur-sm border-success/30 bg-success/20 text-success min-w-sm"
 	case ToastError:
-		return "border-destructive/20 bg-destructive/10 text-destructive"
+		return "backdrop-blur-sm border-destructive/30 bg-destructive/20 text-destructive min-w-sm"
 	case ToastWarning:
-		return "border-warning/20 bg-warning/10 text-warning"
+		return "backdrop-blur-sm border-warning/30 bg-warning/20 text-warning min-w-sm"
 	case ToastInfo:
-		return "border-blue-200 bg-blue-50 text-blue-900"
+		return "backdrop-blur-sm border-primary/30 bg-primary/20 text-primary min-w-sm"
 	default:
-		return "border-border bg-background text-foreground"
+		return "backdrop-blur-sm border-primary/30 bg-background text-muted-foreground min-w-sm"
 	}
 }
 

@@ -22,7 +22,8 @@ func TestPageRendersDebugDetailAndFallbacks(t *testing.T) {
 	wantSnippets := []string{
 		`Internal Server Error`,
 		`HTTP 500`,
-		`Request ID: req-123`,
+		`Request ID: <code class="font-medium text-foreground">req-123</code>`,
+		`<code class="font-medium text-foreground">req-123</code>`,
 		`Technical Detail`,
 		`database timeout`,
 		`href="/"`,

@@ -39,6 +39,8 @@ func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 	wantSnippets := []string{
 		`id="user-11111111-1111-1111-1111-111111111111"`,
 		`hx-put="/users/11111111-1111-1111-1111-111111111111"`,
+		`hx-indicator="#users-loading"`,
+		`sm:grid-cols-2`,
 		`value="csrf-token"`,
 		`value="grace@example.com"`,
 		`value="Grace Hopper"`,

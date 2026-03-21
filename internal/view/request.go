@@ -86,6 +86,7 @@ func (r Request) IsPartial() bool {
 func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 	return layout.Props{
 		Title:           title,
+		CurrentPath:     r.CurrentPath,
 		CSRFToken:       r.CSRFToken,
 		IsAuthenticated: r.IsAuthenticated,
 		UserName:        r.UserName,

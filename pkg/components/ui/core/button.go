@@ -10,12 +10,13 @@ import (
 type Variant string
 
 const (
-	VariantDefault     Variant = "default"
-	VariantDestructive Variant = "destructive"
-	VariantOutline     Variant = "outline"
-	VariantSecondary   Variant = "secondary"
-	VariantGhost       Variant = "ghost"
-	VariantLink        Variant = "link"
+	VariantDefault          Variant = "default"
+	VariantDestructive      Variant = "destructive"
+	VariantDestructiveGhost Variant = "destructive-ghost"
+	VariantOutline          Variant = "outline"
+	VariantSecondary        Variant = "secondary"
+	VariantGhost            Variant = "ghost"
+	VariantLink             Variant = "link"
 )
 
 // Size selects the size of a button.
@@ -50,6 +51,8 @@ func variantClasses(v Variant) string {
 	switch v {
 	case VariantDestructive:
 		return "bg-destructive text-white shadow-xs hover:bg-destructive/90"
+	case VariantDestructiveGhost:
+		return "text-destructive hover:bg-destructive/10 hover:text-destructive"
 	case VariantOutline:
 		return "border bg-background text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground"
 	case VariantSecondary:
@@ -57,7 +60,7 @@ func variantClasses(v Variant) string {
 	case VariantGhost:
 		return "hover:bg-accent hover:text-accent-foreground"
 	case VariantLink:
-		return "text-primary underline-offset-4 hover:underline"
+		return "text-foreground underline-offset-4 hover:underline"
 	default:
 		return "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
 	}

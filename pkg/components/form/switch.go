@@ -44,7 +44,7 @@ func Switch(p SwitchProps) g.Node {
 		h.Class("relative inline-flex h-5 w-9 shrink-0 cursor-pointer"),
 		h.Input(inputNodes...),
 		// Track — fills the outer span; colour driven by peer state.
-		h.Span(h.Class("pointer-events-none absolute inset-0 rounded-full bg-input transition-colors peer-checked:bg-primary peer-disabled:opacity-50")),
+		h.Span(h.Class("pointer-events-none absolute inset-0 rounded-full bg-input transition-colors peer-checked:bg-primary peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:opacity-50")),
 		// Thumb — translates right when checked.
 		h.Span(h.Class("pointer-events-none absolute left-0.5 top-0.5 size-4 rounded-full bg-white peer-checked:bg-primary-foreground shadow-xs transition-transform peer-checked:translate-x-4")),
 	)

@@ -35,7 +35,7 @@ func TestToastContainerModeUsesRelativeRootForDismissButton(t *testing.T) {
 	if !strings.Contains(got, `class="relative rounded-lg border p-4 shadow-md`) {
 		t.Fatalf("Toast() container output missing relative root class: %s", got)
 	}
-	if !strings.Contains(got, `class="absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity"`) {
+	if !strings.Contains(got, `absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity`) || !strings.Contains(got, `focus-visible:ring-[3px]`) {
 		t.Fatalf("Toast() container output missing absolutely positioned dismiss button: %s", got)
 	}
 }
@@ -48,5 +48,19 @@ func TestToastFixedModePreservesFixedPositioning(t *testing.T) {
 
 	if !strings.Contains(got, `class="fixed z-50 max-w-sm bottom-4 right-4 relative rounded-lg border p-4 shadow-md`) {
 		t.Fatalf("Toast() fixed output missing fixed positioning classes: %s", got)
+	}
+}
+
+func TestToastInfoUsesSemanticPrimaryTokens(t *testing.T) {
+	got := testutil.RenderNode(t, Toast(ToastProps{
+		Description: "Heads up",
+		Variant:     ToastInfo,
+	}))
+
+	if !strings.Contains(got, `border-primary/20 bg-primary/10 text-primary`) {
+		t.Fatalf("Toast() info output missing semantic token classes: %s", got)
+	}
+	if strings.Contains(got, `blue-`) {
+		t.Fatalf("Toast() info output unexpectedly used raw blue palette classes: %s", got)
 	}
 }

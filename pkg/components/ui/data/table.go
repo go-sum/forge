@@ -29,12 +29,21 @@ func (tableNS) Header(children ...g.Node) g.Node {
 	)
 }
 
+// BodyProps configures a <tbody> section.
+type BodyProps struct {
+	ID    string
+	Extra []g.Node
+}
+
 // Body renders a <tbody> section.
-func (tableNS) Body(children ...g.Node) g.Node {
-	return h.TBody(
-		h.Class("[&_tr:last-child]:border-0"),
-		g.Group(children),
-	)
+func (tableNS) Body(p BodyProps, children ...g.Node) g.Node {
+	nodes := []g.Node{h.Class("[&_tr:last-child]:border-0")}
+	if p.ID != "" {
+		nodes = append(nodes, h.ID(p.ID))
+	}
+	nodes = append(nodes, g.Group(p.Extra))
+	nodes = append(nodes, g.Group(children))
+	return h.TBody(nodes...)
 }
 
 // Footer renders a <tfoot> section.

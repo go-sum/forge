@@ -76,7 +76,7 @@ func ThemeSelector() g.Node {
 		g.Attr("data-theme-toggle", ""),
 		h.Type("button"),
 		g.Attr("aria-label", "Toggle theme"),
-		h.Class("inline-flex items-center justify-center size-9 rounded-md text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"),
+		h.Class("inline-flex items-center justify-center size-9 rounded-md text-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"),
 		// Sun — visible when data-theme-preference="light" on <html>.
 		h.Span(h.Class("contents theme-icon-light"), core.Icon(iconrender.PropsFor(componenticons.ThemeLight, core.IconProps{}))),
 		// Moon — visible when data-theme-preference="dark" on <html>.

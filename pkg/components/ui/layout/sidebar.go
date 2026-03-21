@@ -67,9 +67,11 @@ func Sidebar(p SidebarProps) g.Node {
 		h.Aside(
 			h.ID(sidebarPanelID(baseID)),
 			h.Class("fixed inset-y-0 left-0 z-50 flex w-80 max-w-[85vw] -translate-x-full transform flex-col border-r border-border bg-background shadow-xl transition-transform duration-200 peer-checked:translate-x-0"),
-			g.Attr("role", "dialog"),
-			g.Attr("aria-modal", "true"),
-			h.Nav(h.Class("flex min-h-0 flex-1 flex-col"), p.Nav),
+			h.Nav(
+				h.Class("flex min-h-0 flex-1 flex-col"),
+				g.Attr("aria-label", "Mobile navigation"),
+				p.Nav,
+			),
 		),
 		g.Group(p.Content),
 	)

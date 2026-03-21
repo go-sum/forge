@@ -22,6 +22,7 @@ func TestLoginPageRendersInputAndErrors(t *testing.T) {
 	}, form, model.LoginInput{Email: "ada@example.com"}))
 
 	wantSnippets := []string{
+		`Enter your account details to continue into the application.`,
 		`action="/login"`,
 		`value="ada@example.com"`,
 		`value="csrf-token"`,
@@ -48,6 +49,7 @@ func TestRegisterPageRendersInputAndErrors(t *testing.T) {
 	}))
 
 	wantSnippets := []string{
+		`Set up an account so you can start working with the starter`,
 		`action="/register"`,
 		`value="ada@example.com"`,
 		`value="Ada"`,

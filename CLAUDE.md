@@ -1,12 +1,32 @@
 # CLAUDE.md — Architectural Guidelines & Conventions
 
-> This file is the architectural constitution for the **starter** project.
-> It defines how the project works: technology choices, API rules, conventions,
-> and dependency boundaries. Read this before writing any code.
+> This is the architectural constitution for the **starter** project.
+> It defines how the application works: technology choices, API rules, conventions,
+> and dependency boundaries. Review before writing any code.
+> The application is a high-performance modern web application starter built around
+> server-rendered HTML, progressive enhancement, and reusable supporting
+> packages under `pkg/`.
 >
-> For an application design guide, see [`DESIGN_GUIDE.md`](./decisions/DESIGN_GUIDE.md).
-> For the UI design guide, see [`UI_GUIDE.md`](./decisions/UI_GUIDE.md).
+> For the application design guide, see [`DESIGN_GUIDE.md`](./.decisions/DESIGN_GUIDE.md).
+> For the UI design guide, see [`UI_GUIDE.md`](./.decisions/UI_GUIDE.md).
 > For the implementation roadmap and task progress, see [`PROJECT_PLAN.md`](./PROJECT_PLAN.md).
+
+---
+
+## Project Purpose
+
+**starter** is optimized for building modern Go web applications that keep most
+of the work on the server:
+
+- HTML is rendered on the server with Gomponents.
+- HTMX handles incremental page updates without a SPA runtime.
+- PostgreSQL, sqlc, and pgx keep data access explicit and type-safe.
+- Reusable packages in `pkg/` are designed to support this app and to be
+  extractable into other projects when their dependency rules allow it.
+
+This repository is not a generic UI playground or a client-heavy frontend
+starter. It is a performance-oriented web application foundation with reusable
+supporting packages and strict application boundaries.
 
 ---
 
@@ -25,8 +45,8 @@
 | HTML Rendering | Gomponents | v1.2.0 | Type-safe HTML in Go, no template parsing, `io.Writer` streaming |
 | HTMX | HTMX | 2.0.4 | Progressive enhancement, HTML-over-the-wire |
 | CSS | Tailwind CSS | v4.1+ | Utility-first, standalone CLI (no Node.js), `@source` scanning |
-| Design System | daisyUI | 5.0.14 | Prebuilt component CSS (btn, card, alert, etc.); downloaded via curl, no Node.js |
-| JS Sprinkles | Alpine.js | 3.14.8 | Lightweight csp-safe reactivity for dismiss/toggle/dropdown states |
+| Component Library | `pkg/components` | repo-local | Reusable Go UI packages layered under a strict dependency DAG |
+| Browser JS | delegated vanilla JS + esbuild | esbuild v0.25.12 | Small progressive-enhancement runtime bundled to `public/js/app.js` |
 |||||
 | Containerization | Docker + Compose | latest | Dev/prod parity, single-command startup, CI/CD-ready |
 | Hot Reload (dev) | air | latest | Watches Go files, rebuilds and restarts inside the dev container |
@@ -35,10 +55,20 @@
 
 ## Echo v5 Critical API Rules
 
-> For the Echo v4 to v5 migration roadmap, see [`API_RULES.md`](./API_RULES.md).
+- Handlers use Echo v5's concrete pointer signature: `func(c *echo.Context) error`.
+- Import paths are `github.com/labstack/echo/v5` and `github.com/labstack/echo/v5/middleware`.
+- Prefer explicit parsing at the transport boundary. Use Echo's typed helpers when
+  they improve clarity, or parse `c.Param(...)` / `c.QueryParam(...)` values
+  directly when domain-specific conversion is clearer.
+- Response helpers (`c.JSON`, `c.String`, `c.NoContent`, `c.Redirect`) and
+  gomponents render helpers (`render.Component`, `render.Fragment`) are the
+  normal response paths.
 
-## golang dev environment location
-If not finding go in the PATH, it's located in /usr/local/go/bin
+For the detailed v5 reference, see [`API_RULES.md`](./.decisions/API_RULES.md).
+
+## Go Toolchain Location
+
+If `go` is not present in `PATH`, use `/usr/local/go/bin/go`.
 
 ---
 
@@ -49,7 +79,9 @@ Data flows down through four layers. Each layer only talks to the one directly b
 1. **Transport** — HTTP concerns only. Parses requests, validates input, calls service, renders response. Knows about Echo and HTTP.
 2. **Service** — Business logic. Orchestrates operations, applies business rules. Returns domain types and errors. Knows nothing about HTTP.
 3. **Repository** — Data access. Wraps sqlc-generated code, maps `db` structs to domain models. Isolates schema changes from the service layer.
-4. **Database** - Generated Go code and raw SQL, all under one roof. `db/*.go` is machine-generated (do not edit). `db/sql/` is human-written (source of truth for schema, queries, and migrations).
+4. **Database** - Generated Go code and raw SQL, all under one roof. `db/schema/*.go`
+   is machine-generated (do not edit). `db/sql/` is human-written (source of
+   truth for schema and queries).
 
 Handlers never import repository. Services never import handlers. Each layer communicates through domain models defined in `internal/model/`.
 
@@ -97,7 +129,7 @@ Go's `internal/` visibility rule enforces that these packages cannot be imported
 
 Contains both sqlc-generated Go code and human-written SQL:
 
-- `db/*.go` — **Generated by sqlc.** Do not edit by hand. The `internal/repository/` layer wraps this code and translates between `db.User` (schema-coupled) and `model.User` (domain).
+- `db/schema/*.go` — **Generated by sqlc.** Do not edit by hand. The `internal/repository/` layer wraps this code and translates between `db.User` (schema-coupled) and `model.User` (domain).
 - `db/sql/schema.sql` — Single source of truth for database schema
 - `db/sql/queries/*.sql` — sqlc query definitions
 
@@ -139,7 +171,18 @@ The `schema_data` service is managed automatically by `make db-plan` and `make d
 
 ### Tailwind CSS Standalone CLI
 
-No Node.js required. Uses the standalone binary via Makefile. CSS scanning uses `@source` directives in `static/css/tailwind.css`:
+No Node.js is required. Assets are built through `go run ./cli build-assets` or
+`make assets`, which compile CSS into `public/css/app.css`.
+
+The Tailwind entrypoint is `static/css/tailwind.css`. It scans:
+
+- `internal/view/**/*.go`
+- `pkg/components/**/*.go`
+- `static/**/*.js`
+
+Theme tokens and custom utility behavior live in `static/css/theme-*.css` and
+`static/css/tailwind.css`. This includes dark-mode activation, HTMX indicator
+styles, dialog backdrops, and the extra CSS needed by native form controls.
 
 ---
 
@@ -170,16 +213,19 @@ The `.air.toml` config file at the project root controls how `air` watches and r
 
 When any `.go` file changes, `air` rebuilds and restarts the server inside the container. The developer edits files on the host — the volume mount makes changes instantly visible inside the container.
 
-### Future Production Deployment
+### Production Build Path
 
-The same infrastructure scales to production:
+The current production image is built from the same repository and asset
+pipeline used in development:
 
 ```bash
 # Build production image
 docker build --target production -t starter:latest .
 ```
 
-A CI/CD pipeline would: build the production image → run `pgschema apply` against the production database → restart the `server` service. The `docker-compose.yml` structure doesn't change — only the build target switches from `dev` to `production`.
+Release automation for image build, schema apply, and service restart is tracked
+in [`PROJECT_PLAN.md`](./PROJECT_PLAN.md). The codebase already supports the
+production image build itself.
 
 ---
 
@@ -187,16 +233,25 @@ A CI/CD pipeline would: build the production image → run `pgschema apply` agai
 
 | File | Purpose |
 |------|---------|
-| `config/config.yaml` | Base config (committed, no secrets) |
+| `config/config.yaml` | Required base config (committed, no secrets) |
 | `config/config.development.yaml` | Dev overrides (Docker hostnames, debug logging) |
-| `config/site.yaml` | Site configuration |
+| `config/site.yaml` | Optional site content overrides |
+| `config/nav.yaml` | Optional navigation configuration |
 
-Missing YAML files are silently ignored — defaults always provide a working baseline.
-All env vars use the `CTX_` prefix. The key transform strips the prefix, lowercases, and replaces `_` with `.`:
+`config/config.yaml` must exist. Environment overlays such as
+`config/config.development.yaml` and content files such as `site.yaml` /
+`nav.yaml` are optional and are silently skipped when absent.
+
+All env vars use the `CTX_` prefix. The loader strips the prefix, lowercases the
+name, and resolves underscores using the existing schema so nested keys and
+field names with underscores are both handled correctly:
+
+- `CTX_SERVER_PORT` → `server.port`
+- `CTX_AUTH_SESSION_AUTH_KEY` → `auth.session.auth_key`
 
 ### Secrets
 
-Secrets (with real credentials) stored in environment variables — never committed to YAML files.
+Secrets belong in environment variables, never committed YAML files.
 
 ---
 
@@ -207,12 +262,13 @@ Browser → GET /users
   - Echo Router
   - Middleware: Recover → RequestID → Secure → RequestLogger ...
   - Handler
+  - Service
   - Repository
      - Wraps sqlc queries, maps db → model
      - Executes SQL against pgxpool
       - PostgreSQL returns rows
   - Handler decides rendering path:
-     HTMX request  → render.Fragment
-     Full request  → render.Component
+     HTMX-capable page → view.Render(full, partial)
+     HTMX-only endpoint → render.Fragment
   - Browser receives HTML
 ```

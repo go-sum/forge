@@ -68,13 +68,13 @@ func Page(req view.Request, p Props) g.Node {
 								Href:    homePath,
 								Variant: core.VariantDefault,
 							}),
-							g.If(
-								p.RequestID != "",
-								core.Button(core.ButtonProps{
-									Label:   "Request ID: " + p.RequestID,
-									Variant: core.VariantOutline,
-									Type:    "button",
-								}),
+						),
+						g.If(
+							p.RequestID != "",
+							h.P(
+								h.Class("text-sm text-muted-foreground"),
+								g.Text("Request ID: "),
+								h.Code(h.Class("font-medium text-foreground"), g.Text(p.RequestID)),
 							),
 						),
 						g.If(p.Debug && p.TechnicalDetail != "", debugDetail(p.TechnicalDetail)),

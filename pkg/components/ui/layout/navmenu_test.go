@@ -82,6 +82,18 @@ func TestNavMenuOmitsMissingSlots(t *testing.T) {
 	}
 }
 
+func TestNavMenuMarksCurrentLinkFromCurrentPath(t *testing.T) {
+	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
+		ID:          "app",
+		Config:      testNavMenuConfig(),
+		CurrentPath: "/users",
+	}))
+
+	if !strings.Contains(got, `aria-current="page"`) {
+		t.Fatalf("NavMenu() output missing current-page marker: %s", got)
+	}
+}
+
 func testNavMenuConfig() NavConfig {
 	return NavConfig{
 		Brand: NavbarBrand{Label: "Starter", Href: "/"},

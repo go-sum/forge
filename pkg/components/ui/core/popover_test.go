@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestPopoverRootRendersDetailsWithDataPopover(t *testing.T) {
@@ -40,6 +40,9 @@ func TestPopoverTriggerClassAppended(t *testing.T) {
 	}
 	if !strings.Contains(got, "rounded-md") {
 		t.Errorf("Popover.Trigger() missing appended class in: %s", got)
+	}
+	if !strings.Contains(got, "focus-visible:ring-[3px]") {
+		t.Errorf("Popover.Trigger() missing focus-visible styling in: %s", got)
 	}
 }
 

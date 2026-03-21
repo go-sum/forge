@@ -56,8 +56,8 @@ func Link(href string, isActive bool, children ...g.Node) g.Node {
 
 // Previous renders a "previous" navigation button.
 // Renders a <span> when disabled to carry correct semantics for assistive technology.
-func Previous(href string, disabled bool) g.Node {
-	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+func Previous(href string, disabled bool, extra ...g.Node) g.Node {
+	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
 	icon := core.Icon(iconrender.PropsFor(componenticons.ChevronLeft, core.IconProps{}))
 	ariaLabel := g.Attr("aria-label", "Go to previous page")
 	if disabled {
@@ -65,6 +65,7 @@ func Previous(href string, disabled bool) g.Node {
 			h.Class(baseCls+" pointer-events-none opacity-50"),
 			g.Attr("aria-disabled", "true"),
 			ariaLabel,
+			g.Group(extra),
 			icon,
 			h.Span(g.Text("Previous")),
 		)
@@ -73,6 +74,7 @@ func Previous(href string, disabled bool) g.Node {
 		h.Class(baseCls+" hover:bg-accent hover:text-accent-foreground"),
 		h.Href(href),
 		ariaLabel,
+		g.Group(extra),
 		icon,
 		h.Span(g.Text("Previous")),
 	)
@@ -80,8 +82,8 @@ func Previous(href string, disabled bool) g.Node {
 
 // Next renders a "next" navigation button.
 // Renders a <span> when disabled to carry correct semantics for assistive technology.
-func Next(href string, disabled bool) g.Node {
-	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium transition-colors"
+func Next(href string, disabled bool, extra ...g.Node) g.Node {
+	baseCls := "inline-flex items-center gap-1 px-2.5 h-9 rounded-md text-sm font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
 	icon := core.Icon(iconrender.PropsFor(componenticons.ChevronRight, core.IconProps{}))
 	ariaLabel := g.Attr("aria-label", "Go to next page")
 	if disabled {
@@ -89,6 +91,7 @@ func Next(href string, disabled bool) g.Node {
 			h.Class(baseCls+" pointer-events-none opacity-50"),
 			g.Attr("aria-disabled", "true"),
 			ariaLabel,
+			g.Group(extra),
 			h.Span(g.Text("Next")),
 			icon,
 		)
@@ -97,6 +100,7 @@ func Next(href string, disabled bool) g.Node {
 		h.Class(baseCls+" hover:bg-accent hover:text-accent-foreground"),
 		h.Href(href),
 		ariaLabel,
+		g.Group(extra),
 		h.Span(g.Text("Next")),
 		icon,
 	)

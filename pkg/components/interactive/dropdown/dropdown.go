@@ -1,8 +1,8 @@
-// Package dropdown provides a native HTML dropdown menu using <details>/<summary>.
+// Package dropdown provides a native HTML dropdown using <details>/<summary>.
 // Open/close is handled natively by the browser. A delegated outside-click
 // listener in static/js/components.js closes any open [data-popover] details element
-// when the user clicks outside of it. The dropdown is a styled menu variant
-// of the generic popover pattern (pkg/components/interactive/popover).
+// when the user clicks outside of it. It intentionally keeps disclosure/popover
+// semantics instead of claiming a full ARIA menu interaction model.
 package dropdown
 
 import (
@@ -46,7 +46,7 @@ func Root(p Props, children ...g.Node) g.Node {
 func Trigger(p TriggerProps, children ...g.Node) g.Node {
 	chevron := core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{Size: "size-4 shrink-0 text-muted-foreground"}))
 	return core.Popover.Trigger(core.PopoverTriggerProps{
-		Class: "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+		Class: "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground",
 		Extra: p.Extra,
 	}, g.Group(children), chevron)
 }
@@ -55,21 +55,20 @@ func Trigger(p TriggerProps, children ...g.Node) g.Node {
 func Content(children ...g.Node) g.Node {
 	return h.Div(
 		h.Class("absolute z-50 mt-1 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md"),
-		g.Attr("role", "menu"),
 		g.Group(children),
 	)
 }
 
 // Item renders a single menu entry as <a> (href set) or <button>.
 func Item(p ItemProps) g.Node {
-	cls := "flex w-full items-center rounded-sm px-2 py-1.5 text-sm transition-colors"
+	cls := "flex w-full items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
 	if p.Disabled {
 		cls += " opacity-50"
 	} else {
 		cls += " cursor-default hover:bg-accent hover:text-accent-foreground"
 	}
 	if p.Href != "" {
-		nodes := []g.Node{h.Class(cls), g.Attr("role", "menuitem")}
+		nodes := []g.Node{h.Class(cls)}
 		if p.Disabled {
 			nodes = append(nodes, g.Attr("aria-disabled", "true"), g.Attr("tabindex", "-1"))
 		} else {
@@ -81,7 +80,6 @@ func Item(p ItemProps) g.Node {
 	nodes := []g.Node{
 		h.Class(cls),
 		h.Type("button"),
-		g.Attr("role", "menuitem"),
 	}
 	if p.Disabled {
 		nodes = append(nodes, h.Disabled())

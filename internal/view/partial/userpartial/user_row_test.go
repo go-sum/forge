@@ -18,7 +18,9 @@ func TestUserRowRendersActionsAndRoleBadge(t *testing.T) {
 		`2026-03-20`,
 		`hx-get="/users/11111111-1111-1111-1111-111111111111/edit"`,
 		`hx-delete="/users/11111111-1111-1111-1111-111111111111"`,
+		`hx-indicator="#users-loading"`,
 		`hx-confirm="Delete Ada Lovelace?"`,
+		`text-destructive hover:bg-destructive/10`,
 	}
 	for _, want := range wantSnippets {
 		if !strings.Contains(got, want) {

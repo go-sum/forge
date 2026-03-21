@@ -13,7 +13,7 @@ func Checkbox(p CheckboxProps) g.Node {
 		h.Class("relative inline-flex size-4 shrink-0 cursor-pointer"),
 		h.Input(buildToggleInput("checkbox", p)...),
 		// Box — border becomes filled when checked.
-		h.Span(h.Class("absolute inset-0 rounded-[4px] border border-input bg-transparent transition-colors peer-checked:bg-primary peer-checked:border-primary peer-disabled:opacity-50")),
+		h.Span(h.Class("absolute inset-0 rounded-[4px] border border-input bg-transparent transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:opacity-50")),
 		// Checkmark — inline SVG path, visible only when checked.
 		h.SVG(
 			h.Class("absolute inset-0 m-auto size-3 hidden peer-checked:block text-primary-foreground"),

@@ -1,10 +1,12 @@
 package page
 
 import (
+	"fmt"
 	"starter/internal/model"
 	"starter/internal/routes"
 	"starter/internal/view"
 	"starter/internal/view/partial/userpartial"
+	uipagination "starter/pkg/components/interactive/pagination"
 	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/patterns/pager"
 	"starter/pkg/components/ui/core"
@@ -24,8 +26,11 @@ type UserListData struct {
 func UserListPage(req view.Request, data UserListData) g.Node {
 	return req.Page(
 		"Users",
-		h.H1(h.Class("text-2xl font-bold mb-4"), g.Text("Users")),
-		UserListRegion(data),
+		h.Div(
+			h.Class("space-y-6"),
+			usersPageHeader(data.Pager.TotalItems),
+			UserListRegion(data),
+		),
 	)
 }
 
@@ -35,11 +40,34 @@ func UserListRegion(data UserListData) g.Node {
 		h.ID("users-list-region"),
 		h.Class("space-y-4"),
 		userTable(data.Users),
+		usersLoadingIndicator(),
 		pagination(data.Pager),
 	)
 }
 
+func usersPageHeader(total int) g.Node {
+	return h.Div(
+		h.Class("flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"),
+		h.Div(
+			h.Class("space-y-2"),
+			h.H1(h.Class("text-2xl font-bold"), g.Text("Users")),
+			h.P(
+				h.Class("max-w-2xl text-sm text-muted-foreground"),
+				g.Text("Manage account records with inline edits and lightweight HTMX updates."),
+			),
+		),
+		h.P(
+			h.Class("text-sm text-muted-foreground"),
+			g.Text(userCountLabel(total)),
+		),
+	)
+}
+
 func userTable(users []model.User) g.Node {
+	if len(users) == 0 {
+		return emptyUsersState()
+	}
+
 	rows := make([]g.Node, len(users))
 	for i, u := range users {
 		rows[i] = userpartial.UserRow(userpartial.UserRowProps{
@@ -57,9 +85,9 @@ func userTable(users []model.User) g.Node {
 				uidata.Table.Head(g.Text("Actions")),
 			),
 		),
-		h.TBody(
-			h.ID("users-table"),
-			h.Class("[&_tr:last-child]:border-0"),
+		uidata.Table.Body(uidata.BodyProps{
+			ID: "users-table",
+		},
 			g.Group(rows),
 		),
 	)
@@ -69,41 +97,101 @@ func pagination(p pager.Pager) g.Node {
 	if p.TotalPages <= 1 {
 		return g.Text("")
 	}
+	items := []g.Node{
+		uipagination.Item(uipagination.Previous(routes.UserListPage(p.PrevPage()), p.IsFirst(), paginatedLinkAttrs(p.PrevPage())...)),
+	}
+	for _, pageNumber := range paginationSequence(p) {
+		if pageNumber == 0 {
+			items = append(items, uipagination.Item(uipagination.Ellipsis()))
+			continue
+		}
+		items = append(items, uipagination.Item(uipagination.Link(
+			routes.UserListPage(pageNumber),
+			pageNumber == p.Page,
+			append(paginatedLinkAttrs(pageNumber), g.Textf("%d", pageNumber))...,
+		)))
+	}
+	items = append(items,
+		uipagination.Item(uipagination.Next(routes.UserListPage(p.NextPage()), p.IsLast(), paginatedLinkAttrs(p.NextPage())...)),
+	)
+
 	return h.Div(
-		h.Class("flex justify-center gap-2 mt-4"),
-		g.If(!p.IsFirst(),
-			core.Button(core.ButtonProps{
-				Label:   "← Previous",
-				Href:    routes.UserListPage(p.PrevPage()),
-				Variant: core.VariantGhost,
-				Size:    core.SizeSm,
-				Extra: componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
-					Path:    routes.Users,
-					Page:    p.PrevPage(),
-					Target:  "#users-list-region",
-					Swap:    componenthtmx.SwapOuterHTML,
-					PushURL: true,
-				}),
-			}),
+		h.Class("space-y-2"),
+		uipagination.Root(
+			uipagination.Content(g.Group(items)),
 		),
-		h.Span(
-			h.Class("text-sm self-center text-muted-foreground"),
+		h.P(
+			h.Class("text-center text-sm text-muted-foreground"),
 			g.Textf("Page %d of %d", p.Page, p.TotalPages),
 		),
-		g.If(!p.IsLast(),
-			core.Button(core.ButtonProps{
-				Label:   "Next →",
-				Href:    routes.UserListPage(p.NextPage()),
-				Variant: core.VariantGhost,
-				Size:    core.SizeSm,
-				Extra: componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
-					Path:    routes.Users,
-					Page:    p.NextPage(),
-					Target:  "#users-list-region",
-					Swap:    componenthtmx.SwapOuterHTML,
-					PushURL: true,
-				}),
-			}),
+	)
+}
+
+func emptyUsersState() g.Node {
+	return uidata.Card.Root(
+		uidata.Card.Content(
+			h.Div(
+				h.Class("flex flex-col items-center justify-center gap-2 py-10 text-center"),
+				h.H2(h.Class("text-lg font-semibold"), g.Text("No users yet")),
+				h.P(
+					h.Class("max-w-md text-sm text-muted-foreground"),
+					g.Text("User accounts will appear here once people register. This table also handles inline edits and row-level actions when data is present."),
+				),
+			),
 		),
 	)
+}
+
+func usersLoadingIndicator() g.Node {
+	return h.Div(
+		h.ID("users-loading"),
+		h.Class("htmx-indicator flex items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground"),
+		core.Skeleton(h.Class("h-2 w-16")),
+		h.Span(g.Text("Updating users...")),
+	)
+}
+
+func userCountLabel(total int) string {
+	if total == 1 {
+		return "1 user"
+	}
+	return fmt.Sprintf("%d users", total)
+}
+
+func paginatedLinkAttrs(page int) []g.Node {
+	return componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
+		Path:      routes.Users,
+		Page:      page,
+		Target:    "#users-list-region",
+		Swap:      componenthtmx.SwapOuterHTML,
+		PushURL:   true,
+		Indicator: "#users-loading",
+	})
+}
+
+func paginationSequence(p pager.Pager) []int {
+	if p.TotalPages <= 0 {
+		return nil
+	}
+	if p.TotalPages <= 5 {
+		pages := make([]int, 0, p.TotalPages)
+		for i := 1; i <= p.TotalPages; i++ {
+			pages = append(pages, i)
+		}
+		return pages
+	}
+
+	pages := []int{1}
+	start := max(2, p.Page-1)
+	end := min(p.TotalPages-1, p.Page+1)
+	if start > 2 {
+		pages = append(pages, 0)
+	}
+	for i := start; i <= end; i++ {
+		pages = append(pages, i)
+	}
+	if end < p.TotalPages-1 {
+		pages = append(pages, 0)
+	}
+	return append(pages, p.TotalPages)
 }

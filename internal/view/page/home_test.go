@@ -19,8 +19,10 @@ func TestHomePageRendersWelcomeAndFlash(t *testing.T) {
 	}))
 
 	wantSnippets := []string{
-		`Welcome`,
-		`A Go starter with Echo, HTMX, and Tailwind.`,
+		`Modern Web Starter`,
+		`Build server-rendered apps without giving up interaction quality.`,
+		`Browse Components`,
+		`Sign In`,
 		`Saved`,
 	}
 	for _, want := range wantSnippets {

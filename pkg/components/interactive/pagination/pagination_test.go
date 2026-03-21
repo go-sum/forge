@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestPaginationLinkAndNavStates(t *testing.T) {
@@ -23,6 +23,14 @@ func TestPaginationLinkAndNavStates(t *testing.T) {
 	next := testutil.RenderNode(t, Next("/users?page=3", false))
 	if !strings.Contains(next, ` href="/users?page=3"`) || !strings.Contains(next, `>Next</span>`) {
 		t.Fatalf("Next() output = %s", next)
+	}
+	if !strings.Contains(next, `focus-visible:ring-[3px]`) || !strings.Contains(previous, `focus-visible:ring-[3px]`) {
+		t.Fatalf("Previous()/Next() output missing focus-visible styling: prev=%s next=%s", previous, next)
+	}
+
+	withAttrs := testutil.RenderNode(t, Previous("/users?page=1", false, g.Attr("hx-get", "/users?page=1"), g.Attr("hx-target", "#users-list-region")))
+	if !strings.Contains(withAttrs, `hx-get="/users?page=1"`) || !strings.Contains(withAttrs, `hx-target="#users-list-region"`) {
+		t.Fatalf("Previous() output missing extra attrs: %s", withAttrs)
 	}
 }
 

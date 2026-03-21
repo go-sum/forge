@@ -478,7 +478,7 @@ func submenuNodes(href, label string, matchPrefix bool, icon componenticons.Key,
 }
 
 func navLinkClass(viewport navbarViewport, depth int, current bool) string {
-	base := "transition-colors hover:bg-accent/60 hover:text-accent-foreground"
+	base := "outline-none transition-colors hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
 	if current {
 		base += " bg-accent/60 text-accent-foreground"
 	}
@@ -497,13 +497,13 @@ func groupSummary(label string, icon componenticons.Key, ctx navbarItemContext) 
 
 	if ctx.viewport == viewportDesktop && ctx.depth == 0 {
 		return h.Summary(
-			h.Class("navmenu-summary flex list-none cursor-pointer items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
+			h.Class("navmenu-summary flex list-none cursor-pointer items-center gap-2 rounded-md px-4 py-3 text-sm font-medium outline-none transition-colors hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"),
 			g.Group(children),
 		)
 	}
 
 	return h.Summary(
-		h.Class("navmenu-summary flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left text-sm font-medium transition-colors hover:bg-accent/60 hover:text-accent-foreground"),
+		h.Class("navmenu-summary flex list-none cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left text-sm font-medium outline-none transition-colors hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"),
 		g.Group(children),
 	)
 }

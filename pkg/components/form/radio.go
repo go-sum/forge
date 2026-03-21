@@ -13,7 +13,7 @@ func Radio(p RadioProps) g.Node {
 		h.Class("relative inline-flex size-4 shrink-0 cursor-pointer"),
 		h.Input(buildToggleInput("radio", p)...),
 		// Ring — outer circle border, colour driven by peer state.
-		h.Span(h.Class("absolute inset-0 rounded-full border border-input bg-transparent transition-colors peer-checked:border-primary peer-disabled:opacity-50")),
+		h.Span(h.Class("absolute inset-0 rounded-full border border-input bg-transparent transition-colors peer-checked:border-primary peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:opacity-50")),
 		// Dot — inner filled circle, visible only when checked.
 		h.Span(h.Class("absolute inset-0 m-auto size-2 rounded-full bg-transparent transition-colors peer-checked:bg-primary")),
 	)

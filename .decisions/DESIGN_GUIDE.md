@@ -5,6 +5,8 @@
 > HTMX rendering strategy, form handling, and testing.
 >
 > It reinforces [CLAUDE.md](../CLAUDE.md) from a process perspective — read both.
+> Unless a section explicitly says otherwise, this guide describes the current
+> implemented architecture of the starter, not aspirational future structure.
 >
 > **This guide does not document `pkg/` features.** Refer to the package source and
 > its tests for the API surface.
@@ -16,6 +18,11 @@
 ---
 
 ## 1. Philosophy
+
+This starter is designed for high-performance modern web applications that favor
+server rendering, progressive enhancement, and reusable supporting packages.
+`internal/` contains app-specific code; `pkg/` contains reusable packages with
+strict dependency boundaries.
 
 ### The core constraint: layers only talk to the layer directly below them
 
@@ -157,8 +164,10 @@ In `internal/routes/routes.go`:
 
 In `internal/server/routes.go`:
 - Add the handler method to the `Handlers` interface
-- Register the route in `RegisterRoutes`, in the correct group (public,
-  protected, or admin)
+- Register the route in `RegisterRoutes`, in the correct active group (`public`
+  or `protected`). If the route is truly admin-only, track that work against the
+  planned admin route-group task in `PROJECT_PLAN.md` until the admin group is
+  wired into the router.
 
 Both files must be updated together. A route registered without a `Handlers`
 method, or vice versa, will not compile.
@@ -491,17 +500,21 @@ func UserEditPath(id string) string { return "/users/" + id + "/edit" }
 
 ### Group routes by authorization requirement
 
-Routes in `RegisterRoutes` are organized into three groups:
+Routes in today's `RegisterRoutes` implementation are organized into two active
+groups:
 
 | Group | Middleware | Who can access |
 |---|---|---|
 | Public | `LoadSession` only | Anyone |
 | `protected` | `RequireAuth` + `LoadUserContext` | Authenticated users |
-| `admin` | `RequireAdmin` | Authenticated admins only |
 
-Place a new route in the most restrictive group appropriate for it. Routes that
-need authentication but not admin access belong in `protected`. Routes that
-manage system data belong in `admin`.
+Place a new route in the most restrictive implemented group appropriate for it.
+Routes that need authentication belong in `protected`.
+
+`RequireAdmin` middleware already exists, but an explicit `admin` route group is
+not yet wired into `RegisterRoutes`. That work is tracked in
+`PROJECT_PLAN.md`. Until it lands, do not document the router as if the admin
+group already exists.
 
 ---
 

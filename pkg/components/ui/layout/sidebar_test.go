@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	testutil "starter/pkg/components/testutil"
 	g "maragu.dev/gomponents"
+	testutil "starter/pkg/components/testutil"
 )
 
 func TestSidebarUsesInstanceScopedIDs(t *testing.T) {
@@ -19,6 +19,12 @@ func TestSidebarUsesInstanceScopedIDs(t *testing.T) {
 	}
 	if !strings.Contains(got, ` id="admin-toggle"`) {
 		t.Fatalf("Sidebar() output missing toggle input id: %s", got)
+	}
+	if strings.Contains(got, ` role="dialog"`) || strings.Contains(got, ` aria-modal="true"`) {
+		t.Fatalf("Sidebar() output unexpectedly claimed dialog semantics: %s", got)
+	}
+	if !strings.Contains(got, ` aria-label="Mobile navigation"`) {
+		t.Fatalf("Sidebar() output missing mobile navigation label: %s", got)
 	}
 }
 
