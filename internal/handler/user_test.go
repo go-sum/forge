@@ -116,9 +116,7 @@ func TestUserRowReturnsResolvedError(t *testing.T) {
 }
 
 func TestUserUpdateValidationFailureRenders422(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
-		getByID: func(context.Context, uuid.UUID) (model.User, error) { return testUser, nil },
-	}, nil)
+	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
 	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
 		"email": {"not-an-email"},
 	})
@@ -142,7 +140,6 @@ func TestUserUpdateConflictRenders409(t *testing.T) {
 		updateFn: func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error) {
 			return model.User{}, model.ErrEmailTaken
 		},
-		getByID: func(context.Context, uuid.UUID) (model.User, error) { return testUser, nil },
 	}, nil)
 	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
 		"email":        {"grace@example.com"},

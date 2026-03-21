@@ -21,6 +21,14 @@ func TestRequestAndResponseHelpers(t *testing.T) {
 	req.Header.Set("HX-Current-URL", "https://example.test/users")
 	rec := httptest.NewRecorder()
 
+	htmxReq := NewRequest(req)
+	if !htmxReq.Enabled || !htmxReq.Boosted || htmxReq.Target != "#row-1" {
+		t.Fatalf("NewRequest() = %#v", htmxReq)
+	}
+	if htmxReq.IsPartial() {
+		t.Fatalf("boosted request unexpectedly treated as partial: %#v", htmxReq)
+	}
+
 	if !IsRequest(req) || !IsBoosted(req) {
 		t.Fatal("request helpers did not detect HTMX headers")
 	}
@@ -34,6 +42,7 @@ func TestRequestAndResponseHelpers(t *testing.T) {
 	SetReplaceURL(rec, "/users?page=3")
 	SetTrigger(rec, "users:updated")
 	SetTriggerAfterSettle(rec, "users:settled")
+	SetTriggerAfterSwap(rec, "users:swapped")
 	SetRetarget(rec, "#users")
 	SetReswap(rec, "outerHTML")
 
@@ -45,6 +54,7 @@ func TestRequestAndResponseHelpers(t *testing.T) {
 		"HX-Replace-Url":          "/users?page=3",
 		"HX-Trigger":              "users:updated",
 		"HX-Trigger-After-Settle": "users:settled",
+		"HX-Trigger-After-Swap":   "users:swapped",
 		"HX-Retarget":             "#users",
 		"HX-Reswap":               "outerHTML",
 	}

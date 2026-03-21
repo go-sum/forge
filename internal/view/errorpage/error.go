@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"starter/internal/view/layout"
+	"starter/internal/view"
 	"starter/pkg/components/ui/core"
 	"starter/pkg/components/ui/data"
 	"starter/pkg/components/ui/feedback"
-	uilayout "starter/pkg/components/ui/layout"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -23,13 +22,10 @@ type Props struct {
 	Debug           bool
 	TechnicalDetail string
 	HomePath        string
-	CSRFToken       string
-	IsAuthenticated bool
-	NavConfig       uilayout.NavConfig
 }
 
 // Page renders a user-facing error page with optional development details.
-func Page(p Props) g.Node {
+func Page(req view.Request, p Props) g.Node {
 	title := p.Title
 	if title == "" {
 		title = http.StatusText(p.Status)
@@ -39,59 +35,54 @@ func Page(p Props) g.Node {
 		homePath = "/"
 	}
 
-	return layout.Page(layout.Props{
-		Title:           title,
-		CSRFToken:       p.CSRFToken,
-		IsAuthenticated: p.IsAuthenticated,
-		NavConfig:       p.NavConfig,
-		Children: []g.Node{
-			h.Div(
-				h.Class("mx-auto flex max-w-2xl flex-col gap-6 py-16"),
-				data.Card.Root(
-					data.Card.Header(
+	return req.Page(
+		title,
+		h.Div(
+			h.Class("mx-auto flex max-w-2xl flex-col gap-6 py-16"),
+			data.Card.Root(
+				data.Card.Header(
+					h.Div(
+						h.Class("flex items-start justify-between gap-4"),
 						h.Div(
-							h.Class("flex items-start justify-between gap-4"),
-							h.Div(
-								h.Class("space-y-1"),
-								data.Card.Title(g.Text(title)),
-								data.Card.Description(g.Textf("%d %s", p.Status, title)),
-							),
-							core.Badge(core.BadgeProps{
-								Variant:  core.BadgeSecondary,
-								Children: []g.Node{g.Text(fmt.Sprintf("HTTP %d", p.Status))},
-							}),
+							h.Class("space-y-1"),
+							data.Card.Title(g.Text(title)),
+							data.Card.Description(g.Textf("%d %s", p.Status, title)),
 						),
+						core.Badge(core.BadgeProps{
+							Variant:  core.BadgeSecondary,
+							Children: []g.Node{g.Text(fmt.Sprintf("HTTP %d", p.Status))},
+						}),
 					),
-					data.Card.Content(
-						h.Div(
-							h.Class("space-y-4"),
-							feedback.Alert.Root(
-								feedback.AlertProps{Variant: alertVariantForStatus(p.Status)},
-								feedback.Alert.Description(g.Text(p.Message)),
-							),
-							h.Div(
-								h.Class("flex flex-wrap gap-3"),
-								core.Button(core.ButtonProps{
-									Label:   "Return Home",
-									Href:    homePath,
-									Variant: core.VariantDefault,
-								}),
-								g.If(
-									p.RequestID != "",
-									core.Button(core.ButtonProps{
-										Label:   "Request ID: " + p.RequestID,
-										Variant: core.VariantOutline,
-										Type:    "button",
-									}),
-								),
-							),
-							g.If(p.Debug && p.TechnicalDetail != "", debugDetail(p.TechnicalDetail)),
+				),
+				data.Card.Content(
+					h.Div(
+						h.Class("space-y-4"),
+						feedback.Alert.Root(
+							feedback.AlertProps{Variant: alertVariantForStatus(p.Status)},
+							feedback.Alert.Description(g.Text(p.Message)),
 						),
+						h.Div(
+							h.Class("flex flex-wrap gap-3"),
+							core.Button(core.ButtonProps{
+								Label:   "Return Home",
+								Href:    homePath,
+								Variant: core.VariantDefault,
+							}),
+							g.If(
+								p.RequestID != "",
+								core.Button(core.ButtonProps{
+									Label:   "Request ID: " + p.RequestID,
+									Variant: core.VariantOutline,
+									Type:    "button",
+								}),
+							),
+						),
+						g.If(p.Debug && p.TechnicalDetail != "", debugDetail(p.TechnicalDetail)),
 					),
 				),
 			),
-		},
-	})
+		),
+	)
 }
 
 func alertVariantForStatus(status int) feedback.AlertVariant {

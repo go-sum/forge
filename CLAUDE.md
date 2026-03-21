@@ -4,6 +4,8 @@
 > It defines how the project works: technology choices, API rules, conventions,
 > and dependency boundaries. Read this before writing any code.
 >
+> For an application design guide, see [`DESIGN_GUIDE.md`](./decisions/DESIGN_GUIDE.md).
+> For the UI design guide, see [`UI_GUIDE.md`](./decisions/UI_GUIDE.md).
 > For the implementation roadmap and task progress, see [`PROJECT_PLAN.md`](./PROJECT_PLAN.md).
 
 ---
@@ -34,7 +36,6 @@
 ## Echo v5 Critical API Rules
 
 > For the Echo v4 to v5 migration roadmap, see [`API_RULES.md`](./API_RULES.md).
-
 
 ## golang dev environment location
 If not finding go in the PATH, it's located in /usr/local/go/bin
@@ -196,58 +197,6 @@ All env vars use the `CTX_` prefix. The key transform strips the prefix, lowerca
 ### Secrets
 
 Secrets (with real credentials) stored in environment variables — never committed to YAML files.
-
----
-
-## Code Style & Architecture
-
-### Single Responsibility
-Each function does one thing. `main()` orchestrates — it does not implement. Distinct concerns (logger setup, config building, asset init) are extracted into named functions.
-
-### DRY
-Values that appear in multiple places become constants. Logic that appears in multiple places becomes a function. String literals used as identifiers (URL prefixes, header values) are defined once at the narrowest applicable scope.
-
-### YAGNI
-No single-field wrapper structs. No parameters or fields added for hypothetical future use. The right amount of structure is what current callers require — nothing more.
-
-### Naming
-- **Functions:** verb-first — `initLogger`, `CheckHealth`, `Connect`, `Setup`
-- **Variables:** noun describing content — `dev`, `pool`, `opts`, `srvCfg`
-- **Constants:** descriptive noun phrase — `staticPrefix`, `cacheImmutable`, `hstsOneYear`
-
-### Magic Values
-Unnamed literals with non-obvious meaning, or that appear more than once, become named constants. Scope to the narrowest applicable level: block-local `const` before file-level, unexported before exported.
-
-### Readability
-- Early returns reduce nesting
-- Repeated expressions become named variables (`dev := cfg.IsDevelopment()` not two calls to the same method)
-- Shared struct literals become named variables (`opts := &slog.HandlerOptions{...}` once, not duplicated)
-
-### Consistency
-New code follows established layer patterns exactly. Pattern violations are corrected — not quietly worked around.
-
----
-
-## Source Code Documentation Style
-
-Comments explain **what the code cannot say for itself**. They are not required everywhere — only where behavior is non-obvious, where a constraint would surprise a reader, or where an unusual pattern needs justification.
-
-**Rules:**
-- Name things so clearly that a type or function comment restating the name is unnecessary
-- Add a comment only when it reveals something the name, signature, or struct tags do not: non-obvious behavior, caller contracts, ordering requirements, or algorithm rationale
-- Exported symbols that are genuinely self-describing (e.g. `IsDevelopment() bool`) need no doc comment
-- Prefer a single precise sentence over a verbose paragraph
-
-**Examples of comments that belong:**
-- `// Port and GracefulTimeout are int (YAML integers); callers convert as needed` — the type alone doesn't reveal the conversion contract
-- `// ContentFiles are loaded after env vars` — the precedence rule is a design decision invisible in the field type
-- `// Missing files are silently skipped` — surprising absence of an error return warrants a note
-- `// transformKey` algorithm with worked examples — a non-trivial disambiguation algorithm that must be understood to be maintained
-
-**Examples of comments to omit:**
-- `// ServerConfig holds HTTP server settings` — the name says this
-- `// IsDevelopment reports whether the app is in development mode` — the signature says this
-- `// DatabaseConfig holds the database connection string` — obvious
 
 ---
 

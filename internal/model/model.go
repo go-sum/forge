@@ -9,6 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// Role constants for user access levels. Struct tag validate strings (e.g.
+// `validate:"oneof=user admin"`) cannot reference Go constants — those literals
+// are kept in sync with these values.
+const (
+	RoleUser  = "user"
+	RoleAdmin = "admin"
+)
+
 // User is the domain representation of an application user.
 type User struct {
 	ID          uuid.UUID

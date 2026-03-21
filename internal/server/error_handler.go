@@ -10,15 +10,14 @@ import (
 
 	"starter/internal/apperr"
 	"starter/internal/routes"
+	"starter/internal/view"
 	"starter/internal/view/errorpage"
 	"starter/pkg/components/patterns/flash"
 	componenthtmx "starter/pkg/components/patterns/htmx"
-	"starter/pkg/ctxkeys"
-	"starter/pkg/render"
 	uilayout "starter/pkg/components/ui/layout"
+	"starter/pkg/render"
 
 	"github.com/labstack/echo/v5"
-	echomw "github.com/labstack/echo/v5/middleware"
 )
 
 const problemContentType = "application/problem+json"
@@ -61,7 +60,7 @@ func NewErrorHandler(cfg ErrorHandlerConfig) echo.HTTPErrorHandler {
 		switch {
 		case wantsProblemJSON(c.Request()):
 			writeProblem(c, appErr, err, cfg.Debug)
-		case componenthtmx.IsRequest(c.Request()) && !componenthtmx.IsBoosted(c.Request()):
+		case componenthtmx.NewRequest(c.Request()).IsPartial():
 			writeHTMXToast(c, appErr)
 		default:
 			writeErrorPage(c, appErr, err, cfg.Debug, cfg.NavConfig)
@@ -188,8 +187,8 @@ func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool
 		technicalDetail = err.Error()
 	}
 
-	userID, _ := c.Get(string(ctxkeys.UserID)).(string)
-	_ = render.ComponentWithStatus(c, appErr.Status, errorpage.Page(errorpage.Props{
+	req := view.NewRequest(c, navConfig)
+	_ = render.ComponentWithStatus(c, appErr.Status, errorpage.Page(req, errorpage.Props{
 		Status:          appErr.Status,
 		Title:           appErr.Title,
 		Message:         appErr.PublicMessage(),
@@ -197,9 +196,6 @@ func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool
 		Debug:           debug,
 		TechnicalDetail: technicalDetail,
 		HomePath:        routes.Home,
-		CSRFToken:       csrfToken(c),
-		IsAuthenticated: userID != "",
-		NavConfig:       navConfig,
 	}))
 }
 
@@ -218,9 +214,4 @@ func writeJSON(c *echo.Context, status int, contentType string, body any) {
 
 func requestID(c *echo.Context) string {
 	return c.Response().Header().Get(echo.HeaderXRequestID)
-}
-
-func csrfToken(c *echo.Context) string {
-	v, _ := c.Get(echomw.DefaultCSRFConfig.ContextKey).(string)
-	return v
 }

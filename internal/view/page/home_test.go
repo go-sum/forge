@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	"starter/internal/view"
 	"starter/pkg/components/patterns/flash"
 	"starter/pkg/components/testutil"
 )
 
 func TestHomePageRendersWelcomeAndFlash(t *testing.T) {
-	got := testutil.RenderNode(t, HomePage(HomeProps{
+	got := testutil.RenderNode(t, HomePage(view.Request{
 		CSRFToken: "csrf-token",
 		Flash: []flash.Message{{
 			Type: flash.TypeSuccess,

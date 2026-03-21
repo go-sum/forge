@@ -1,12 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"starter/internal/apperr"
 	"starter/internal/model"
-	"starter/internal/service"
 	"starter/pkg/auth"
 	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/ctxkeys"
@@ -15,8 +15,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// htmxRedirectHeader is the HTMX response header that triggers a client-side redirect.
-const htmxRedirectHeader = "HX-Redirect"
+// userContextLoader is the narrow interface LoadUserContext requires.
+// *service.UserService satisfies this interface.
+type userContextLoader interface {
+	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
+}
 
 // LoadSession reads the session non-destructively and sets ctxkeys.UserID in context
 // when a valid session exists. Unlike RequireAuth, it never redirects unauthenticated
@@ -41,8 +44,8 @@ func RequireAuth(loginPath string) echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
 			if userID == "" {
-				if componenthtmx.IsRequest(c.Request()) {
-					c.Response().Header().Set(htmxRedirectHeader, loginPath)
+				if componenthtmx.NewRequest(c.Request()).IsPartial() {
+					componenthtmx.Response{Redirect: loginPath}.Apply(c.Response())
 					return c.NoContent(http.StatusUnauthorized)
 				}
 				return c.Redirect(http.StatusSeeOther, loginPath)
@@ -52,8 +55,9 @@ func RequireAuth(loginPath string) echo.MiddlewareFunc {
 	}
 }
 
-// LoadUserRole resolves the authenticated user's role and stores it in context.
-func LoadUserRole(users *service.UserService) echo.MiddlewareFunc {
+// LoadUserContext resolves the authenticated user's role and display name and
+// stores them in context. It must run after RequireAuth (ctxkeys.UserID must be set).
+func LoadUserContext(users userContextLoader) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
@@ -75,6 +79,7 @@ func LoadUserRole(users *service.UserService) echo.MiddlewareFunc {
 			}
 
 			c.Set(string(ctxkeys.UserRole), user.Role)
+			c.Set(string(ctxkeys.UserDisplayName), user.DisplayName)
 			return next(c)
 		}
 	}
@@ -85,7 +90,7 @@ func RequireAdmin() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			role, _ := c.Get(string(ctxkeys.UserRole)).(string)
-			if role != "admin" {
+			if role != model.RoleAdmin {
 				return apperr.Forbidden("You are not allowed to access this area.")
 			}
 			return next(c)

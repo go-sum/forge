@@ -4,59 +4,43 @@ package page
 import (
 	"starter/internal/model"
 	"starter/internal/routes"
-	"starter/internal/view/layout"
+	"starter/internal/view"
 	uiform "starter/pkg/components/form"
 	pkgform "starter/pkg/components/patterns/form"
 	"starter/pkg/components/ui/core"
 	uidata "starter/pkg/components/ui/data"
-	"starter/pkg/components/ui/feedback"
-	uilayout "starter/pkg/components/ui/layout"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
 
-// LoginProps configures the login page.
-type LoginProps struct {
-	Form            *pkgform.Submission
-	Input           model.LoginInput
-	CSRFToken       string
-	IsAuthenticated bool
-	NavConfig       uilayout.NavConfig
-}
-
 // LoginPage renders the full login page inside the base layout.
-func LoginPage(p LoginProps) g.Node {
-	return layout.Page(layout.Props{
-		Title:           "Login",
-		CSRFToken:       p.CSRFToken,
-		IsAuthenticated: p.IsAuthenticated,
-		NavConfig:       p.NavConfig,
-		Children: []g.Node{
-			h.Div(
-				h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
-				uidata.Card.Root(
-					uidata.Card.Header(uidata.Card.Title(g.Text("Sign In"))),
-					uidata.Card.Content(loginForm(p)),
-				),
+func LoginPage(req view.Request, form *pkgform.Submission, input model.LoginInput) g.Node {
+	return req.Page(
+		"Login",
+		h.Div(
+			h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
+			uidata.Card.Root(
+				uidata.Card.Header(uidata.Card.Title(g.Text("Sign In"))),
+				uidata.Card.Content(loginForm(req, form, input)),
 			),
-		},
-	})
+		),
+	)
 }
 
-func loginForm(p LoginProps) g.Node {
+func loginForm(req view.Request, form *pkgform.Submission, input model.LoginInput) g.Node {
 	var emailErrors, passwordErrors, formErrors []string
-	if p.Form != nil {
-		emailErrors = p.Form.GetFieldErrors("Email")
-		passwordErrors = p.Form.GetFieldErrors("Password")
-		formErrors = p.Form.GetFormErrors()
+	if form != nil {
+		emailErrors = form.GetFieldErrors("Email")
+		passwordErrors = form.GetFieldErrors("Password")
+		formErrors = form.GetFormErrors()
 	}
 	return h.Form(
 		h.Method("post"),
 		h.Action(routes.Login),
 		h.Class("w-full flex flex-col gap-3"),
-		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-		g.If(len(formErrors) > 0, formNotice(formErrors)),
+		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
+		g.If(len(formErrors) > 0, view.FormError(formErrors)),
 		uiform.Field(uiform.FieldProps{
 			ID:     "email",
 			Label:  "Email",
@@ -65,7 +49,7 @@ func loginForm(p LoginProps) g.Node {
 				ID:       "email",
 				Name:     "email",
 				Type:     uiform.TypeEmail,
-				Value:    p.Input.Email,
+				Value:    input.Email,
 				Required: true,
 				HasError: len(emailErrors) > 0,
 				Extra:    uiform.FieldControlAttrs("email", "", "", emailErrors),
@@ -98,48 +82,34 @@ func loginForm(p LoginProps) g.Node {
 	)
 }
 
-// RegisterProps configures the registration page.
-type RegisterProps struct {
-	Form            *pkgform.Submission
-	Input           model.CreateUserInput
-	CSRFToken       string
-	IsAuthenticated bool
-	NavConfig       uilayout.NavConfig
-}
-
 // RegisterPage renders the full registration page inside the base layout.
-func RegisterPage(p RegisterProps) g.Node {
-	return layout.Page(layout.Props{
-		Title:           "Register",
-		CSRFToken:       p.CSRFToken,
-		IsAuthenticated: p.IsAuthenticated,
-		NavConfig:       p.NavConfig,
-		Children: []g.Node{
-			h.Div(
-				h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
-				uidata.Card.Root(
-					uidata.Card.Header(uidata.Card.Title(g.Text("Create Account"))),
-					uidata.Card.Content(registerForm(p)),
-				),
+func RegisterPage(req view.Request, form *pkgform.Submission, input model.CreateUserInput) g.Node {
+	return req.Page(
+		"Register",
+		h.Div(
+			h.Class("max-w-sm mx-auto mt-8 sm:mt-12 px-4"),
+			uidata.Card.Root(
+				uidata.Card.Header(uidata.Card.Title(g.Text("Create Account"))),
+				uidata.Card.Content(registerForm(req, form, input)),
 			),
-		},
-	})
+		),
+	)
 }
 
-func registerForm(p RegisterProps) g.Node {
+func registerForm(req view.Request, form *pkgform.Submission, input model.CreateUserInput) g.Node {
 	var emailErrors, nameErrors, passwordErrors, formErrors []string
-	if p.Form != nil {
-		emailErrors = p.Form.GetFieldErrors("Email")
-		nameErrors = p.Form.GetFieldErrors("DisplayName")
-		passwordErrors = p.Form.GetFieldErrors("Password")
-		formErrors = p.Form.GetFormErrors()
+	if form != nil {
+		emailErrors = form.GetFieldErrors("Email")
+		nameErrors = form.GetFieldErrors("DisplayName")
+		passwordErrors = form.GetFieldErrors("Password")
+		formErrors = form.GetFormErrors()
 	}
 	return h.Form(
 		h.Method("post"),
 		h.Action(routes.Register),
 		h.Class("w-full flex flex-col gap-3"),
-		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-		g.If(len(formErrors) > 0, formNotice(formErrors)),
+		h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
+		g.If(len(formErrors) > 0, view.FormError(formErrors)),
 		uiform.Field(uiform.FieldProps{
 			ID:     "email",
 			Label:  "Email",
@@ -148,7 +118,7 @@ func registerForm(p RegisterProps) g.Node {
 				ID:       "email",
 				Name:     "email",
 				Type:     uiform.TypeEmail,
-				Value:    p.Input.Email,
+				Value:    input.Email,
 				Required: true,
 				HasError: len(emailErrors) > 0,
 				Extra:    uiform.FieldControlAttrs("email", "", "", emailErrors),
@@ -161,7 +131,7 @@ func registerForm(p RegisterProps) g.Node {
 			Control: uiform.Input(uiform.InputProps{
 				ID:       "display_name",
 				Name:     "display_name",
-				Value:    p.Input.DisplayName,
+				Value:    input.DisplayName,
 				Required: true,
 				HasError: len(nameErrors) > 0,
 				Extra:    uiform.FieldControlAttrs("display_name", "", "", nameErrors),
@@ -194,15 +164,3 @@ func registerForm(p RegisterProps) g.Node {
 	)
 }
 
-func formNotice(messages []string) g.Node {
-	items := make([]g.Node, len(messages))
-	for i, message := range messages {
-		items[i] = h.Li(g.Text(message))
-	}
-	return feedback.Alert.Root(
-		feedback.AlertProps{Variant: feedback.AlertDestructive},
-		feedback.Alert.Description(
-			h.Ul(h.Class("list-disc space-y-1 pl-4"), g.Group(items)),
-		),
-	)
-}

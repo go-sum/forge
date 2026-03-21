@@ -62,7 +62,7 @@ func UserRow(p UserRowProps) g.Node {
 }
 
 func roleVariant(role string) core.BadgeVariant {
-	if role == "admin" {
+	if role == model.RoleAdmin {
 		return core.BadgeDefault
 	}
 	return core.BadgeSecondary

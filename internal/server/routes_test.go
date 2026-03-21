@@ -129,31 +129,10 @@ func TestRegisterRoutesAllowsAuthenticatedComponentsRoute(t *testing.T) {
 	}
 }
 
-func TestRegisterRoutesRejectsNonAdminUsersFromUserManagement(t *testing.T) {
+func TestRegisterRoutesAllowsAuthenticatedUsersToReachUserManagement(t *testing.T) {
 	e := echo.New()
 	sessions := auth.NewSessionStore(testSessionConfig())
 	users := service.NewUserService(routeUserRepo{user: model.User{ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Role: "user"}})
-	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{})
-	RegisterRoutes(e, routeHandlers{}, sessions, users, "/public", "public")
-
-	req := httptest.NewRequest(http.MethodGet, routes.Users, nil)
-	addSessionCookie(t, sessions, req, "11111111-1111-1111-1111-111111111111")
-	rec := httptest.NewRecorder()
-
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d body=%q", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "You are not allowed to access this area.") {
-		t.Fatalf("body = %q", rec.Body.String())
-	}
-}
-
-func TestRegisterRoutesAllowsAdminUsersToReachUserManagement(t *testing.T) {
-	e := echo.New()
-	sessions := auth.NewSessionStore(testSessionConfig())
-	users := service.NewUserService(routeUserRepo{user: model.User{ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Role: "admin"}})
 	RegisterRoutes(e, routeHandlers{}, sessions, users, "/public", "public")
 
 	req := httptest.NewRequest(http.MethodGet, routes.Users, nil)

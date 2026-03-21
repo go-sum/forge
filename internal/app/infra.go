@@ -1,4 +1,4 @@
-package services
+package app
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"starter/config"
-	internalserver "starter/internal/server"
 	"starter/internal/repository"
+	internalserver "starter/internal/server"
 	"starter/internal/service"
 	"starter/pkg/assetconfig"
 	"starter/pkg/assets"

@@ -50,7 +50,7 @@ func NewAuthService(
 func (s *AuthService) Register(ctx context.Context, input model.CreateUserInput) (model.User, error) {
 	role := input.Role
 	if role == "" {
-		role = "user"
+		role = model.RoleUser
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)

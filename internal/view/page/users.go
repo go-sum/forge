@@ -3,51 +3,39 @@ package page
 import (
 	"starter/internal/model"
 	"starter/internal/routes"
-	"starter/internal/view/layout"
+	"starter/internal/view"
 	"starter/internal/view/partial/userpartial"
-	"starter/pkg/components/patterns/flash"
 	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/patterns/pager"
 	"starter/pkg/components/ui/core"
 	uidata "starter/pkg/components/ui/data"
-	uilayout "starter/pkg/components/ui/layout"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
 
-// UserListProps configures the user management list page.
-type UserListProps struct {
-	Users           []model.User
-	Pager           pager.Pager
-	CSRFToken       string
-	IsAuthenticated bool
-	Flash           []flash.Message
-	NavConfig       uilayout.NavConfig
+// UserListData configures the user management table and pagination region.
+type UserListData struct {
+	Users []model.User
+	Pager pager.Pager
 }
 
 // UserListPage renders the full user table inside the base layout.
-func UserListPage(p UserListProps) g.Node {
-	return layout.Page(layout.Props{
-		Title:           "Users",
-		CSRFToken:       p.CSRFToken,
-		IsAuthenticated: p.IsAuthenticated,
-		Flash:           p.Flash,
-		NavConfig:       p.NavConfig,
-		Children: []g.Node{
-			h.H1(h.Class("text-2xl font-bold mb-4"), g.Text("Users")),
-			UserListRegion(p),
-		},
-	})
+func UserListPage(req view.Request, data UserListData) g.Node {
+	return req.Page(
+		"Users",
+		h.H1(h.Class("text-2xl font-bold mb-4"), g.Text("Users")),
+		UserListRegion(data),
+	)
 }
 
 // UserListRegion renders the HTMX-replaceable table + pagination region.
-func UserListRegion(p UserListProps) g.Node {
+func UserListRegion(data UserListData) g.Node {
 	return h.Div(
 		h.ID("users-list-region"),
 		h.Class("space-y-4"),
-		userTable(p.Users),
-		pagination(p.Pager),
+		userTable(data.Users),
+		pagination(data.Pager),
 	)
 }
 

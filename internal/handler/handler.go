@@ -7,13 +7,13 @@ import (
 
 	"starter/internal/model"
 	"starter/internal/service"
+	"starter/internal/view"
 	"starter/pkg/auth"
 	uilayout "starter/pkg/components/ui/layout"
 	"starter/pkg/validate"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/middleware"
 )
 
 type authService interface {
@@ -36,12 +36,11 @@ type handlerServices struct {
 
 // Handler holds the transport layer's dependencies.
 type Handler struct {
-	services      handlerServices
-	sessions      *auth.SessionManager
-	validator     *validate.Validator
-	checkHealth   func(context.Context) error
-	csrfFieldName string
-	navConfig     uilayout.NavConfig
+	services    handlerServices
+	sessions    *auth.SessionManager
+	validator   *validate.Validator
+	checkHealth func(context.Context) error
+	navConfig   uilayout.NavConfig
 }
 
 // New constructs a Handler with all required dependencies.
@@ -52,7 +51,6 @@ func New(
 	sessions *auth.SessionManager,
 	validator *validate.Validator,
 	checkHealth func(context.Context) error,
-	csrfFieldName string,
 	navConfig uilayout.NavConfig,
 ) *Handler {
 	return &Handler{
@@ -60,17 +58,13 @@ func New(
 			Auth: services.Auth,
 			User: services.User,
 		},
-		sessions:      sessions,
-		validator:     validator,
-		checkHealth:   checkHealth,
-		csrfFieldName: csrfFieldName,
-		navConfig:     navConfig,
+		sessions:    sessions,
+		validator:   validator,
+		checkHealth: checkHealth,
+		navConfig:   navConfig,
 	}
 }
 
-// csrfToken reads the CSRF token stored in context by Echo's CSRF middleware.
-// Uses DefaultCSRFConfig.ContextKey to avoid hardcoding the "csrf" string.
-func (h *Handler) csrfToken(c *echo.Context) string {
-	v, _ := c.Get(middleware.DefaultCSRFConfig.ContextKey).(string)
-	return v
+func (h *Handler) request(c *echo.Context) view.Request {
+	return view.NewRequest(c, h.navConfig)
 }

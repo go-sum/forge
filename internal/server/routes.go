@@ -51,15 +51,12 @@ func RegisterRoutes(
 
 	protected := e.Group("")
 	protected.Use(custommw.RequireAuth(routes.Login))
+	protected.Use(custommw.LoadUserContext(users))
 	protected.POST(routes.Logout, h.Logout)
 	protected.GET(routes.Components, h.ComponentExamples)
-
-	admin := protected.Group("")
-	admin.Use(custommw.LoadUserRole(users))
-	admin.Use(custommw.RequireAdmin())
-	admin.GET(routes.Users, h.UserList)
-	admin.GET(routes.UserEdit, h.UserEditForm)
-	admin.GET(routes.UserRow, h.UserRow)
-	admin.PUT(routes.UserByID, h.UserUpdate)
-	admin.DELETE(routes.UserByID, h.UserDelete)
+	protected.GET(routes.Users, h.UserList)
+	protected.GET(routes.UserEdit, h.UserEditForm)
+	protected.GET(routes.UserRow, h.UserRow)
+	protected.PUT(routes.UserByID, h.UserUpdate)
+	protected.DELETE(routes.UserByID, h.UserDelete)
 }

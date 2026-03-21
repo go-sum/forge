@@ -3,14 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"starter/internal/view/layout"
+	"starter/internal/view"
 	"starter/internal/view/page"
 	"starter/pkg/components/examples"
-	"starter/pkg/components/patterns/flash"
-	"starter/pkg/ctxkeys"
-	"starter/pkg/render"
-
-	g "maragu.dev/gomponents"
 
 	"github.com/labstack/echo/v5"
 )
@@ -27,21 +22,12 @@ func (h *Handler) HealthCheck(c *echo.Context) error {
 
 // Home renders the application landing page.
 func (h *Handler) Home(c *echo.Context) error {
-	userID, _ := c.Get(string(ctxkeys.UserID)).(string)
-	flashMsgs, _ := flash.GetAll(c.Request(), c.Response())
-	return render.Component(c, page.HomePage(page.HomeProps{
-		CSRFToken:       h.csrfToken(c),
-		IsAuthenticated: userID != "",
-		Flash:           flashMsgs,
-		NavConfig:       h.navConfig,
-	}))
+	req := h.request(c)
+	return view.Render(c, req, page.HomePage(req), nil)
 }
 
 // ComponentExamples renders the component library reference page.
 func (h *Handler) ComponentExamples(c *echo.Context) error {
-	return render.Component(c, layout.Page(layout.Props{
-		Title:     "Component Examples",
-		CSRFToken: h.csrfToken(c),
-		Children:  []g.Node{examples.Page()},
-	}))
+	req := h.request(c)
+	return view.Render(c, req, req.Page("Component Examples", examples.Page()), nil)
 }

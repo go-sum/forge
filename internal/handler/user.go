@@ -6,13 +6,11 @@ import (
 
 	"starter/internal/apperr"
 	"starter/internal/model"
+	"starter/internal/view"
 	"starter/internal/view/page"
 	"starter/internal/view/partial/userpartial"
-	"starter/pkg/components/patterns/flash"
 	pkgform "starter/pkg/components/patterns/form"
-	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/patterns/pager"
-	"starter/pkg/ctxkeys"
 	"starter/pkg/render"
 
 	"github.com/google/uuid"
@@ -22,7 +20,7 @@ import (
 // UserList renders the paginated user management table.
 func (h *Handler) UserList(c *echo.Context) error {
 	ctx := c.Request().Context()
-	userID, _ := c.Get(string(ctxkeys.UserID)).(string)
+	req := h.request(c)
 
 	pg := pager.New(c.Request(), 20)
 
@@ -37,24 +35,16 @@ func (h *Handler) UserList(c *echo.Context) error {
 		return apperr.Unavailable("Unable to load users right now.", err)
 	}
 
-	props := page.UserListProps{
-		Users:           users,
-		Pager:           pg,
-		CSRFToken:       h.csrfToken(c),
-		IsAuthenticated: userID != "",
-		NavConfig:       h.navConfig,
+	data := page.UserListData{
+		Users: users,
+		Pager: pg,
 	}
-	if componenthtmx.IsRequest(c.Request()) && !componenthtmx.IsBoosted(c.Request()) {
-		return render.Fragment(c, page.UserListRegion(props))
-	}
-
-	flashMsgs, _ := flash.GetAll(c.Request(), c.Response())
-	props.Flash = flashMsgs
-	return render.Component(c, page.UserListPage(props))
+	return view.Render(c, req, page.UserListPage(req, data), page.UserListRegion(data))
 }
 
 // UserEditForm renders the inline edit form for a single user row (HTMX swap).
 func (h *Handler) UserEditForm(c *echo.Context) error {
+	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
@@ -63,10 +53,7 @@ func (h *Handler) UserEditForm(c *echo.Context) error {
 	if err != nil {
 		return apperr.Resolve(err)
 	}
-	return render.Fragment(c, userpartial.UserEditForm(userpartial.UserFormProps{
-		User:      user,
-		CSRFToken: h.csrfToken(c),
-	}))
+	return render.Fragment(c, userpartial.UserEditForm(req, userpartial.UserFormData{User: user}))
 }
 
 // UserRow renders a single read-only user table row (HTMX swap after save/cancel).
@@ -86,6 +73,7 @@ func (h *Handler) UserRow(c *echo.Context) error {
 
 // UserUpdate processes the inline edit form and returns the updated row.
 func (h *Handler) UserUpdate(c *echo.Context) error {
+	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
@@ -96,31 +84,21 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		user, err := h.services.User.GetByID(c.Request().Context(), id)
-		if err != nil {
-			return apperr.Resolve(err)
-		}
-		return render.FragmentWithStatus(c, http.StatusUnprocessableEntity, userpartial.UserEditForm(userpartial.UserFormProps{
-			User:      user,
-			Values:    input,
-			CSRFToken: h.csrfToken(c),
-			Errors:    sub.GetErrors(),
+		return render.FragmentWithStatus(c, http.StatusUnprocessableEntity, userpartial.UserEditForm(req, userpartial.UserFormData{
+			User:   model.User{ID: id},
+			Values: input,
+			Errors: sub.GetErrors(),
 		}))
 	}
 
 	user, err := h.services.User.Update(c.Request().Context(), id, input)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
-			current, getErr := h.services.User.GetByID(c.Request().Context(), id)
-			if getErr != nil {
-				return apperr.Resolve(getErr)
-			}
 			sub.SetFieldError("Email", "Email already in use.")
-			return render.FragmentWithStatus(c, http.StatusConflict, userpartial.UserEditForm(userpartial.UserFormProps{
-				User:      current,
-				Values:    input,
-				CSRFToken: h.csrfToken(c),
-				Errors:    sub.GetErrors(),
+			return render.FragmentWithStatus(c, http.StatusConflict, userpartial.UserEditForm(req, userpartial.UserFormData{
+				User:   model.User{ID: id},
+				Values: input,
+				Errors: sub.GetErrors(),
 			}))
 		}
 		return apperr.Resolve(err)

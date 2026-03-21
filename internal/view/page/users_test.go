@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"starter/internal/model"
+	"starter/internal/view"
 	"starter/pkg/components/patterns/pager"
 	"starter/pkg/components/testutil"
 )
 
 func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 	pg := pager.Pager{Page: 2, PerPage: 20, TotalItems: 45, TotalPages: 3}
-	got := testutil.RenderNode(t, UserListRegion(UserListProps{
+	got := testutil.RenderNode(t, UserListRegion(UserListData{
 		Users: []model.User{{
 			DisplayName: "Ada Lovelace",
 			Email:       "ada@example.com",
@@ -33,5 +34,16 @@ func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("rendered region missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestUserListPageRendersShellFromRequest(t *testing.T) {
+	got := testutil.RenderNode(t, UserListPage(view.Request{
+		CSRFToken:       "csrf-token",
+		IsAuthenticated: true,
+	}, UserListData{}))
+
+	if !strings.Contains(got, "<html") || !strings.Contains(got, "Users") {
+		t.Fatalf("rendered page = %q", got)
 	}
 }

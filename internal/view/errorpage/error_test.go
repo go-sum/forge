@@ -4,17 +4,19 @@ import (
 	"strings"
 	"testing"
 
+	"starter/internal/view"
 	"starter/pkg/components/testutil"
 )
 
 func TestPageRendersDebugDetailAndFallbacks(t *testing.T) {
-	got := testutil.RenderNode(t, Page(Props{
+	got := testutil.RenderNode(t, Page(view.Request{
+		CSRFToken: "csrf-token",
+	}, Props{
 		Status:          500,
 		Message:         "Something went wrong.",
 		RequestID:       "req-123",
 		Debug:           true,
 		TechnicalDetail: "database timeout",
-		CSRFToken:       "csrf-token",
 	}))
 
 	wantSnippets := []string{

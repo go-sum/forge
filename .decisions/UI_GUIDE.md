@@ -1,4 +1,4 @@
-# Refactoring UI Development Guide
+# UI Development Guide
 
 > A comprehensive design guide for building consistent, well-designed interfaces using our component library and Tailwind CSS.
 

@@ -103,10 +103,9 @@ func newTestHandler(authSvc authService, userSvc userService, checkHealth func(c
 			Auth: authSvc,
 			User: userSvc,
 		},
-		sessions:      auth.NewSessionStore(testSessionConfig()),
-		validator:     validate.New(),
-		checkHealth:   checkHealth,
-		csrfFieldName: "_csrf",
+		sessions:    auth.NewSessionStore(testSessionConfig()),
+		validator:   validate.New(),
+		checkHealth: checkHealth,
 	}
 }
 

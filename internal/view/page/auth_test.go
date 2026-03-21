@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"starter/internal/model"
+	"starter/internal/view"
 	pkgform "starter/pkg/components/patterns/form"
 	"starter/pkg/components/testutil"
 
@@ -16,11 +17,9 @@ func TestLoginPageRendersInputAndErrors(t *testing.T) {
 	form.SetFieldError("Email", "Email is required.")
 	form.SetFormError("Invalid email or password.")
 
-	got := testutil.RenderNode(t, LoginPage(LoginProps{
-		Form:      form,
-		Input:     model.LoginInput{Email: "ada@example.com"},
+	got := testutil.RenderNode(t, LoginPage(view.Request{
 		CSRFToken: "csrf-token",
-	}))
+	}, form, model.LoginInput{Email: "ada@example.com"}))
 
 	wantSnippets := []string{
 		`action="/login"`,
@@ -41,13 +40,11 @@ func TestRegisterPageRendersInputAndErrors(t *testing.T) {
 	form.SetFieldError("DisplayName", "Display name is required.")
 	form.SetFormError("Unable to save account.")
 
-	got := testutil.RenderNode(t, RegisterPage(RegisterProps{
-		Form: form,
-		Input: model.CreateUserInput{
-			Email:       "ada@example.com",
-			DisplayName: "Ada",
-		},
+	got := testutil.RenderNode(t, RegisterPage(view.Request{
 		CSRFToken: "csrf-token",
+	}, form, model.CreateUserInput{
+		Email:       "ada@example.com",
+		DisplayName: "Ada",
 	}))
 
 	wantSnippets := []string{

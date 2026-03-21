@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"starter/internal/model"
+	"starter/internal/view"
 	"starter/pkg/components/testutil"
 
 	"github.com/google/uuid"
@@ -20,14 +21,15 @@ var partialTestUser = model.User{
 }
 
 func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
-	got := testutil.RenderNode(t, UserEditForm(UserFormProps{
+	got := testutil.RenderNode(t, UserEditForm(view.Request{
+		CSRFToken: "csrf-token",
+	}, UserFormData{
 		User: partialTestUser,
 		Values: model.UpdateUserInput{
 			Email:       "grace@example.com",
 			DisplayName: "Grace Hopper",
 			Role:        "user",
 		},
-		CSRFToken: "csrf-token",
 		Errors: map[string][]string{
 			"Email": {"Email already in use."},
 			"_":     {"Save failed."},

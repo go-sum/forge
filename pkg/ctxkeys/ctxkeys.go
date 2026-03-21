@@ -6,11 +6,6 @@ type ctxKey string
 
 const (
 	UserID          ctxKey = "user_id"
-	UserEmail       ctxKey = "user_email"
 	UserRole        ctxKey = "user_role"
-	IsAuthenticated ctxKey = "is_authenticated"
-	RequestID       ctxKey = "request_id"
-	Logger          ctxKey = "logger"
-	CSRF            ctxKey = "csrf"
-	Config          ctxKey = "config"
+	UserDisplayName ctxKey = "user_display_name"
 )

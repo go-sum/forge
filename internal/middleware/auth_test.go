@@ -10,7 +10,6 @@ import (
 
 	"starter/internal/apperr"
 	"starter/internal/model"
-	"starter/internal/service"
 	"starter/pkg/auth"
 	"starter/pkg/ctxkeys"
 
@@ -69,7 +68,7 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := rec.Header().Get(htmxRedirectHeader); got != testLoginPath {
+	if got := rec.Header().Get("HX-Redirect"); got != testLoginPath {
 		t.Fatalf("HX-Redirect = %q", got)
 	}
 }
@@ -100,14 +99,15 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	}
 }
 
-func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
+func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 	tests := []struct {
-		name       string
-		userID     string
-		repo       middlewareUserRepo
-		wantStatus int
-		wantRole   string
-		expectNext bool
+		name            string
+		userID          string
+		repo            middlewareUserRepo
+		wantStatus      int
+		wantRole        string
+		wantDisplayName string
+		expectNext      bool
 	}{
 		{
 			name:       "missing session user ID",
@@ -132,11 +132,12 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
-			name:       "success",
-			userID:     "11111111-1111-1111-1111-111111111111",
-			repo:       middlewareUserRepo{user: model.User{Role: "admin"}},
-			wantRole:   "admin",
-			expectNext: true,
+			name:            "success",
+			userID:          "11111111-1111-1111-1111-111111111111",
+			repo:            middlewareUserRepo{user: model.User{Role: "admin", DisplayName: "Alice"}},
+			wantRole:        "admin",
+			wantDisplayName: "Alice",
+			expectNext:      true,
 		},
 	}
 
@@ -151,11 +152,16 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 			}
 
 			nextCalled := false
-			err := LoadUserRole(service.NewUserService(tc.repo))(func(c *echo.Context) error {
+			err := LoadUserContext(tc.repo)(func(c *echo.Context) error {
 				nextCalled = true
 				if tc.wantRole != "" {
 					if got, _ := c.Get(string(ctxkeys.UserRole)).(string); got != tc.wantRole {
 						t.Fatalf("role = %q", got)
+					}
+				}
+				if tc.wantDisplayName != "" {
+					if got, _ := c.Get(string(ctxkeys.UserDisplayName)).(string); got != tc.wantDisplayName {
+						t.Fatalf("display name = %q", got)
 					}
 				}
 				return nil
@@ -166,7 +172,7 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 			}
 			if tc.wantStatus == 0 {
 				if err != nil {
-					t.Fatalf("LoadUserRole() error = %v", err)
+					t.Fatalf("LoadUserContext() error = %v", err)
 				}
 				return
 			}

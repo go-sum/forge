@@ -1,7 +1,8 @@
-// Package services provides the application service container — a single
-// composition root that owns and initialises all infrastructure services in
-// dependency order. Domain layers (Repos, Services, Handler) are added in T1202.
-package services
+// Package app provides the application composition root and service container.
+//
+// Container owns infrastructure wiring and domain composition; App owns the
+// runnable HTTP application built from that container.
+package app
 
 import (
 	"log/slog"
