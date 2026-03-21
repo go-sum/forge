@@ -13,6 +13,7 @@ import (
 
 	pkgmw "starter/pkg/middleware"
 	pkgserver "starter/pkg/server"
+	uilayout "starter/pkg/components/ui/layout"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -21,7 +22,14 @@ import (
 // Setup wires the application middleware stack onto e in the correct order.
 // cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
-func Setup(e *echo.Echo, cfg pkgserver.Config) {
+// navConfig is forwarded to the error handler so error pages render the correct nav.
+func Setup(e *echo.Echo, cfg pkgserver.Config, navConfig uilayout.NavConfig) {
+	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
+		Debug:     cfg.Debug,
+		Logger:    slog.Default(),
+		NavConfig: navConfig,
+	})
+
 	// Pre-routing: runs before the router dispatches the request.
 	e.Pre(middleware.RemoveTrailingSlash())
 

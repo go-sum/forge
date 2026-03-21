@@ -101,13 +101,14 @@ func (c *Container) initDatabase() {
 	c.DB = pool
 }
 
-// injectCSPHashes appends each hash token in hashes to the script-src
-// directive of csp. Called with the assembled token list from initWeb.
+// injectCSPHashes appends all hash tokens to the script-src directive of csp
+// in a single replacement, preserving their order. Called with the assembled
+// token list from initWeb.
 func injectCSPHashes(csp string, hashes []string) string {
-	for _, h := range hashes {
-		csp = strings.Replace(csp, "script-src", "script-src "+h, 1)
+	if len(hashes) == 0 {
+		return csp
 	}
-	return csp
+	return strings.Replace(csp, "script-src", "script-src "+strings.Join(hashes, " "), 1)
 }
 
 // initWeb builds ServerConfig from the app config and creates the Echo instance
@@ -132,7 +133,7 @@ func (c *Container) initWeb() {
 		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
 	c.Web = pkgserver.New(c.ServerConfig)
-	internalserver.Setup(c.Web, c.ServerConfig)
+	internalserver.Setup(c.Web, c.ServerConfig, cfg.Nav)
 }
 
 func (c *Container) initAuth() {
@@ -154,10 +155,5 @@ func (c *Container) initRepos() {
 }
 
 func (c *Container) initServices() {
-	jwtCfg := auth.JWTConfig{
-		Secret:        c.Config.Auth.JWT.Secret,
-		Issuer:        c.Config.Auth.JWT.Issuer,
-		TokenDuration: time.Duration(c.Config.Auth.JWT.TokenDuration) * time.Second,
-	}
-	c.Services = service.NewServices(c.Repos, c.DB, jwtCfg)
+	c.Services = service.NewServices(c.Repos, c.DB)
 }

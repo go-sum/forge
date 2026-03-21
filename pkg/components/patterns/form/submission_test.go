@@ -34,17 +34,15 @@ func TestSubmitStoresBindError(t *testing.T) {
 	s := New(validator.New())
 	bindErr := errors.New("malformed body")
 
-	if err := s.Submit(&stubBinder{err: bindErr}, &struct{}{}); err != nil {
-		t.Fatalf("Submit() returned unexpected error: %v", err)
-	}
+	s.Submit(&stubBinder{err: bindErr}, &struct{}{})
 	if !s.IsSubmitted() {
 		t.Fatal("IsSubmitted() should be true after Submit")
 	}
 	if s.IsValid() {
 		t.Fatal("IsValid() should be false when bind failed")
 	}
-	if errs := s.GetFieldErrors("_"); len(errs) != 1 || errs[0] != bindErr.Error() {
-		t.Fatalf("GetFieldErrors(_) = %#v", errs)
+	if errs := s.GetFormErrors(); len(errs) != 1 || errs[0] != bindErr.Error() {
+		t.Fatalf("GetFormErrors() = %#v", errs)
 	}
 }
 
@@ -55,13 +53,34 @@ func TestSubmitValidatesStruct(t *testing.T) {
 
 	s := New(validator.New())
 	// Bind succeeds but dest is zero-value — validator should catch the required field.
-	if err := s.Submit(&stubBinder{}, &loginForm{}); err != nil {
-		t.Fatalf("Submit() returned unexpected error: %v", err)
-	}
+	s.Submit(&stubBinder{}, &loginForm{})
 	if s.IsValid() {
 		t.Fatal("IsValid() should be false when validation fails")
 	}
 	if !s.FieldHasErrors("Email") {
 		t.Fatalf("expected Email field error; got errors = %#v", s.GetErrors())
+	}
+}
+
+func TestSubmissionTracksFormErrors(t *testing.T) {
+	s := New(validator.New())
+	s.SetFormError("save failed")
+	if !s.HasFormErrors() {
+		t.Fatal("HasFormErrors() should report form-level errors")
+	}
+	if got := s.GetFormErrors(); len(got) != 1 || got[0] != "save failed" {
+		t.Fatalf("GetFormErrors() = %#v", got)
+	}
+}
+
+func TestSubmitStoresNonValidationValidatorErrors(t *testing.T) {
+	s := New(validator.New())
+	dest := 123 // validator.Struct on a non-struct returns InvalidValidationError.
+	s.Submit(&stubBinder{}, dest)
+	if s.IsValid() {
+		t.Fatal("IsValid() should be false when validator returns a non-validation error")
+	}
+	if errs := s.GetFormErrors(); len(errs) != 1 {
+		t.Fatalf("GetFormErrors() = %#v", errs)
 	}
 }

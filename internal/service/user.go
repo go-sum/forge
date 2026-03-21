@@ -14,6 +14,11 @@ type UserService struct {
 	repo repository.UserRepository
 }
 
+// NewUserService constructs a UserService from a user repository.
+func NewUserService(repo repository.UserRepository) *UserService {
+	return &UserService{repo: repo}
+}
+
 // List returns a paginated slice of users. perPage is capped at 100.
 func (s *UserService) List(ctx context.Context, page, perPage int) ([]model.User, error) {
 	if perPage > 100 {

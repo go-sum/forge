@@ -41,18 +41,6 @@ func (r *userRepository) Create(ctx context.Context, email, displayName, role st
 	return toUserModel(u), nil
 }
 
-func (r *userRepository) CreateWithTx(ctx context.Context, tx pgx.Tx, email, displayName, role string) (model.User, error) {
-	u, err := db.New(tx).CreateUser(ctx, db.CreateUserParams{
-		Email:       email,
-		DisplayName: displayName,
-		Role:        role,
-	})
-	if err != nil {
-		return model.User{}, mapUserErr(err)
-	}
-	return toUserModel(u), nil
-}
-
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
 	u, err := r.q.GetUserByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -103,6 +91,8 @@ func (r *userRepository) Update(ctx context.Context, id uuid.UUID, email, displa
 	return toUserModel(u), nil
 }
 
+// Delete removes a user. If no row matches id, the operation succeeds silently —
+// DELETE is idempotent per RFC 9110 §9.3.5.
 func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.q.DeleteUser(ctx, id)
 }

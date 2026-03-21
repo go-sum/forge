@@ -18,7 +18,6 @@ import (
 // UserRepository defines data access operations for users.
 type UserRepository interface {
 	Create(ctx context.Context, email, displayName, role string) (model.User, error)
-	CreateWithTx(ctx context.Context, tx pgx.Tx, email, displayName, role string) (model.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
 	GetByEmail(ctx context.Context, email string) (model.User, error)
 	List(ctx context.Context, limit, offset int32) ([]model.User, error)
@@ -30,7 +29,6 @@ type UserRepository interface {
 // PasswordRepository defines data access operations for password records.
 type PasswordRepository interface {
 	Create(ctx context.Context, userID uuid.UUID, hash string) (model.Password, error)
-	CreateWithTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, hash string) (model.Password, error)
 	GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (model.Password, error)
 	GetCurrentByEmail(ctx context.Context, email string) (model.Password, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]model.Password, error)
@@ -55,6 +53,8 @@ func NewRepositories(pool *pgxpool.Pool) *Repositories {
 
 // WithTx returns a new Repositories where both repos share the given transaction.
 // Used by AuthService.Register to atomically create a user and their password.
+// Calling Create on the returned repos executes within tx — no separate
+// transaction-variant methods are needed.
 func (r *Repositories) WithTx(tx pgx.Tx) *Repositories {
 	q := db.New(tx)
 	return &Repositories{

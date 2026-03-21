@@ -5,7 +5,6 @@ package service
 
 import (
 	"starter/internal/repository"
-	"starter/pkg/auth"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,9 +17,9 @@ type Services struct {
 
 // NewServices constructs all domain services from the shared infrastructure.
 // Sessions are not injected here — they belong to the transport layer.
-func NewServices(repos *repository.Repositories, pool *pgxpool.Pool, jwt auth.JWTConfig) *Services {
+func NewServices(repos *repository.Repositories, pool *pgxpool.Pool) *Services {
 	return &Services{
-		Auth: &AuthService{repos: repos, pool: pool, jwt: jwt},
-		User: &UserService{repo: repos.User},
+		Auth: NewAuthService(repos.User, repos.Password, repos, pool),
+		User: NewUserService(repos.User),
 	}
 }

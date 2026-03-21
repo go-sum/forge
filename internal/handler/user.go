@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"starter/internal/apperr"
 	"starter/internal/model"
 	"starter/internal/view/page"
 	"starter/internal/view/partial/userpartial"
-	pkgform "starter/pkg/components/patterns/form"
 	"starter/pkg/components/patterns/flash"
+	pkgform "starter/pkg/components/patterns/form"
+	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/patterns/pager"
 	"starter/pkg/ctxkeys"
 	"starter/pkg/render"
@@ -23,31 +26,42 @@ func (h *Handler) UserList(c *echo.Context) error {
 
 	pg := pager.New(c.Request(), 20)
 
-	total, _ := h.services.User.Count(ctx)
+	total, err := h.services.User.Count(ctx)
+	if err != nil {
+		return apperr.Unavailable("Unable to load users right now.", err)
+	}
 	pg.SetTotal(int(total))
 
-	users, _ := h.services.User.List(ctx, pg.Page, pg.PerPage)
+	users, err := h.services.User.List(ctx, pg.Page, pg.PerPage)
+	if err != nil {
+		return apperr.Unavailable("Unable to load users right now.", err)
+	}
 
-	flashMsgs, _ := flash.GetAll(c.Request(), c.Response())
-
-	return render.Component(c, page.UserListPage(page.UserListProps{
+	props := page.UserListProps{
 		Users:           users,
 		Pager:           pg,
 		CSRFToken:       h.csrfToken(c),
-		Flash:           flashMsgs,
 		IsAuthenticated: userID != "",
-	}))
+		NavConfig:       h.navConfig,
+	}
+	if componenthtmx.IsRequest(c.Request()) && !componenthtmx.IsBoosted(c.Request()) {
+		return render.Fragment(c, page.UserListRegion(props))
+	}
+
+	flashMsgs, _ := flash.GetAll(c.Request(), c.Response())
+	props.Flash = flashMsgs
+	return render.Component(c, page.UserListPage(props))
 }
 
 // UserEditForm renders the inline edit form for a single user row (HTMX swap).
 func (h *Handler) UserEditForm(c *echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid user id")
+		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 	user, err := h.services.User.GetByID(c.Request().Context(), id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "user not found")
+		return apperr.Resolve(err)
 	}
 	return render.Fragment(c, userpartial.UserEditForm(userpartial.UserFormProps{
 		User:      user,
@@ -59,15 +73,14 @@ func (h *Handler) UserEditForm(c *echo.Context) error {
 func (h *Handler) UserRow(c *echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid user id")
+		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 	user, err := h.services.User.GetByID(c.Request().Context(), id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "user not found")
+		return apperr.Resolve(err)
 	}
 	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
-		User:      user,
-		CSRFToken: h.csrfToken(c),
+		User: user,
 	}))
 }
 
@@ -75,7 +88,7 @@ func (h *Handler) UserRow(c *echo.Context) error {
 func (h *Handler) UserUpdate(c *echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid user id")
+		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 
 	var input model.UpdateUserInput
@@ -83,40 +96,49 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		user, _ := h.services.User.GetByID(c.Request().Context(), id)
-		errs := sub.GetErrors()
-		// Remap struct field names (capitalized) to form field names (snake_case).
-		formErrors := map[string][]string{
-			"email":        errs["Email"],
-			"display_name": errs["DisplayName"],
-			"role":         errs["Role"],
+		user, err := h.services.User.GetByID(c.Request().Context(), id)
+		if err != nil {
+			return apperr.Resolve(err)
 		}
 		return render.FragmentWithStatus(c, http.StatusUnprocessableEntity, userpartial.UserEditForm(userpartial.UserFormProps{
 			User:      user,
+			Values:    input,
 			CSRFToken: h.csrfToken(c),
-			Errors:    formErrors,
+			Errors:    sub.GetErrors(),
 		}))
 	}
 
 	user, err := h.services.User.Update(c.Request().Context(), id, input)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		if errors.Is(err, model.ErrEmailTaken) {
+			current, getErr := h.services.User.GetByID(c.Request().Context(), id)
+			if getErr != nil {
+				return apperr.Resolve(getErr)
+			}
+			sub.SetFieldError("Email", "Email already in use.")
+			return render.FragmentWithStatus(c, http.StatusConflict, userpartial.UserEditForm(userpartial.UserFormProps{
+				User:      current,
+				Values:    input,
+				CSRFToken: h.csrfToken(c),
+				Errors:    sub.GetErrors(),
+			}))
+		}
+		return apperr.Resolve(err)
 	}
 
 	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
-		User:      user,
-		CSRFToken: h.csrfToken(c),
+		User: user,
 	}))
 }
 
-// UserDelete removes a user and returns 200 so HTMX can remove the row.
+// UserDelete removes a user and returns 204 so HTMX can remove the row.
 func (h *Handler) UserDelete(c *echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid user id")
+		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 	if err := h.services.User.Delete(c.Request().Context(), id); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return apperr.Resolve(err)
 	}
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }

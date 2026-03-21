@@ -2,7 +2,6 @@
 package layout
 
 import (
-	"starter/config"
 	"starter/pkg/assets"
 	"starter/pkg/components/interactive"
 	"starter/pkg/components/patterns/flash"
@@ -19,17 +18,13 @@ type Props struct {
 	IsAuthenticated bool
 	UserName        string
 	Flash           []flash.Message
+	NavConfig       uilayout.NavConfig
 	Children        []g.Node
 }
 
 // Page renders a complete HTML5 document with shadcn/ui theming, CSRF injection,
 // flash alerts, and deferred script loading for the bundled app runtime and htmx.
 func Page(p Props) g.Node {
-	var navCfg uilayout.NavConfig
-	if config.App != nil {
-		navCfg = config.App.Nav
-	}
-
 	return h.Doctype(
 		h.HTML(
 			h.Lang("en"),
@@ -52,7 +47,7 @@ func Page(p Props) g.Node {
 				g.Attr("hx-headers", `{"X-CSRF-Token":"`+p.CSRFToken+`"}`),
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
-					Config:          navCfg,
+					Config:          p.NavConfig,
 					IsAuthenticated: p.IsAuthenticated,
 					Slots:           pageNavSlots(p),
 				}),

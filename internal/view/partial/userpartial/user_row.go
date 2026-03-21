@@ -1,9 +1,8 @@
 package userpartial
 
 import (
-	"fmt"
-
 	"starter/internal/model"
+	"starter/internal/routes"
 	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/ui/core"
 	"starter/pkg/components/ui/data"
@@ -14,11 +13,12 @@ import (
 
 // UserRowProps configures a read-only user table row.
 type UserRowProps struct {
-	User      model.User
-	CSRFToken string
+	User model.User
 }
 
 // UserRow renders a <tr> with display data and HTMX-powered Edit/Delete actions.
+// CSRF for HTMX mutations is provided by the body-level hx-headers attribute
+// set in the page layout — no per-row token is needed.
 func UserRow(p UserRowProps) g.Node {
 	u := p.User
 	id := u.ID.String()
@@ -39,29 +39,23 @@ func UserRow(p UserRowProps) g.Node {
 					Variant: core.VariantGhost,
 					Size:    core.SizeSm,
 					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-						Get:    fmt.Sprintf("/users/%s/edit", id),
+						Get:    routes.UserEditPath(id),
 						Target: "closest tr",
 						Swap:   componenthtmx.SwapOuterHTML,
 					}),
 				}),
-				h.Form(
-					h.Method("post"),
-					h.Action(fmt.Sprintf("/users/%s", id)),
-					h.Input(h.Type("hidden"), h.Name("_method"), h.Value("DELETE")),
-					h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
-					core.Button(core.ButtonProps{
-						Label:   "Delete",
-						Variant: core.VariantDestructive,
-						Size:    core.SizeSm,
-						Type:    "submit",
-						Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-							Confirm: fmt.Sprintf("Delete %s?", u.DisplayName),
-							Delete:  fmt.Sprintf("/users/%s", id),
-							Target:  "closest tr",
-							Swap:    "outerHTML swap:500ms",
-						}),
+				core.Button(core.ButtonProps{
+					Label:   "Delete",
+					Variant: core.VariantDestructive,
+					Size:    core.SizeSm,
+					Type:    "button",
+					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
+						Confirm: "Delete " + u.DisplayName + "?",
+						Delete:  routes.UserPath(id),
+						Target:  "closest tr",
+						Swap:    "outerHTML swap:500ms",
 					}),
-				),
+				}),
 			),
 		),
 	)

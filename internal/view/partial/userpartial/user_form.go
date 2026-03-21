@@ -2,9 +2,8 @@
 package userpartial
 
 import (
-	"fmt"
-
 	"starter/internal/model"
+	"starter/internal/routes"
 	uiform "starter/pkg/components/form"
 	componenthtmx "starter/pkg/components/patterns/htmx"
 	"starter/pkg/components/ui/core"
@@ -14,10 +13,11 @@ import (
 )
 
 // UserFormProps configures the inline edit form row.
-// Errors is map[string][]string (not *form.Submission) to keep this partial
-// free of pkg/form imports — callers extract errors before passing them in.
+// Errors keys match Go struct field names (e.g. "Email", "DisplayName", "Role")
+// as returned by pkgform.Submission.GetErrors() — no remapping needed at the call site.
 type UserFormProps struct {
 	User      model.User
+	Values    model.UpdateUserInput
 	CSRFToken string
 	Errors    map[string][]string
 }
@@ -29,6 +29,18 @@ func UserEditForm(p UserFormProps) g.Node {
 	emailID := "edit-email-" + id
 	nameID := "edit-name-" + id
 	roleID := "edit-role-" + id
+	emailValue := p.User.Email
+	if p.Values.Email != "" {
+		emailValue = p.Values.Email
+	}
+	displayNameValue := p.User.DisplayName
+	if p.Values.DisplayName != "" {
+		displayNameValue = p.Values.DisplayName
+	}
+	roleValue := p.User.Role
+	if p.Values.Role != "" {
+		roleValue = p.Values.Role
+	}
 
 	return h.Tr(
 		h.ID("user-"+id),
@@ -36,51 +48,52 @@ func UserEditForm(p UserFormProps) g.Node {
 			h.ColSpan("5"),
 			h.Form(
 				g.Group(componenthtmx.Attrs(componenthtmx.AttrsProps{
-					Put:    fmt.Sprintf("/users/%s", id),
+					Put:    routes.UserPath(id),
 					Target: "closest tr",
 					Swap:   componenthtmx.SwapOuterHTML,
 				})),
 				h.Class("flex flex-wrap gap-3 items-end p-2"),
 				h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(p.CSRFToken)),
+				formNotice(p.Errors["_"]),
 				uiform.Field(uiform.FieldProps{
 					ID:     emailID,
 					Label:  "Email",
-					Errors: p.Errors["email"],
+					Errors: p.Errors["Email"],
 					Control: uiform.Input(uiform.InputProps{
 						ID:       emailID,
 						Name:     "email",
 						Type:     uiform.TypeEmail,
-						Value:    p.User.Email,
-						HasError: len(p.Errors["email"]) > 0,
-						Extra:    uiform.FieldControlAttrs(emailID, "", "", p.Errors["email"]),
+						Value:    emailValue,
+						HasError: len(p.Errors["Email"]) > 0,
+						Extra:    uiform.FieldControlAttrs(emailID, "", "", p.Errors["Email"]),
 					}),
 				}),
 				uiform.Field(uiform.FieldProps{
 					ID:     nameID,
 					Label:  "Display Name",
-					Errors: p.Errors["display_name"],
+					Errors: p.Errors["DisplayName"],
 					Control: uiform.Input(uiform.InputProps{
 						ID:       nameID,
 						Name:     "display_name",
-						Value:    p.User.DisplayName,
-						HasError: len(p.Errors["display_name"]) > 0,
-						Extra:    uiform.FieldControlAttrs(nameID, "", "", p.Errors["display_name"]),
+						Value:    displayNameValue,
+						HasError: len(p.Errors["DisplayName"]) > 0,
+						Extra:    uiform.FieldControlAttrs(nameID, "", "", p.Errors["DisplayName"]),
 					}),
 				}),
 				uiform.Field(uiform.FieldProps{
 					ID:     roleID,
 					Label:  "Role",
-					Errors: p.Errors["role"],
+					Errors: p.Errors["Role"],
 					Control: uiform.Select(uiform.SelectProps{
 						ID:       roleID,
 						Name:     "role",
-						Selected: p.User.Role,
+						Selected: roleValue,
 						Options: []uiform.Option{
 							{Value: "user", Label: "User"},
 							{Value: "admin", Label: "Admin"},
 						},
-						HasError: len(p.Errors["role"]) > 0,
-						Extra:    uiform.FieldControlAttrs(roleID, "", "", p.Errors["role"]),
+						HasError: len(p.Errors["Role"]) > 0,
+						Extra:    uiform.FieldControlAttrs(roleID, "", "", p.Errors["Role"]),
 					}),
 				}),
 				h.Div(
@@ -95,7 +108,7 @@ func UserEditForm(p UserFormProps) g.Node {
 						Variant: core.VariantGhost,
 						Size:    core.SizeSm,
 						Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-							Get:    fmt.Sprintf("/users/%s/row", id),
+							Get:    routes.UserRowPath(id),
 							Target: "closest tr",
 							Swap:   componenthtmx.SwapOuterHTML,
 						}),
@@ -103,5 +116,15 @@ func UserEditForm(p UserFormProps) g.Node {
 				),
 			),
 		),
+	)
+}
+
+func formNotice(messages []string) g.Node {
+	if len(messages) == 0 {
+		return g.Text("")
+	}
+	return h.Div(
+		h.Class("w-full rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"),
+		g.Text(messages[0]),
 	)
 }

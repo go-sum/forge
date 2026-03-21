@@ -1,6 +1,7 @@
 HTMX_VERSION    := 2.0.4
 APP_NAME        := starter-dev
 DATABASE_URL   ?= postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+COVERAGE_FILE  ?= coverage.out
 
 APP_NETWORK  := app_network
 TEST_NETWORK := test_network
@@ -17,7 +18,7 @@ define with-svc
 endef
 
 .PHONY: help \
-        build clean lint hash-air-csp test test-watch test-up \
+        build clean lint hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets \
         dev docker-build docker-dev docker-down docker-logs docker-up \
@@ -42,6 +43,9 @@ hash-air-csp: _ensure-dev-image ## Recompute CSP hash for air's proxy script and
 
 test: _ensure-dev-image ## Run tests (auto-starts/stops test_data)
 	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) go test -v -race -count=1 ./...)
+
+test-cover: _ensure-dev-image ## Run tests with coverage and print the summary
+	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) sh -c 'go test -coverpkg=./... -coverprofile=$(COVERAGE_FILE) ./... && go tool cover -func=$(COVERAGE_FILE)')
 
 test-watch: _ensure-dev-image ## Run tests with hot-reload (auto-starts test_data)
 	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) air -c .air.test.toml)

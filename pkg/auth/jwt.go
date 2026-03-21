@@ -42,7 +42,11 @@ func GenerateToken(cfg JWTConfig, userID uuid.UUID, email, role string) (string,
 
 // ValidateToken parses and validates a JWT string, returning the typed claims.
 func ValidateToken(cfg JWTConfig, tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
+	parser := jwt.NewParser(
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(cfg.Issuer),
+	)
+	token, err := parser.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
 		return []byte(cfg.Secret), nil
 	})
 	if err != nil {

@@ -21,6 +21,8 @@ type Submission struct {
 	errors    map[string][]string
 }
 
+const formErrorKey = "_"
+
 // New creates a Submission backed by the provided validator instance.
 func New(v *validator.Validate) *Submission {
 	return &Submission{
@@ -31,11 +33,12 @@ func New(v *validator.Validate) *Submission {
 
 // Submit binds the request body into dest via b and validates it.
 // Validation errors are stored per-field; binding errors are stored under "_".
-func (s *Submission) Submit(b Binder, dest any) error {
+// Errors are never propagated out — callers check IsValid() after Submit returns.
+func (s *Submission) Submit(b Binder, dest any) {
 	s.submitted = true
 	if err := b.Bind(dest); err != nil {
-		s.errors["_"] = append(s.errors["_"], err.Error())
-		return nil
+		s.SetFormError(err.Error())
+		return
 	}
 	if err := s.v.Struct(dest); err != nil {
 		var verrs validator.ValidationErrors
@@ -44,9 +47,10 @@ func (s *Submission) Submit(b Binder, dest any) error {
 				field := fe.Field()
 				s.errors[field] = append(s.errors[field], fe.Translate(nil))
 			}
+			return
 		}
+		s.SetFormError(err.Error())
 	}
-	return nil
 }
 
 func (s *Submission) IsSubmitted() bool { return s.submitted }
@@ -63,6 +67,18 @@ func (s *Submission) GetFieldErrors(field string) []string {
 
 func (s *Submission) SetFieldError(field, msg string) {
 	s.errors[field] = append(s.errors[field], msg)
+}
+
+func (s *Submission) HasFormErrors() bool {
+	return len(s.errors[formErrorKey]) > 0
+}
+
+func (s *Submission) GetFormErrors() []string {
+	return s.errors[formErrorKey]
+}
+
+func (s *Submission) SetFormError(msg string) {
+	s.SetFieldError(formErrorKey, msg)
 }
 
 func (s *Submission) GetErrors() map[string][]string {

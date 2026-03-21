@@ -34,14 +34,6 @@ func (r *passwordRepository) Create(ctx context.Context, userID uuid.UUID, hash 
 	return toPasswordModel(p), nil
 }
 
-func (r *passwordRepository) CreateWithTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, hash string) (model.Password, error) {
-	p, err := db.New(tx).CreatePassword(ctx, db.CreatePasswordParams{UserID: userID, Hash: hash})
-	if err != nil {
-		return model.Password{}, err
-	}
-	return toPasswordModel(p), nil
-}
-
 func (r *passwordRepository) GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (model.Password, error) {
 	p, err := r.q.GetCurrentPasswordByUserID(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
