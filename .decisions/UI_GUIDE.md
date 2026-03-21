@@ -328,6 +328,40 @@ In practice:
 - button padding and font size should be tuned independently by size variant
 - card and form spacing can stay comfortable even when type scales down slightly
 
+#### Use letter spacing intentionally
+
+Letter spacing is not neutral. It affects both legibility and personality:
+
+- headings benefit from slightly tighter tracking (`tracking-tight`, ~-0.025em)
+  to look intentional and confident rather than spaced-apart
+- all-caps labels and overlines need looser tracking (`tracking-wide` or
+  `tracking-wider`, ~+0.05–0.1em) because uppercase letters crowd each other
+  at normal spacing
+- body text and controls should remain at default tracking
+
+Do not add letter spacing to mixed-case body copy — it degrades readability.
+
+#### Line height scales inversely with font size
+
+Larger text needs less line height than small text:
+
+- headings (`text-lg` and above): `leading-tight` or `leading-snug` (1.1–1.3)
+- body text (`text-sm` / `text-base`): `leading-normal` or `leading-relaxed`
+  (1.5–1.6)
+- dense metadata and badges: can use `leading-none` or `leading-tight`
+
+A large heading with `leading-relaxed` looks unintentionally airy. Body text
+with `leading-tight` becomes hard to read.
+
+#### Right-align numbers in tables
+
+Numeric columns in tables should be right-aligned so that values of different
+magnitudes stay comparable at a glance. Label columns and free-text columns
+should remain left-aligned.
+
+Use `text-right` on both the `<th>` and each `<td>` in numeric columns. Keep
+mixed columns (e.g. name + secondary info stacked) left-aligned.
+
 ### Color
 
 Use semantic color tokens already present in the design system:
@@ -354,6 +388,21 @@ Additional color rules carried into this guide:
 - avoid washed-out tints when a saturated low-opacity version communicates better
 - neutral colors do not need to be mathematically grey if a warmer or cooler
   neutral fits the palette better
+
+#### Build palettes with enough shades
+
+Most color decisions require more steps in the scale than designers initially
+expect. A useful scale has:
+
+- 8–10 steps for greys (near-white → near-black)
+- 5–10 steps for each accent or brand color (very light tint → very dark shade)
+
+#### Meet WCAG contrast ratios
+
+Text must be readable. The WCAG minimum contrast requirements are:
+
+- **4.5:1** for normal text (roughly `text-sm` and smaller, or under ~18px)
+- **3:1** for large text (roughly `text-lg` and above, or over ~18px bold)
 
 #### Do not use grey text on colored backgrounds
 
@@ -458,6 +507,23 @@ Additional depth rules carried into this guide:
 
 This UI system assumes a conventional top-down light source. Avoid mixing
 shadow directions or adding effects that imply competing lighting logic.
+
+#### Shadow scale
+
+Define a small, fixed shadow scale rather than picking values ad hoc. Five
+levels is enough for most interfaces:
+
+| Level | Typical use | Example value |
+|-------|-------------|---------------|
+| 1 | Buttons, small controls | `0 1px 3px hsla(0,0%,0%,.2)` |
+| 2 | Cards | `0 4px 6px hsla(0,0%,0%,.1)` |
+| 3 | Dropdowns, popovers | `0 5px 15px hsla(0,0%,0%,.1)` |
+| 4 | Toasts, non-modal overlays | `0 10px 24px hsla(0,0%,0%,.15)` |
+| 5 | Modals, dialogs | `0 15px 35px hsla(0,0%,0%,.2)` |
+
+This maps to `shadow-xs` → `shadow-md` → `shadow-xl` in the token scale.
+Pick the level based on where the element lives on the z-axis — do not think
+about the shadow itself; think about how close the element feels to the user.
 
 #### Overlap only when it clarifies layers
 
@@ -714,6 +780,23 @@ Every new surface should consider:
 If a page has no dedicated empty state yet, add one before adding decorative
 complexity.
 
+### Add color with accent borders
+
+A thin colorful border is one of the simplest ways to make a neutral UI feel
+more intentional. It requires no illustration skill and adds almost no visual
+noise. Use it:
+
+- across the top of a card or panel to distinguish it from its siblings
+- along the left side of an alert or callout block (`border-l-4 border-primary`)
+- as a short underline beneath a section heading
+- as the active indicator on navigation items (bottom border on tabs, left
+  border on sidebar items)
+- as a single colored bar across the very top of the layout to inject brand
+  color without affecting content legibility
+
+Accent borders work because they use color structurally, not decoratively.
+The color appears at the edge, not the face, so it does not fight text contrast.
+
 ### Use fewer borders
 
 Borders are useful, but overuse creates noise.
@@ -744,6 +827,100 @@ When future screens include images:
 - preserve text contrast on top of images
 - give images an intended display size
 - handle user-uploaded images defensively and expect inconsistent quality
+
+#### Text over images requires deliberate contrast control
+
+A photograph has both very light and very dark areas. No single text color
+works across both. Solve this by reducing image dynamics, not by choosing a
+text color:
+
+#### Do not scale icons beyond their intended size
+
+SVG icons drawn for 16–24px look chunky and lack visual detail when scaled to
+48px or 96px — even though SVG itself is resolution-independent. The strokes
+and proportions were designed at small sizes.
+
+If a large icon is needed:
+
+- use a larger icon from the same set drawn at that intended size
+- enclose the small icon in a padded shape with a background color, keeping the
+  actual icon near its intended size while filling the larger space
+
+Similarly, large icons or screenshots shrunk down to small sizes look muddy and
+unreadable. Use partial screenshots or a simplified illustration instead of
+scaling the full view down.
+
+#### Contain user-uploaded images
+
+User-supplied images have unpredictable aspect ratios and quality. Contain them:
+
+- render inside a fixed-size container
+- use `object-fit: cover` (or `background-size: cover` for background images)
+  to crop to fill, rather than letting the image dictate the layout
+
+For circular or rounded thumbnails where the image background color may blend
+into the page background, use an inner box shadow instead of a border:
+
+```css
+box-shadow: inset 0 0 0 1px hsla(0,0%,0%,.1);
+```
+
+Borders tend to clash with image colors; the inner shadow is nearly invisible
+against most images while still providing separation when needed.
+
+### De-emphasize labels relative to their values
+
+In display UI (not form inputs), labels are secondary. The value is the
+information the user came for; the label explains what the value means.
+
+This means labels should be visually quieter than their values:
+
+- use `text-xs text-muted-foreground` or `text-sm text-muted-foreground` for
+  labels in cards, detail views, and stat blocks
+- let the value carry the visual weight with normal foreground color and
+  slightly larger or heavier type
+- omit the label entirely when context makes the value self-evident
+
+Avoid the reverse: a bold label and a muted value — that makes users read the
+label twice and search for the data they actually want.
+
+### Supercharge default elements
+
+Before reaching for a new component, consider enriching what is already on the
+page:
+
+- **Bulleted lists**: replace generic bullets with relevant icons (`✓`, `→`, or
+  domain-specific icons) using `pkg/components/ui/core.Icon`
+- **Quotes and testimonials**: increase quotation mark size and soften their
+  color — they become a visual element rather than punctuation
+- **Links in body text**: a thick, colorful partial underline (using
+  `text-decoration-color` or a `border-b-2` on `<a>`) is more distinctive than
+  a plain underline
+- **Form controls**: custom checkbox and radio styling using brand colors for
+  the checked state makes forms feel polished without adding complexity
+- **Radio groups for important choices**: if a radio group is a key decision on
+  the screen, replace it with selectable card tiles
+
+These are finishing details — apply them after hierarchy, spacing, and
+accessibility are solid.
+
+### Think outside component conventions
+
+Do not assume the default shape of a component is the only option. Components
+are surfaces — what you put on them is flexible:
+
+- a dropdown does not have to be a plain list of links; it can use sections,
+  multiple columns, icons, and supporting descriptions
+- a table does not have to give each datum its own column; non-sortable
+  secondary text (like a role below a name) can share a cell, reducing column
+  count and improving readability
+- a table cell is not limited to plain text — avatars, badges, and colored
+  status labels add hierarchy without a separate component
+- a modal-level choice does not have to use radio buttons; selectable cards
+  present the same decision with more visual clarity
+
+Apply judgment before breaking from established patterns, but do not avoid
+improvements simply because the default form is familiar.
 
 ### Writing is part of the design
 
@@ -776,6 +953,12 @@ Before merging a UI change, confirm:
 - the mobile layout still works without inventing a second visual language
 - HTMX partials match the full-page design language
 - the screen has credible empty, loading, and error states where applicable
+- text on colored or image backgrounds meets 4.5:1 contrast (4.5:1 normal, 3:1 large)
+- labels in display UI are quieter than the values they describe
+- numeric table columns are right-aligned
+- headings use tighter tracking and leading than body text
+- shadows reflect z-axis intent, not decoration; interaction changes that intent
+- any new palette extension defines the full shade range before use
 
 ---
 
