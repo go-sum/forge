@@ -1,10 +1,11 @@
+// Example: safe to delete as a unit.
 package service
 
 import (
 	"context"
 
-	"starter/internal/model"
-	"starter/internal/repository"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/repository"
 
 	"github.com/google/uuid"
 )

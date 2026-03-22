@@ -1,9 +1,9 @@
 package page
 
 import (
-	"starter/internal/routes"
-	"starter/internal/view"
-	"starter/pkg/components/ui/core"
+	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

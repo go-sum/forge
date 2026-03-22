@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"starter/internal/model"
-	"starter/internal/view"
-	"starter/pkg/components/patterns/pager"
-	"starter/pkg/components/testutil"
-	uilayout "starter/pkg/components/ui/layout"
+	"github.com/y-goweb/componentry/patterns/pager"
+	"github.com/y-goweb/componentry/testutil"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/view"
 )
 
 func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
@@ -64,10 +64,10 @@ func TestUserListPageRendersShellFromRequest(t *testing.T) {
 		CurrentPath:     "/users",
 		CSRFToken:       "csrf-token",
 		IsAuthenticated: true,
-		NavConfig: uilayout.NavConfig{
-			Brand: uilayout.NavbarBrand{Label: "Starter", Href: "/"},
-			Sections: []uilayout.NavSection{{
-				Items: []uilayout.NavItem{{Label: "Users", Href: "/users"}},
+		NavConfig: config.NavConfig{
+			Brand: config.NavbarBrand{Label: "Starter", Href: "/"},
+			Sections: []config.NavSection{{
+				Items: []config.NavItem{{Label: "Users", Href: "/users"}},
 			}},
 		},
 	}, UserListData{}))

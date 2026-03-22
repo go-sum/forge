@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"starter/pkg/components/patterns/flash"
-	"starter/pkg/components/testutil"
+	"github.com/y-goweb/componentry/patterns/flash"
+	"github.com/y-goweb/componentry/testutil"
 
 	g "maragu.dev/gomponents"
 )

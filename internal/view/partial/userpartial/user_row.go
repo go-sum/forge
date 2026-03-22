@@ -1,11 +1,12 @@
+// Example: safe to delete as a unit.
 package userpartial
 
 import (
-	"starter/internal/model"
-	"starter/internal/routes"
-	componenthtmx "starter/pkg/components/patterns/htmx"
-	"starter/pkg/components/ui/core"
-	"starter/pkg/components/ui/data"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/routes"
+	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
+	"github.com/y-goweb/componentry/ui/core"
+	"github.com/y-goweb/componentry/ui/data"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

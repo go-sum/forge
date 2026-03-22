@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"starter/internal/model"
-	"starter/internal/routes"
-	"starter/internal/service"
-	"starter/pkg/auth"
+	authmodel "github.com/y-goweb/auth/model"
+	authrepo "github.com/y-goweb/auth/repository"
+	"github.com/y-goweb/auth/session"
+	"github.com/y-goweb/foundry/internal/routes"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -19,64 +19,46 @@ import (
 
 type routeHandlers struct{}
 
-func (routeHandlers) HealthCheck(c *echo.Context) error { return c.String(http.StatusOK, "health") }
-func (routeHandlers) Home(c *echo.Context) error        { return c.String(http.StatusOK, "home") }
-func (routeHandlers) LoginPage(c *echo.Context) error   { return c.String(http.StatusOK, "login-page") }
-func (routeHandlers) Login(c *echo.Context) error       { return c.String(http.StatusOK, "login") }
-func (routeHandlers) RegisterPage(c *echo.Context) error {
-	return c.String(http.StatusOK, "register-page")
-}
-func (routeHandlers) Register(c *echo.Context) error { return c.String(http.StatusOK, "register") }
-func (routeHandlers) Logout(c *echo.Context) error   { return c.String(http.StatusOK, "logout") }
-func (routeHandlers) ComponentExamples(c *echo.Context) error {
-	return c.String(http.StatusOK, "components")
-}
-func (routeHandlers) UserList(c *echo.Context) error     { return c.String(http.StatusOK, "users") }
-func (routeHandlers) UserEditForm(c *echo.Context) error { return c.String(http.StatusOK, "user-edit") }
-func (routeHandlers) UserRow(c *echo.Context) error      { return c.String(http.StatusOK, "user-row") }
-func (routeHandlers) UserUpdate(c *echo.Context) error   { return c.String(http.StatusOK, "user-update") }
-func (routeHandlers) UserDelete(c *echo.Context) error   { return c.String(http.StatusOK, "user-delete") }
+func (routeHandlers) HealthCheck(c *echo.Context) error       { return c.String(http.StatusOK, "health") }
+func (routeHandlers) Home(c *echo.Context) error              { return c.String(http.StatusOK, "home") }
+func (routeHandlers) ComponentExamples(c *echo.Context) error { return c.String(http.StatusOK, "components") }
+func (routeHandlers) UserList(c *echo.Context) error          { return c.String(http.StatusOK, "users") }
+func (routeHandlers) UserEditForm(c *echo.Context) error      { return c.String(http.StatusOK, "user-edit") }
+func (routeHandlers) UserRow(c *echo.Context) error           { return c.String(http.StatusOK, "user-row") }
+func (routeHandlers) UserUpdate(c *echo.Context) error        { return c.String(http.StatusOK, "user-update") }
+func (routeHandlers) UserDelete(c *echo.Context) error        { return c.String(http.StatusOK, "user-delete") }
 
-type routeUserRepo struct {
-	user model.User
+type routeAuthHandlers struct{}
+
+func (routeAuthHandlers) LoginPage(c *echo.Context) error    { return c.String(http.StatusOK, "login-page") }
+func (routeAuthHandlers) Login(c *echo.Context) error        { return c.String(http.StatusOK, "login") }
+func (routeAuthHandlers) RegisterPage(c *echo.Context) error { return c.String(http.StatusOK, "register-page") }
+func (routeAuthHandlers) Register(c *echo.Context) error     { return c.String(http.StatusOK, "register") }
+func (routeAuthHandlers) Logout(c *echo.Context) error       { return c.String(http.StatusOK, "logout") }
+
+// routeAuthUserReader is a test double implementing authrepo.UserReader.
+type routeAuthUserReader struct {
+	user authmodel.User
 	err  error
 }
 
-func (r routeUserRepo) Create(context.Context, string, string, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected Create call")
-}
-
-func (r routeUserRepo) GetByID(context.Context, uuid.UUID) (model.User, error) {
+func (r routeAuthUserReader) GetByID(_ context.Context, _ uuid.UUID) (authmodel.User, error) {
 	if r.err != nil {
-		return model.User{}, r.err
+		return authmodel.User{}, r.err
 	}
 	return r.user, nil
 }
 
-func (r routeUserRepo) GetByEmail(context.Context, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected GetByEmail call")
+func (r routeAuthUserReader) GetByEmail(_ context.Context, _ string) (authmodel.User, error) {
+	return authmodel.User{}, errors.New("unexpected GetByEmail call")
 }
 
-func (r routeUserRepo) List(context.Context, int32, int32) ([]model.User, error) {
-	return nil, errors.New("unexpected List call")
-}
-
-func (r routeUserRepo) Update(context.Context, uuid.UUID, string, string, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected Update call")
-}
-
-func (r routeUserRepo) Delete(context.Context, uuid.UUID) error {
-	return errors.New("unexpected Delete call")
-}
-
-func (r routeUserRepo) Count(context.Context) (int64, error) {
-	return 0, errors.New("unexpected Count call")
-}
+var _ authrepo.UserReader = routeAuthUserReader{}
 
 func TestRegisterRoutesRedirectsUnauthenticatedProtectedRequests(t *testing.T) {
 	e := echo.New()
-	sessions := auth.NewSessionStore(testSessionConfig())
-	RegisterRoutes(e, routeHandlers{}, sessions, service.NewUserService(routeUserRepo{}), "/public", "public")
+	sessions := session.NewSessionStore(testSessionConfig())
+	RegisterRoutes(e, routeHandlers{}, routeAuthHandlers{}, sessions, routeAuthUserReader{}, "/public", "public")
 
 	req := httptest.NewRequest(http.MethodGet, routes.Users, nil)
 	rec := httptest.NewRecorder()
@@ -93,8 +75,8 @@ func TestRegisterRoutesRedirectsUnauthenticatedProtectedRequests(t *testing.T) {
 
 func TestRegisterRoutesUsesHTMXRedirectForUnauthenticatedProtectedRequests(t *testing.T) {
 	e := echo.New()
-	sessions := auth.NewSessionStore(testSessionConfig())
-	RegisterRoutes(e, routeHandlers{}, sessions, service.NewUserService(routeUserRepo{}), "/public", "public")
+	sessions := session.NewSessionStore(testSessionConfig())
+	RegisterRoutes(e, routeHandlers{}, routeAuthHandlers{}, sessions, routeAuthUserReader{}, "/public", "public")
 
 	req := httptest.NewRequest(http.MethodGet, routes.Users, nil)
 	req.Header.Set("HX-Request", "true")
@@ -112,8 +94,8 @@ func TestRegisterRoutesUsesHTMXRedirectForUnauthenticatedProtectedRequests(t *te
 
 func TestRegisterRoutesAllowsAuthenticatedComponentsRoute(t *testing.T) {
 	e := echo.New()
-	sessions := auth.NewSessionStore(testSessionConfig())
-	RegisterRoutes(e, routeHandlers{}, sessions, service.NewUserService(routeUserRepo{}), "/public", "public")
+	sessions := session.NewSessionStore(testSessionConfig())
+	RegisterRoutes(e, routeHandlers{}, routeAuthHandlers{}, sessions, routeAuthUserReader{}, "/public", "public")
 
 	req := httptest.NewRequest(http.MethodGet, routes.Components, nil)
 	addSessionCookie(t, sessions, req, "11111111-1111-1111-1111-111111111111")
@@ -131,9 +113,12 @@ func TestRegisterRoutesAllowsAuthenticatedComponentsRoute(t *testing.T) {
 
 func TestRegisterRoutesAllowsAuthenticatedUsersToReachUserManagement(t *testing.T) {
 	e := echo.New()
-	sessions := auth.NewSessionStore(testSessionConfig())
-	users := service.NewUserService(routeUserRepo{user: model.User{ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Role: "user"}})
-	RegisterRoutes(e, routeHandlers{}, sessions, users, "/public", "public")
+	sessions := session.NewSessionStore(testSessionConfig())
+	users := routeAuthUserReader{user: authmodel.User{
+		ID:   uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		Role: "user",
+	}}
+	RegisterRoutes(e, routeHandlers{}, routeAuthHandlers{}, sessions, users, "/public", "public")
 
 	req := httptest.NewRequest(http.MethodGet, routes.Users, nil)
 	addSessionCookie(t, sessions, req, "11111111-1111-1111-1111-111111111111")
@@ -149,8 +134,8 @@ func TestRegisterRoutesAllowsAuthenticatedUsersToReachUserManagement(t *testing.
 	}
 }
 
-func testSessionConfig() auth.SessionConfig {
-	return auth.SessionConfig{
+func testSessionConfig() session.SessionConfig {
+	return session.SessionConfig{
 		Name:       "test-session",
 		AuthKey:    strings.Repeat("a", 32),
 		EncryptKey: strings.Repeat("b", 32),
@@ -158,7 +143,7 @@ func testSessionConfig() auth.SessionConfig {
 	}
 }
 
-func addSessionCookie(t *testing.T, sessions *auth.SessionManager, req *http.Request, userID string) {
+func addSessionCookie(t *testing.T, sessions *session.SessionManager, req *http.Request, userID string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	if err := sessions.SetUserID(rec, req, userID); err != nil {

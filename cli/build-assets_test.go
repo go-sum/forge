@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"starter/pkg/assetconfig"
+	"github.com/y-goweb/componentry/assetconfig"
 	"strings"
 	"testing"
 )

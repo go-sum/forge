@@ -1,11 +1,12 @@
+// Example: safe to delete as a unit.
 package repository
 
 import (
 	"context"
 	"errors"
 
-	db "starter/db/schema"
-	"starter/internal/model"
+	db "github.com/y-goweb/foundry/db/schema"
+	"github.com/y-goweb/foundry/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

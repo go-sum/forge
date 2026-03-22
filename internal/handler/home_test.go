@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"starter/internal/routes"
-	"starter/pkg/components/patterns/flash"
+	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/y-goweb/componentry/patterns/flash"
 )
 
 func TestHealthCheckReportsStatus(t *testing.T) {
@@ -35,7 +35,7 @@ func TestHealthCheckReportsStatus(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newTestHandler(fakeAuthService{}, fakeUserService{}, tc.checkHealth)
+			h := newTestHandler(fakeUserService{},tc.checkHealth)
 			c, rec := newRequestContext(http.MethodGet, routes.Health, nil)
 
 			if err := h.HealthCheck(c); err != nil {
@@ -52,7 +52,7 @@ func TestHealthCheckReportsStatus(t *testing.T) {
 }
 
 func TestHomeRendersFlashMessages(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
+	h := newTestHandler(fakeUserService{},nil)
 	c, rec := newRequestContext(http.MethodGet, routes.Home, nil)
 	setCSRFToken(c)
 	setUserID(c, testUser.ID.String())
@@ -72,13 +72,13 @@ func TestHomeRendersFlashMessages(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Welcome") || !strings.Contains(body, "Saved") {
+	if !strings.Contains(body, "Modern Web Starter") || !strings.Contains(body, "Saved") {
 		t.Fatalf("body = %q", body)
 	}
 }
 
 func TestComponentExamplesRenders(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
+	h := newTestHandler(fakeUserService{},nil)
 	c, rec := newRequestContext(http.MethodGet, routes.Components, nil)
 	setCSRFToken(c)
 

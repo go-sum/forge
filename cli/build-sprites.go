@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"starter/pkg/assetconfig"
+	"github.com/y-goweb/componentry/assetconfig"
 	"strings"
 	"time"
 

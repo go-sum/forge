@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"starter/internal/apperr"
+	"github.com/y-goweb/server/apperr"
 
 	"github.com/labstack/echo/v5"
 )

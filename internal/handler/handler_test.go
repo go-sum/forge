@@ -10,11 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"starter/internal/apperr"
-	"starter/internal/model"
-	"starter/pkg/auth"
-	"starter/pkg/ctxkeys"
-	"starter/pkg/validate"
+	"github.com/y-goweb/server/apperr"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/server/ctxkeys"
+	"github.com/y-goweb/server/validate"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -30,25 +29,6 @@ var testUser = model.User{
 	Role:        "admin",
 	CreatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
 	UpdatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
-}
-
-type fakeAuthService struct {
-	loginFn    func(context.Context, model.LoginInput) (model.User, error)
-	registerFn func(context.Context, model.CreateUserInput) (model.User, error)
-}
-
-func (f fakeAuthService) Login(ctx context.Context, input model.LoginInput) (model.User, error) {
-	if f.loginFn != nil {
-		return f.loginFn(ctx, input)
-	}
-	return model.User{}, errors.New("unexpected Login call")
-}
-
-func (f fakeAuthService) Register(ctx context.Context, input model.CreateUserInput) (model.User, error) {
-	if f.registerFn != nil {
-		return f.registerFn(ctx, input)
-	}
-	return model.User{}, errors.New("unexpected Register call")
 }
 
 type fakeUserService struct {
@@ -94,27 +74,16 @@ func (f fakeUserService) Delete(ctx context.Context, id uuid.UUID) error {
 	return errors.New("unexpected Delete call")
 }
 
-func newTestHandler(authSvc authService, userSvc userService, checkHealth func(context.Context) error) *Handler {
+func newTestHandler(userSvc userService, checkHealth func(context.Context) error) *Handler {
 	if checkHealth == nil {
 		checkHealth = func(context.Context) error { return nil }
 	}
 	return &Handler{
 		services: handlerServices{
-			Auth: authSvc,
 			User: userSvc,
 		},
-		sessions:    auth.NewSessionStore(testSessionConfig()),
 		validator:   validate.New(),
 		checkHealth: checkHealth,
-	}
-}
-
-func testSessionConfig() auth.SessionConfig {
-	return auth.SessionConfig{
-		Name:       "test-session",
-		AuthKey:    strings.Repeat("a", 32),
-		EncryptKey: strings.Repeat("b", 32),
-		MaxAge:     3600,
 	}
 }
 

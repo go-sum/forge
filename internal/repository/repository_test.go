@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"starter/internal/model"
+	"github.com/y-goweb/foundry/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

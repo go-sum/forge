@@ -4,11 +4,21 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
-	"starter/internal/model"
+	"github.com/y-goweb/foundry/internal/model"
 
 	"github.com/google/uuid"
 )
+
+var serviceTestUser = model.User{
+	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+	Email:       "ada@example.com",
+	DisplayName: "Ada Lovelace",
+	Role:        "admin",
+	CreatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
+	UpdatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
+}
 
 type fakeUserRepo struct {
 	listFn   func(context.Context, int32, int32) ([]model.User, error)

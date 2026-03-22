@@ -1,16 +1,17 @@
+// Example: safe to delete as a unit.
 package page
 
 import (
 	"fmt"
-	"starter/internal/model"
-	"starter/internal/routes"
-	"starter/internal/view"
-	"starter/internal/view/partial/userpartial"
-	uipagination "starter/pkg/components/interactive/pagination"
-	componenthtmx "starter/pkg/components/patterns/htmx"
-	"starter/pkg/components/patterns/pager"
-	"starter/pkg/components/ui/core"
-	uidata "starter/pkg/components/ui/data"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/foundry/internal/view/partial/userpartial"
+	uipagination "github.com/y-goweb/componentry/interactive/pagination"
+	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
+	"github.com/y-goweb/componentry/patterns/pager"
+	"github.com/y-goweb/componentry/ui/core"
+	uidata "github.com/y-goweb/componentry/ui/data"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

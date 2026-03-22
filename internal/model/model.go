@@ -36,25 +36,10 @@ type Password struct {
 	CreatedAt time.Time
 }
 
-// CreateUserInput carries validated data for registering a new user.
-// Role defaults to "user" when empty (applied by the service layer).
-type CreateUserInput struct {
-	Email       string `form:"email"         validate:"required,email,max=255"`
-	DisplayName string `form:"display_name"  validate:"required,min=1,max=255"`
-	Password    string `form:"password"      validate:"required,min=8"`
-	Role        string `form:"role"          validate:"omitempty,oneof=user admin"`
-}
-
 // UpdateUserInput carries validated data for updating an existing user.
 // Empty strings are treated as "no change" by the COALESCE logic in the SQL query.
 type UpdateUserInput struct {
 	Email       string `form:"email"         validate:"omitempty,email,max=255"`
 	DisplayName string `form:"display_name"  validate:"omitempty,max=255"`
 	Role        string `form:"role"          validate:"omitempty,oneof=user admin"`
-}
-
-// LoginInput carries validated credentials for authentication.
-type LoginInput struct {
-	Email    string `form:"email"    validate:"required,email"`
-	Password string `form:"password" validate:"required"`
 }

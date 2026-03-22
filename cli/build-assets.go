@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"starter/pkg/assetconfig"
+	"github.com/y-goweb/componentry/assetconfig"
 	"strings"
 	"syscall"
 

@@ -2,11 +2,13 @@
 package layout
 
 import (
-	"starter/pkg/assets"
-	"starter/pkg/components/interactive"
-	"starter/pkg/components/patterns/flash"
-	componenthead "starter/pkg/components/patterns/head"
-	uilayout "starter/pkg/components/ui/layout"
+	"github.com/y-goweb/componentry/assets"
+	"github.com/y-goweb/componentry/interactive"
+	"github.com/y-goweb/componentry/patterns/flash"
+	componenthead "github.com/y-goweb/componentry/patterns/head"
+	uilayout "github.com/y-goweb/componentry/ui/layout"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/adapters"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -20,7 +22,7 @@ type Props struct {
 	IsAuthenticated bool
 	UserName        string
 	Flash           []flash.Message
-	NavConfig       uilayout.NavConfig
+	NavConfig       config.NavConfig
 	Children        []g.Node
 }
 
@@ -57,7 +59,7 @@ func Page(p Props) g.Node {
 				g.Attr("hx-headers", `{"X-CSRF-Token":"`+p.CSRFToken+`"}`),
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
-					Config:          p.NavConfig,
+					Config:          adapters.ToComponentryNavConfig(p.NavConfig),
 					CurrentPath:     p.CurrentPath,
 					IsAuthenticated: p.IsAuthenticated,
 					Slots:           pageNavSlots(p),

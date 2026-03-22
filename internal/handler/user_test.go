@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
-	"starter/internal/model"
-	"starter/internal/routes"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/routes"
 
 	"github.com/google/uuid"
 )
 
 func TestUserListRendersFullPage(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 21, nil },
 		listFn: func(_ context.Context, page, perPage int) ([]model.User, error) {
 			if page != 2 || perPage != 10 {
@@ -41,7 +41,7 @@ func TestUserListRendersFullPage(t *testing.T) {
 }
 
 func TestUserListRendersHTMXFragment(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 1, nil },
 		listFn:  func(context.Context, int, int) ([]model.User, error) { return []model.User{testUser}, nil },
 	}, nil)
@@ -61,7 +61,7 @@ func TestUserListRendersHTMXFragment(t *testing.T) {
 }
 
 func TestUserListCountFailureReturnsUnavailable(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 0, errors.New("db down") },
 	}, nil)
 	c, _ := newRequestContext(http.MethodGet, routes.Users, nil)
@@ -71,7 +71,7 @@ func TestUserListCountFailureReturnsUnavailable(t *testing.T) {
 }
 
 func TestUserEditFormRejectsInvalidID(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
+	h := newTestHandler(fakeUserService{}, nil)
 	c, _ := newRequestContext(http.MethodGet, "/users/not-a-uuid/edit", nil)
 	setPathParam(c, routes.UserEdit, "id", "not-a-uuid")
 
@@ -80,7 +80,7 @@ func TestUserEditFormRejectsInvalidID(t *testing.T) {
 }
 
 func TestUserEditFormRenders(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		getByID: func(_ context.Context, id uuid.UUID) (model.User, error) {
 			if id != testUser.ID {
 				t.Fatalf("id = %s", id)
@@ -105,7 +105,7 @@ func TestUserEditFormRenders(t *testing.T) {
 }
 
 func TestUserRowReturnsResolvedError(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		getByID: func(context.Context, uuid.UUID) (model.User, error) { return model.User{}, model.ErrUserNotFound },
 	}, nil)
 	c, _ := newRequestContext(http.MethodGet, routes.UserRowPath(testUser.ID.String()), nil)
@@ -116,7 +116,7 @@ func TestUserRowReturnsResolvedError(t *testing.T) {
 }
 
 func TestUserUpdateValidationFailureRenders422(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
+	h := newTestHandler(fakeUserService{}, nil)
 	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
 		"email": {"not-an-email"},
 	})
@@ -136,7 +136,7 @@ func TestUserUpdateValidationFailureRenders422(t *testing.T) {
 }
 
 func TestUserUpdateConflictRenders409(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		updateFn: func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error) {
 			return model.User{}, model.ErrEmailTaken
 		},
@@ -163,7 +163,7 @@ func TestUserUpdateConflictRenders409(t *testing.T) {
 func TestUserUpdateRendersUpdatedRow(t *testing.T) {
 	updated := testUser
 	updated.DisplayName = "Grace Hopper"
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		updateFn: func(_ context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error) {
 			if id != testUser.ID || input.DisplayName != "Grace Hopper" || input.Role != "admin" {
 				t.Fatalf("id=%s input=%#v", id, input)
@@ -190,7 +190,7 @@ func TestUserUpdateRendersUpdatedRow(t *testing.T) {
 }
 
 func TestUserDeleteRejectsInvalidID(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{}, nil)
+	h := newTestHandler(fakeUserService{}, nil)
 	c, _ := newRequestContext(http.MethodDelete, "/users/not-a-uuid", nil)
 	setPathParam(c, routes.UserByID, "id", "not-a-uuid")
 
@@ -199,7 +199,7 @@ func TestUserDeleteRejectsInvalidID(t *testing.T) {
 }
 
 func TestUserDeleteReturnsNoContent(t *testing.T) {
-	h := newTestHandler(fakeAuthService{}, fakeUserService{
+	h := newTestHandler(fakeUserService{
 		deleteFn: func(_ context.Context, id uuid.UUID) error {
 			if id != testUser.ID {
 				t.Fatalf("id = %s", id)

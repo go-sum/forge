@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"starter/internal/view"
-	"starter/pkg/components/patterns/flash"
-	"starter/pkg/components/testutil"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/componentry/patterns/flash"
+	"github.com/y-goweb/componentry/testutil"
 )
 
 func TestHomePageRendersWelcomeAndFlash(t *testing.T) {

@@ -9,19 +9,21 @@ import (
 	"strings"
 	"time"
 
-	"starter/config"
-	"starter/internal/repository"
-	internalserver "starter/internal/server"
-	"starter/internal/service"
-	"starter/pkg/assetconfig"
-	"starter/pkg/assets"
-	"starter/pkg/auth"
-	componenticons "starter/pkg/components/icons"
-	componentinstall "starter/pkg/components/install"
-	"starter/pkg/components/interactive"
-	"starter/pkg/database"
-	pkgserver "starter/pkg/server"
-	"starter/pkg/validate"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/adapters"
+	"github.com/y-goweb/foundry/internal/repository"
+	internalserver "github.com/y-goweb/foundry/internal/server"
+	"github.com/y-goweb/foundry/internal/service"
+	"github.com/y-goweb/componentry/assetconfig"
+	"github.com/y-goweb/componentry/assets"
+	componenticons "github.com/y-goweb/componentry/icons"
+	componentinstall "github.com/y-goweb/componentry/install"
+	"github.com/y-goweb/componentry/interactive"
+	authservice "github.com/y-goweb/auth/service"
+	"github.com/y-goweb/auth/session"
+	"github.com/y-goweb/server/database"
+	pkgserver "github.com/y-goweb/server"
+	"github.com/y-goweb/server/validate"
 )
 
 const assetConfigPath = assetconfig.DefaultConfigPath
@@ -53,9 +55,6 @@ func (c *Container) initLogger() {
 }
 
 // parseLogLevel maps a config log level string to slog.Level.
-// The LogConfig.Level validate tag ("oneof=debug info warn error") guarantees
-// the value is one of the four known strings; the default branch is unreachable
-// in normal operation and falls back to Info.
 func parseLogLevel(s string) slog.Level {
 	switch s {
 	case "debug":
@@ -86,7 +85,6 @@ func (c *Container) initAssets() {
 		IconOverrides: componentIconOverrides,
 	})
 
-	// assets.Default is set by Init; store a reference for test injection.
 	c.Assets = assets.Default
 	c.AssetPaths = assetCfg.Paths
 	c.PublicDir = publicDir
@@ -101,9 +99,7 @@ func (c *Container) initDatabase() {
 	c.DB = pool
 }
 
-// injectCSPHashes appends all hash tokens to the script-src directive of csp
-// in a single replacement, preserving their order. Called with the assembled
-// token list from initWeb.
+// injectCSPHashes appends all hash tokens to the script-src directive of csp.
 func injectCSPHashes(csp string, hashes []string) string {
 	if len(hashes) == 0 {
 		return csp
@@ -111,10 +107,6 @@ func injectCSPHashes(csp string, hashes []string) string {
 	return strings.Replace(csp, "script-src", "script-src "+strings.Join(hashes, " "), 1)
 }
 
-// initWeb builds ServerConfig from the app config and creates the Echo instance
-// with the full middleware stack applied.
-// Port int -> string and GracefulTimeout int (seconds) -> time.Duration conversions
-// happen here (see config.ServerConfig field comments).
 func (c *Container) initWeb() {
 	cfg := c.Config
 	hashes := []string{interactive.ScriptCSPHash}
@@ -137,7 +129,7 @@ func (c *Container) initWeb() {
 }
 
 func (c *Container) initAuth() {
-	c.Sessions = auth.NewSessionStore(auth.SessionConfig{
+	c.Sessions = session.NewSessionStore(session.SessionConfig{
 		Name:       c.Config.Auth.Session.Name,
 		AuthKey:    c.Config.Auth.Session.AuthKey,
 		EncryptKey: c.Config.Auth.Session.EncryptKey,
@@ -155,5 +147,14 @@ func (c *Container) initRepos() {
 }
 
 func (c *Container) initServices() {
-	c.Services = service.NewServices(c.Repos, c.DB)
+	c.Services = service.NewServices(c.Repos)
+
+	// Instantiate the auth service from the auth module, wired with adapted repositories.
+	authFactory := adapters.NewAuthTxFactory(c.DB)
+	c.AuthService = authservice.NewAuthService(
+		adapters.NewAuthUserReader(c.Repos.User),
+		adapters.NewAuthPasswordStore(c.Repos.Password),
+		authFactory,
+		c.DB,
+	)
 }

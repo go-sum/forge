@@ -1,17 +1,19 @@
+// Example: safe to delete as a unit (along with service/user.go, repository/user.go,
+// view/page/users.go, view/partial/userpartial/, and user routes in routes/routes.go).
 package handler
 
 import (
 	"errors"
 	"net/http"
 
-	"starter/internal/apperr"
-	"starter/internal/model"
-	"starter/internal/view"
-	"starter/internal/view/page"
-	"starter/internal/view/partial/userpartial"
-	pkgform "starter/pkg/components/patterns/form"
-	"starter/pkg/components/patterns/pager"
-	"starter/pkg/render"
+	"github.com/y-goweb/server/apperr"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/foundry/internal/view/page"
+	"github.com/y-goweb/foundry/internal/view/partial/userpartial"
+	pkgform "github.com/y-goweb/componentry/patterns/form"
+	"github.com/y-goweb/componentry/patterns/pager"
+	render "github.com/y-goweb/componentry/render/echo"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -51,7 +53,7 @@ func (h *Handler) UserEditForm(c *echo.Context) error {
 	}
 	user, err := h.services.User.GetByID(c.Request().Context(), id)
 	if err != nil {
-		return apperr.Resolve(err)
+		return resolveErr(err)
 	}
 	return render.Fragment(c, userpartial.UserEditForm(req, userpartial.UserFormData{User: user}))
 }
@@ -64,7 +66,7 @@ func (h *Handler) UserRow(c *echo.Context) error {
 	}
 	user, err := h.services.User.GetByID(c.Request().Context(), id)
 	if err != nil {
-		return apperr.Resolve(err)
+		return resolveErr(err)
 	}
 	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
 		User: user,
@@ -101,12 +103,21 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 				Errors: sub.GetErrors(),
 			}))
 		}
-		return apperr.Resolve(err)
+		return resolveErr(err)
 	}
 
 	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
 		User: user,
 	}))
+}
+
+// resolveErr maps foundry domain errors to typed apperr responses.
+// server/apperr.From is domain-agnostic, so domain mapping lives here.
+func resolveErr(err error) *apperr.Error {
+	if errors.Is(err, model.ErrUserNotFound) {
+		return apperr.NotFound("The requested user does not exist.")
+	}
+	return resolveErr(err)
 }
 
 // UserDelete removes a user and returns 204 so HTMX can remove the row.
@@ -116,7 +127,7 @@ func (h *Handler) UserDelete(c *echo.Context) error {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 	if err := h.services.User.Delete(c.Request().Context(), id); err != nil {
-		return apperr.Resolve(err)
+		return resolveErr(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

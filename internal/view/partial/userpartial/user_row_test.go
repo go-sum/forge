@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"starter/pkg/components/testutil"
+	"github.com/y-goweb/componentry/testutil"
 )
 
 func TestUserRowRendersActionsAndRoleBadge(t *testing.T) {

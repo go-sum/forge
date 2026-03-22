@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"starter/pkg/components/patterns/flash"
-	uilayout "starter/pkg/components/ui/layout"
-	"starter/pkg/ctxkeys"
+	"github.com/y-goweb/componentry/patterns/flash"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/server/ctxkeys"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -31,7 +31,7 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 		req.AddCookie(cookie)
 	}
 
-	viewReq := NewRequest(c, uilayout.NavConfig{})
+	viewReq := NewRequest(c, config.NavConfig{})
 
 	if viewReq.CurrentPath != "/users" {
 		t.Fatalf("CurrentPath = %q", viewReq.CurrentPath)

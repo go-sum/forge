@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"starter/internal/model"
-	"starter/internal/view"
-	"starter/pkg/components/testutil"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/componentry/testutil"
 
 	"github.com/google/uuid"
 )

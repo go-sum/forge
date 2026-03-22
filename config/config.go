@@ -1,8 +1,7 @@
 package config
 
 import (
-	uilayout "starter/pkg/components/ui/layout"
-	pkgconfig "starter/pkg/config"
+	pkgconfig "github.com/y-goweb/server/config"
 )
 
 // envPrefix is stripped from environment variable names before key mapping.
@@ -17,14 +16,14 @@ type CSPHashesConfig struct {
 }
 
 type Config struct {
-	App       AppConfig          `koanf:"app"`
-	Server    ServerConfig       `koanf:"server"`
-	Database  DatabaseConfig     `koanf:"database"`
-	Auth      AuthConfig         `koanf:"auth"`
-	Log       LogConfig          `koanf:"log"`
-	Site      SiteConfig         `koanf:"site"`
-	Nav       uilayout.NavConfig `koanf:"nav"`
-	CSPHashes CSPHashesConfig    `koanf:"csp_hashes"`
+	App       AppConfig       `koanf:"app"`
+	Server    ServerConfig    `koanf:"server"`
+	Database  DatabaseConfig  `koanf:"database"`
+	Auth      AuthConfig      `koanf:"auth"`
+	Log       LogConfig       `koanf:"log"`
+	Site      SiteConfig      `koanf:"site"`
+	Nav       NavConfig       `koanf:"nav"`
+	CSPHashes CSPHashesConfig `koanf:"csp_hashes"`
 }
 
 type AppConfig struct {
@@ -83,7 +82,7 @@ func Init(baseDir string) error {
 		EnvPrefix:      envPrefix,
 		BaseDir:        baseDir,
 		EnvKey:         "app.env",
-		ValidatorSetup: uilayout.RegisterNavValidations,
+		ValidatorSetup: RegisterNavValidations,
 		ContentFiles: []pkgconfig.ContentFile{
 			{Filename: "site.yaml", Target: &cfg.Site},
 			{Filename: "nav.yaml", Target: &cfg.Nav},

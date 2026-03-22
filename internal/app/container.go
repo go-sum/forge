@@ -7,15 +7,16 @@ package app
 import (
 	"log/slog"
 
-	"starter/config"
-	"starter/internal/repository"
-	"starter/internal/service"
-	"starter/pkg/assetconfig"
-	"starter/pkg/assets"
-	"starter/pkg/auth"
-	"starter/pkg/database"
-	pkgserver "starter/pkg/server"
-	"starter/pkg/validate"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/repository"
+	"github.com/y-goweb/foundry/internal/service"
+	"github.com/y-goweb/componentry/assetconfig"
+	"github.com/y-goweb/componentry/assets"
+	authservice "github.com/y-goweb/auth/service"
+	"github.com/y-goweb/auth/session"
+	"github.com/y-goweb/server/database"
+	pkgserver "github.com/y-goweb/server"
+	"github.com/y-goweb/server/validate"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
@@ -31,10 +32,11 @@ type Container struct {
 	Web          *echo.Echo
 	ServerConfig pkgserver.Config
 	PublicDir    string // filesystem path to built public assets, e.g. "public"
-	Sessions     *auth.SessionManager
+	Sessions     *session.SessionManager
 	Validator    *validate.Validator
 	Repos        *repository.Repositories
 	Services     *service.Services
+	AuthService  *authservice.AuthService
 }
 
 // NewContainer initialises all services in dependency order.

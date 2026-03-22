@@ -4,22 +4,18 @@
 package service
 
 import (
-	"starter/internal/repository"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/y-goweb/foundry/internal/repository"
 )
 
 // Services is the composition root for all domain services.
 type Services struct {
-	Auth *AuthService
 	User *UserService
 }
 
 // NewServices constructs all domain services from the shared infrastructure.
-// Sessions are not injected here — they belong to the transport layer.
-func NewServices(repos *repository.Repositories, pool *pgxpool.Pool) *Services {
+// Auth is now handled by the auth module's AuthService, wired in container.go.
+func NewServices(repos *repository.Repositories) *Services {
 	return &Services{
-		Auth: NewAuthService(repos.User, repos.Password, repos, pool),
 		User: NewUserService(repos.User),
 	}
 }

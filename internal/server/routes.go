@@ -1,10 +1,10 @@
 package server
 
 import (
-	custommw "starter/internal/middleware"
-	"starter/internal/routes"
-	"starter/internal/service"
-	"starter/pkg/auth"
+	authadapter "github.com/y-goweb/auth/adapters/echocomponentry"
+	authrepo "github.com/y-goweb/auth/repository"
+	"github.com/y-goweb/auth/session"
+	"github.com/y-goweb/foundry/internal/routes"
 
 	"github.com/labstack/echo/v5"
 )
@@ -15,11 +15,6 @@ import (
 type Handlers interface {
 	HealthCheck(*echo.Context) error
 	Home(*echo.Context) error
-	LoginPage(*echo.Context) error
-	Login(*echo.Context) error
-	RegisterPage(*echo.Context) error
-	Register(*echo.Context) error
-	Logout(*echo.Context) error
 	ComponentExamples(*echo.Context) error
 	UserList(*echo.Context) error
 	UserEditForm(*echo.Context) error
@@ -28,31 +23,41 @@ type Handlers interface {
 	UserDelete(*echo.Context) error
 }
 
+// AuthHandlers is satisfied by *authhandler.Handler through Go's structural typing.
+type AuthHandlers interface {
+	LoginPage(*echo.Context) error
+	Login(*echo.Context) error
+	RegisterPage(*echo.Context) error
+	Register(*echo.Context) error
+	Logout(*echo.Context) error
+}
+
 // RegisterRoutes is the single source of truth for route paths, HTTP methods,
 // handler assignments, and per-group middleware. Adding a route touches only
 // this file (plus the handler implementation in internal/handler/).
 func RegisterRoutes(
 	e *echo.Echo,
 	h Handlers,
-	sessions *auth.SessionManager,
-	users *service.UserService,
+	authH AuthHandlers,
+	sessions *session.SessionManager,
+	users authrepo.UserReader,
 	publicPrefix, publicDir string,
 ) {
 	e.Static(publicPrefix, publicDir)
-	e.Use(custommw.LoadSession(sessions))
+	e.Use(authadapter.LoadSession(sessions))
 
 	e.GET(routes.Health, h.HealthCheck)
 	e.GET(routes.Home, h.Home)
 
-	e.GET(routes.Login, h.LoginPage)
-	e.POST(routes.Login, h.Login)
-	e.GET(routes.Register, h.RegisterPage)
-	e.POST(routes.Register, h.Register)
+	e.GET(routes.Login, authH.LoginPage)
+	e.POST(routes.Login, authH.Login)
+	e.GET(routes.Register, authH.RegisterPage)
+	e.POST(routes.Register, authH.Register)
 
 	protected := e.Group("")
-	protected.Use(custommw.RequireAuth(routes.Login))
-	protected.Use(custommw.LoadUserContext(users))
-	protected.POST(routes.Logout, h.Logout)
+	protected.Use(authadapter.RequireAuth(routes.Login))
+	protected.Use(authadapter.LoadUserContext(users))
+	protected.POST(routes.Logout, authH.Logout)
 	protected.GET(routes.Components, h.ComponentExamples)
 	protected.GET(routes.Users, h.UserList)
 	protected.GET(routes.UserEdit, h.UserEditForm)

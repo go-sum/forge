@@ -35,7 +35,10 @@ RUN ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
     chmod +x /usr/local/bin/tailwindcss
 
 WORKDIR /app
-COPY go.mod go.sum ./
+COPY go.mod go.sum go.work go.work.sum ./
+COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
+COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
+COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
 RUN go mod download
 # Source mounted as volume — not copied
 CMD ["go", "run", "./cli", "dev"]
@@ -51,7 +54,10 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli build-assets --minify
 # ── Production target ───────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS builder
 WORKDIR /app
-COPY go.mod go.sum ./
+COPY go.mod go.sum go.work go.work.sum ./
+COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
+COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
+COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"starter/internal/view"
-	"starter/pkg/components/ui/core"
-	"starter/pkg/components/ui/data"
-	"starter/pkg/components/ui/feedback"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/componentry/ui/core"
+	"github.com/y-goweb/componentry/ui/data"
+	"github.com/y-goweb/componentry/ui/feedback"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

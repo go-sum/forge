@@ -1,13 +1,14 @@
+// Example: safe to delete as a unit.
 // Package userpartial provides HTMX partial components for the user management table.
 package userpartial
 
 import (
-	"starter/internal/model"
-	"starter/internal/routes"
-	"starter/internal/view"
-	uiform "starter/pkg/components/form"
-	componenthtmx "starter/pkg/components/patterns/htmx"
-	"starter/pkg/components/ui/core"
+	"github.com/y-goweb/foundry/internal/model"
+	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/y-goweb/foundry/internal/view"
+	uiform "github.com/y-goweb/componentry/form"
+	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
+	"github.com/y-goweb/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

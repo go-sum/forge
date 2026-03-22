@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strings"
 
-	"starter/internal/apperr"
-	"starter/internal/routes"
-	"starter/internal/view"
-	"starter/internal/view/errorpage"
-	"starter/pkg/components/patterns/flash"
-	componenthtmx "starter/pkg/components/patterns/htmx"
-	uilayout "starter/pkg/components/ui/layout"
-	"starter/pkg/render"
+	"github.com/y-goweb/componentry/patterns/flash"
+	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
+	render "github.com/y-goweb/componentry/render/echo"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/y-goweb/foundry/internal/view"
+	"github.com/y-goweb/foundry/internal/view/errorpage"
+	"github.com/y-goweb/server/apperr"
 
 	"github.com/labstack/echo/v5"
 )
@@ -25,7 +25,7 @@ const problemContentType = "application/problem+json"
 type ErrorHandlerConfig struct {
 	Debug     bool
 	Logger    *slog.Logger
-	NavConfig uilayout.NavConfig
+	NavConfig config.NavConfig
 }
 
 type problemDetails struct {
@@ -181,7 +181,7 @@ func writeHTMXToast(c *echo.Context, appErr *apperr.Error) {
 	_ = render.FragmentWithStatus(c, appErr.Status, flash.RenderOOB([]flash.Message{msg}))
 }
 
-func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool, navConfig uilayout.NavConfig) {
+func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool, navConfig config.NavConfig) {
 	technicalDetail := ""
 	if debug && err != nil {
 		technicalDetail = err.Error()

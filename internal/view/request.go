@@ -3,13 +3,13 @@ package view
 import (
 	"net/http"
 
-	"starter/internal/view/layout"
-	"starter/pkg/components/patterns/flash"
-	componenthtmx "starter/pkg/components/patterns/htmx"
-	"starter/pkg/components/ui/feedback"
-	uilayout "starter/pkg/components/ui/layout"
-	"starter/pkg/ctxkeys"
-	"starter/pkg/render"
+	"github.com/y-goweb/componentry/patterns/flash"
+	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
+	render "github.com/y-goweb/componentry/render/echo"
+	"github.com/y-goweb/componentry/ui/feedback"
+	"github.com/y-goweb/foundry/config"
+	"github.com/y-goweb/foundry/internal/view/layout"
+	"github.com/y-goweb/server/ctxkeys"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -27,12 +27,12 @@ type Request struct {
 	UserRole        string
 	UserName        string
 	Flash           []flash.Message
-	NavConfig       uilayout.NavConfig
+	NavConfig       config.NavConfig
 	HTMX            componenthtmx.Request
 }
 
 // NewRequest builds request-scoped presentation state from the Echo context.
-func NewRequest(c *echo.Context, navConfig uilayout.NavConfig) Request {
+func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
 	req := Request{
 		CurrentPath: c.Request().URL.Path,
 		NavConfig:   navConfig,

@@ -11,9 +11,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	pkgmw "starter/pkg/middleware"
-	pkgserver "starter/pkg/server"
-	uilayout "starter/pkg/components/ui/layout"
+	"github.com/y-goweb/foundry/config"
+	pkgserver "github.com/y-goweb/server"
+	pkgmw "github.com/y-goweb/server/middleware"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -23,7 +23,7 @@ import (
 // cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
 // navConfig is forwarded to the error handler so error pages render the correct nav.
-func Setup(e *echo.Echo, cfg pkgserver.Config, navConfig uilayout.NavConfig) {
+func Setup(e *echo.Echo, cfg pkgserver.Config, navConfig config.NavConfig) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
 		Debug:     cfg.Debug,
 		Logger:    slog.Default(),

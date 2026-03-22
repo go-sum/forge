@@ -1,10 +1,15 @@
-module starter
+module github.com/y-goweb/foundry
 
 go 1.26.0
 
+replace (
+	github.com/y-goweb/componentry => ./pkg/componentry
+	github.com/y-goweb/server => ./pkg/server
+	github.com/y-goweb/auth => ./pkg/auth
+)
+
 require (
 	github.com/evanw/esbuild v0.25.12
-	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/knadh/koanf/parsers/yaml v1.1.0
@@ -12,6 +17,9 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.3
 	github.com/labstack/echo/v5 v5.0.4
+	github.com/y-goweb/auth v0.0.0
+	github.com/y-goweb/componentry v0.0.0
+	github.com/y-goweb/server v0.0.0
 	go.yaml.in/yaml/v3 v3.0.3
 	golang.org/x/sync v0.20.0
 	maragu.dev/gomponents v1.2.0
@@ -22,6 +30,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect

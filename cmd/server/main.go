@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"starter/internal/app"
+	"github.com/y-goweb/foundry/internal/app"
 )
 
 func main() {
