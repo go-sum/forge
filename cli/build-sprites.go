@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"github.com/y-goweb/componentry/assetconfig"
+	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"time"
 

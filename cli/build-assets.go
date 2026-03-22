@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"github.com/y-goweb/componentry/assetconfig"
+	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"syscall"
 

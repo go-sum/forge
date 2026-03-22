@@ -1,9 +1,9 @@
 package install
 
 import (
-	componentassets "github.com/y-goweb/componentry/assets"
-	componenticonset "github.com/y-goweb/componentry/assets/iconset"
-	componenticons "github.com/y-goweb/componentry/icons"
+	componentassets "github.com/go-sum/componentry/assets"
+	componenticonset "github.com/go-sum/componentry/assets/iconset"
+	componenticons "github.com/go-sum/componentry/icons"
 )
 
 // Registries holds the asset and icon registries a consumer can install into

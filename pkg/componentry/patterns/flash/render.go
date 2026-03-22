@@ -1,7 +1,7 @@
 package flash
 
 import (
-	"github.com/y-goweb/componentry/ui/feedback"
+	"github.com/go-sum/componentry/ui/feedback"
 
 	g "maragu.dev/gomponents"
 )

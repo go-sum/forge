@@ -11,9 +11,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/y-goweb/foundry/config"
-	pkgserver "github.com/y-goweb/server"
-	pkgmw "github.com/y-goweb/server/middleware"
+	"github.com/go-sum/forge/config"
+	pkgserver "github.com/go-sum/server"
+	pkgmw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"

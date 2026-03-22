@@ -4,8 +4,8 @@ package service
 import (
 	"context"
 
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/repository"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/repository"
 
 	"github.com/google/uuid"
 )

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/componentry/patterns/flash"
-	"github.com/y-goweb/componentry/testutil"
+	"github.com/go-sum/componentry/patterns/flash"
+	"github.com/go-sum/componentry/testutil"
 
 	g "maragu.dev/gomponents"
 )

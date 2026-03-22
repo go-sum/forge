@@ -6,14 +6,14 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/y-goweb/auth/model"
-	"github.com/y-goweb/auth/session"
-	authvalidate "github.com/y-goweb/auth/validate"
-	pkgflash "github.com/y-goweb/componentry/patterns/flash"
-	pkgform "github.com/y-goweb/componentry/patterns/form"
-	"github.com/y-goweb/componentry/patterns/redirect"
-	renderecho "github.com/y-goweb/componentry/render/echo"
-	"github.com/y-goweb/server/apperr"
+	"github.com/go-sum/auth/model"
+	"github.com/go-sum/auth/session"
+	authvalidate "github.com/go-sum/auth/validate"
+	pkgflash "github.com/go-sum/componentry/patterns/flash"
+	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/patterns/redirect"
+	renderecho "github.com/go-sum/componentry/render/echo"
+	"github.com/go-sum/server/apperr"
 )
 
 type authService interface {

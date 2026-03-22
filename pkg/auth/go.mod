@@ -1,10 +1,12 @@
-module github.com/y-goweb/auth
+module github.com/go-sum/auth
 
 go 1.26.0
 
+// replace directives enable standalone development and testing without go.work (GOWORK=off).
+// In the go.work workspace these are overridden automatically by the workspace use directives.
 replace (
-	github.com/y-goweb/componentry => ../componentry
-	github.com/y-goweb/server => ../server
+	github.com/go-sum/componentry => ../componentry
+	github.com/go-sum/server => ../server
 )
 
 require (
@@ -14,8 +16,8 @@ require (
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/labstack/echo/v5 v5.0.4
-	github.com/y-goweb/componentry v0.0.0
-	github.com/y-goweb/server v0.0.0
+	github.com/go-sum/componentry v0.0.0
+	github.com/go-sum/server v0.0.0
 	golang.org/x/crypto v0.49.0
 	maragu.dev/gomponents v1.2.0
 )

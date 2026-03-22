@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/y-goweb/componentry/patterns/flash"
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/server/ctxkeys"
+	"github.com/go-sum/componentry/patterns/flash"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/server/ctxkeys"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"

@@ -8,7 +8,7 @@
 package tooltip
 
 import (
-	core "github.com/y-goweb/componentry/ui/core"
+	core "github.com/go-sum/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

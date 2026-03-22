@@ -1,9 +1,9 @@
 package render
 
 import (
-	componentassets "github.com/y-goweb/componentry/assets"
-	componenticons "github.com/y-goweb/componentry/icons"
-	"github.com/y-goweb/componentry/ui/core"
+	componentassets "github.com/go-sum/componentry/assets"
+	componenticons "github.com/go-sum/componentry/icons"
+	"github.com/go-sum/componentry/ui/core"
 )
 
 // PropsForAssets returns IconProps for a concrete sprite symbol using the

@@ -1,5 +1,12 @@
-// Package jwt provides JWT generation and validation.
+// Package jwt provides JWT generation and validation for bearer-token authentication.
 // It is a leaf-node package: no internal/ or other pkg/ imports.
+//
+// The current auth flow uses session cookies (see adapters/echocomponentry/handler.go
+// and middleware.go). JWT is implemented here as a planned extension for API routes
+// that prefer stateless Authorization: Bearer <token> auth over cookie sessions.
+//
+// TODO: Wire JWT into the adapter layer — e.g. a BearerAuth middleware that validates
+// the Authorization header and sets ctxkeys.UserID, alongside the existing LoadSession.
 package jwt
 
 import (

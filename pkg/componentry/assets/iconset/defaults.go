@@ -1,6 +1,6 @@
 package iconset
 
-import componenticons "github.com/y-goweb/componentry/icons"
+import componenticons "github.com/go-sum/componentry/icons"
 
 // Catalog bundles a sprite-file set with semantic icon bindings.
 type Catalog struct {

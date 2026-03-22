@@ -2,11 +2,11 @@
 package userpartial
 
 import (
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/routes"
-	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
-	"github.com/y-goweb/componentry/ui/core"
-	"github.com/y-goweb/componentry/ui/data"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/routes"
+	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	"github.com/go-sum/componentry/ui/core"
+	"github.com/go-sum/componentry/ui/data"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

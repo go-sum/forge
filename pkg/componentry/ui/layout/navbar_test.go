@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	testutil "github.com/y-goweb/componentry/testutil"
+	testutil "github.com/go-sum/componentry/testutil"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
-	componenticons "github.com/y-goweb/componentry/icons"
+	componenticons "github.com/go-sum/componentry/icons"
 )
 
 func TestNavbarRendersGuestItemsAndHidesUserActions(t *testing.T) {

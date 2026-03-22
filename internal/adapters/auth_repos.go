@@ -4,23 +4,23 @@ import (
 	"context"
 	"errors"
 
+	authmodel "github.com/go-sum/auth/model"
+	authrepo "github.com/go-sum/auth/repository"
+	db "github.com/go-sum/forge/db/schema"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/pgconn"
-	authmodel "github.com/y-goweb/auth/model"
-	"github.com/y-goweb/foundry/internal/repository"
-	authrepo "github.com/y-goweb/auth/repository"
-	"github.com/y-goweb/foundry/internal/model"
-	db "github.com/y-goweb/foundry/db/schema"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // --- UserReader adapter ---
 
-// authUserReader adapts foundry's UserRepository to auth's UserReader port.
+// authUserReader adapts forge's UserRepository to auth's UserReader port.
 type authUserReader struct{ repo repository.UserRepository }
 
-// NewAuthUserReader wraps foundry's user repository to satisfy auth/repository.UserReader.
+// NewAuthUserReader wraps forge's user repository to satisfy auth/repository.UserReader.
 func NewAuthUserReader(repo repository.UserRepository) authrepo.UserReader {
 	return &authUserReader{repo: repo}
 }
@@ -37,10 +37,10 @@ func (a *authUserReader) GetByEmail(ctx context.Context, email string) (authmode
 
 // --- UserWriter adapter (for registration transactions) ---
 
-// authUserWriter adapts foundry's UserRepository to auth's UserWriter port.
+// authUserWriter adapts forge's UserRepository to auth's UserWriter port.
 type authUserWriter struct{ repo repository.UserRepository }
 
-// NewAuthUserWriter wraps foundry's user repository to satisfy auth/repository.UserWriter.
+// NewAuthUserWriter wraps forge's user repository to satisfy auth/repository.UserWriter.
 func NewAuthUserWriter(repo repository.UserRepository) authrepo.UserWriter {
 	return &authUserWriter{repo: repo}
 }
@@ -62,10 +62,10 @@ func (a *authUserWriter) Create(ctx context.Context, email, displayName, role st
 
 // --- PasswordStore adapter ---
 
-// authPasswordStore adapts foundry's PasswordRepository to auth's PasswordStore port.
+// authPasswordStore adapts forge's PasswordRepository to auth's PasswordStore port.
 type authPasswordStore struct{ repo repository.PasswordRepository }
 
-// NewAuthPasswordStore wraps foundry's password repository to satisfy auth/repository.PasswordStore.
+// NewAuthPasswordStore wraps forge's password repository to satisfy auth/repository.PasswordStore.
 func NewAuthPasswordStore(repo repository.PasswordRepository) authrepo.PasswordStore {
 	return &authPasswordStore{repo: repo}
 }
@@ -120,7 +120,7 @@ func (a *authPasswordStore) GetCurrentByUserID(ctx context.Context, userID uuid.
 
 // --- TxFactory ---
 
-// authTxFactory implements auth/service.txFactory using foundry's db package.
+// authTxFactory implements auth/service.txFactory using forge's db package.
 type authTxFactory struct{ pool *pgxpool.Pool }
 
 // NewAuthTxFactory returns a txFactory that creates auth-compatible tx-scoped repositories.

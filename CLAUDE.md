@@ -167,7 +167,7 @@ pgschema uses the default `postgres` database on the `schema_data` service as a 
 
 The `schema_data` service is managed automatically by `make db-plan` and `make db-apply` via the `with-svc` macro, and can be safely removed at any time.
 
-**Network Setup:** Both the `app_server` and `app_data` services are connected to the `app_network` Docker bridge network. The Makefile's `D_RUN` joins this network, allowing pgschema to reach `app_data` via Docker DNS.
+**Network Setup:** Compose creates project-scoped bridge networks for `app_network` and `test_network` (for example, `forge_app_network`). The Makefile's `D_RUN` joins the current project's app network so pgschema reaches the matching `app_data` / `schema_data` services via Docker DNS without cross-project collisions.
 
 ### Tailwind CSS Standalone CLI
 

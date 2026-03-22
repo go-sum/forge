@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/routes"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/routes"
 
 	"github.com/google/uuid"
 )

@@ -9,21 +9,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/foundry/internal/adapters"
-	"github.com/y-goweb/foundry/internal/repository"
-	internalserver "github.com/y-goweb/foundry/internal/server"
-	"github.com/y-goweb/foundry/internal/service"
-	"github.com/y-goweb/componentry/assetconfig"
-	"github.com/y-goweb/componentry/assets"
-	componenticons "github.com/y-goweb/componentry/icons"
-	componentinstall "github.com/y-goweb/componentry/install"
-	"github.com/y-goweb/componentry/interactive"
-	authservice "github.com/y-goweb/auth/service"
-	"github.com/y-goweb/auth/session"
-	"github.com/y-goweb/server/database"
-	pkgserver "github.com/y-goweb/server"
-	"github.com/y-goweb/server/validate"
+	authservice "github.com/go-sum/auth/service"
+	"github.com/go-sum/auth/session"
+	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/componentry/assets"
+	componenticons "github.com/go-sum/componentry/icons"
+	componentinstall "github.com/go-sum/componentry/install"
+	"github.com/go-sum/componentry/interactive"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/adapters"
+	"github.com/go-sum/forge/internal/health"
+	"github.com/go-sum/forge/internal/repository"
+	internalserver "github.com/go-sum/forge/internal/server"
+	"github.com/go-sum/forge/internal/service"
+	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server/database"
+	"github.com/go-sum/server/validate"
 )
 
 const assetConfigPath = assetconfig.DefaultConfigPath
@@ -93,6 +94,9 @@ func (c *Container) initAssets() {
 func (c *Container) initDatabase() {
 	pool, err := database.Connect(context.Background(), c.Config.DSN())
 	if err != nil {
+		panic(fmt.Sprintf("database: %v", err))
+	}
+	if err := health.VerifyRequiredRelations(context.Background(), pool); err != nil {
 		panic(fmt.Sprintf("database: %v", err))
 	}
 	slog.Info("database connected")

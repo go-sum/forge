@@ -3,13 +3,13 @@ package view
 import (
 	"net/http"
 
-	"github.com/y-goweb/componentry/patterns/flash"
-	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
-	render "github.com/y-goweb/componentry/render/echo"
-	"github.com/y-goweb/componentry/ui/feedback"
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/foundry/internal/view/layout"
-	"github.com/y-goweb/server/ctxkeys"
+	"github.com/go-sum/componentry/patterns/flash"
+	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	render "github.com/go-sum/componentry/render/echo"
+	"github.com/go-sum/componentry/ui/feedback"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/view/layout"
+	"github.com/go-sum/server/ctxkeys"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"

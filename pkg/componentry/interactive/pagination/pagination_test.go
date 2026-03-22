@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	g "maragu.dev/gomponents"
-	testutil "github.com/y-goweb/componentry/testutil"
+	testutil "github.com/go-sum/componentry/testutil"
 )
 
 func TestPaginationLinkAndNavStates(t *testing.T) {

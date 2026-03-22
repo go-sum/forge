@@ -1,11 +1,11 @@
 package adapters
 
 import (
-	uilayout "github.com/y-goweb/componentry/ui/layout"
-	"github.com/y-goweb/foundry/config"
+	uilayout "github.com/go-sum/componentry/ui/layout"
+	"github.com/go-sum/forge/config"
 )
 
-// ToComponentryNavConfig converts foundry's app-owned nav config into the
+// ToComponentryNavConfig converts forge's app-owned nav config into the
 // componentry nav schema consumed by the shared UI shell.
 func ToComponentryNavConfig(cfg config.NavConfig) uilayout.NavConfig {
 	return uilayout.NavConfig{

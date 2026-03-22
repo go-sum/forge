@@ -1,4 +1,4 @@
-module github.com/y-goweb/server
+module github.com/go-sum/server
 
 go 1.26.0
 

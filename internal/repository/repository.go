@@ -7,8 +7,8 @@ package repository
 import (
 	"context"
 
-	"github.com/y-goweb/foundry/internal/model"
-	db "github.com/y-goweb/foundry/db/schema"
+	"github.com/go-sum/forge/internal/model"
+	db "github.com/go-sum/forge/db/schema"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

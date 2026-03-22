@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"github.com/y-goweb/componentry/assetconfig"
+	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"testing"
 )

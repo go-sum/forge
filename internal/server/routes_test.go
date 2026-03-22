@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	authmodel "github.com/y-goweb/auth/model"
-	authrepo "github.com/y-goweb/auth/repository"
-	"github.com/y-goweb/auth/session"
-	"github.com/y-goweb/foundry/internal/routes"
+	authmodel "github.com/go-sum/auth/model"
+	authrepo "github.com/go-sum/auth/repository"
+	"github.com/go-sum/auth/session"
+	"github.com/go-sum/forge/internal/routes"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"

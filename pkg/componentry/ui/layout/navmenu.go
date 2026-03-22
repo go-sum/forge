@@ -1,7 +1,7 @@
 package layout
 
 import (
-	componenticons "github.com/y-goweb/componentry/icons"
+	componenticons "github.com/go-sum/componentry/icons"
 
 	"github.com/go-playground/validator/v10"
 	g "maragu.dev/gomponents"

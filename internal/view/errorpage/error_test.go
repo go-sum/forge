@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/componentry/testutil"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/componentry/testutil"
 )
 
 func TestPageRendersDebugDetailAndFallbacks(t *testing.T) {

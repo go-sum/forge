@@ -3,9 +3,9 @@ package render
 import (
 	"testing"
 
-	componentassets "github.com/y-goweb/componentry/assets"
-	componenticons "github.com/y-goweb/componentry/icons"
-	"github.com/y-goweb/componentry/ui/core"
+	componentassets "github.com/go-sum/componentry/assets"
+	componenticons "github.com/go-sum/componentry/icons"
+	"github.com/go-sum/componentry/ui/core"
 )
 
 func TestProps(t *testing.T) {

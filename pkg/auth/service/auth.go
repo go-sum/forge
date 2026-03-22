@@ -6,14 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-sum/auth/model"
+	"github.com/go-sum/auth/repository"
 	"github.com/jackc/pgx/v5"
-	"github.com/y-goweb/auth/model"
-	"github.com/y-goweb/auth/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // txFactory creates transaction-scoped repositories.
-// Foundry's *internal/repository.Repositories satisfies this interface via its WithTx method.
 type txFactory interface {
 	WithTx(pgx.Tx) repository.TxRepos
 }

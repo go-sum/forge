@@ -1,8 +1,8 @@
 package install
 
 import (
-	componenticonset "github.com/y-goweb/componentry/assets/iconset"
-	componenticons "github.com/y-goweb/componentry/icons"
+	componenticonset "github.com/go-sum/componentry/assets/iconset"
+	componenticons "github.com/go-sum/componentry/icons"
 )
 
 func componentassetsiconsetFixture() componenticonset.Catalog {

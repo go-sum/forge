@@ -12,7 +12,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/y-goweb/componentry/render"
+	"github.com/go-sum/componentry/render"
 	g "maragu.dev/gomponents"
 )
 

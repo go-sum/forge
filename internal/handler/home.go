@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/foundry/internal/view/page"
-	"github.com/y-goweb/componentry/examples"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/forge/internal/view/page"
+	"github.com/go-sum/componentry/examples"
 
 	"github.com/labstack/echo/v5"
 )

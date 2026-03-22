@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/y-goweb/componentry/patterns/flash"
-	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
-	render "github.com/y-goweb/componentry/render/echo"
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/foundry/internal/routes"
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/foundry/internal/view/errorpage"
-	"github.com/y-goweb/server/apperr"
+	"github.com/go-sum/componentry/patterns/flash"
+	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	render "github.com/go-sum/componentry/render/echo"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/routes"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/forge/internal/view/errorpage"
+	"github.com/go-sum/server/apperr"
 
 	"github.com/labstack/echo/v5"
 )

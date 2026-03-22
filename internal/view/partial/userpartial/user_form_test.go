@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/componentry/testutil"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/componentry/testutil"
 
 	"github.com/google/uuid"
 )

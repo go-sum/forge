@@ -3,8 +3,8 @@ package install
 import (
 	"testing"
 
-	componentassets "github.com/y-goweb/componentry/assets"
-	componenticons "github.com/y-goweb/componentry/icons"
+	componentassets "github.com/go-sum/componentry/assets"
+	componenticons "github.com/go-sum/componentry/icons"
 )
 
 func TestNewBuildsIsolatedRegistries(t *testing.T) {

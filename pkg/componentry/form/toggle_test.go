@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	testutil "github.com/y-goweb/componentry/testutil"
+	testutil "github.com/go-sum/componentry/testutil"
 )
 
 func TestCheckboxRadioAndSwitchExposePeerFocusVisibleStyles(t *testing.T) {

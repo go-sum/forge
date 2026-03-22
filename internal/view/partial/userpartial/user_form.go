@@ -3,12 +3,12 @@
 package userpartial
 
 import (
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/routes"
-	"github.com/y-goweb/foundry/internal/view"
-	uiform "github.com/y-goweb/componentry/form"
-	componenthtmx "github.com/y-goweb/componentry/patterns/htmx"
-	"github.com/y-goweb/componentry/ui/core"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/routes"
+	"github.com/go-sum/forge/internal/view"
+	uiform "github.com/go-sum/componentry/form"
+	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	"github.com/go-sum/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

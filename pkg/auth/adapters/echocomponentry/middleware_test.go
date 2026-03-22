@@ -10,11 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/y-goweb/auth/model"
-	authrepo "github.com/y-goweb/auth/repository"
-	"github.com/y-goweb/auth/session"
-	"github.com/y-goweb/server/apperr"
-	"github.com/y-goweb/server/ctxkeys"
+	"github.com/go-sum/auth/model"
+	authrepo "github.com/go-sum/auth/repository"
+	"github.com/go-sum/auth/session"
+	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/server/ctxkeys"
 )
 
 const testLoginPath = "/login"

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/componentry/testutil"
-	"github.com/y-goweb/componentry/ui/feedback"
+	"github.com/go-sum/componentry/testutil"
+	"github.com/go-sum/componentry/ui/feedback"
 
 	g "maragu.dev/gomponents"
 )

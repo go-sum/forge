@@ -4,7 +4,7 @@
 package service
 
 import (
-	"github.com/y-goweb/foundry/internal/repository"
+	"github.com/go-sum/forge/internal/repository"
 )
 
 // Services is the composition root for all domain services.

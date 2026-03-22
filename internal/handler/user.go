@@ -6,14 +6,14 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/y-goweb/server/apperr"
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/foundry/internal/view/page"
-	"github.com/y-goweb/foundry/internal/view/partial/userpartial"
-	pkgform "github.com/y-goweb/componentry/patterns/form"
-	"github.com/y-goweb/componentry/patterns/pager"
-	render "github.com/y-goweb/componentry/render/echo"
+	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/patterns/pager"
+	render "github.com/go-sum/componentry/render/echo"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/forge/internal/view/page"
+	"github.com/go-sum/forge/internal/view/partial/userpartial"
+	"github.com/go-sum/server/apperr"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -111,7 +111,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 	}))
 }
 
-// resolveErr maps foundry domain errors to typed apperr responses.
+// resolveErr maps forge domain errors to typed apperr responses.
 // server/apperr.From is domain-agnostic, so domain mapping lives here.
 func resolveErr(err error) *apperr.Error {
 	if errors.Is(err, model.ErrUserNotFound) {

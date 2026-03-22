@@ -2,13 +2,13 @@
 package layout
 
 import (
-	"github.com/y-goweb/componentry/assets"
-	"github.com/y-goweb/componentry/interactive"
-	"github.com/y-goweb/componentry/patterns/flash"
-	componenthead "github.com/y-goweb/componentry/patterns/head"
-	uilayout "github.com/y-goweb/componentry/ui/layout"
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/foundry/internal/adapters"
+	"github.com/go-sum/componentry/assets"
+	"github.com/go-sum/componentry/interactive"
+	"github.com/go-sum/componentry/patterns/flash"
+	componenthead "github.com/go-sum/componentry/patterns/head"
+	uilayout "github.com/go-sum/componentry/ui/layout"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/adapters"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

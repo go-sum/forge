@@ -3,14 +3,14 @@ package app
 import (
 	"context"
 
-	authadapter "github.com/y-goweb/auth/adapters/echocomponentry"
-	"github.com/y-goweb/foundry/internal/adapters"
-	"github.com/y-goweb/foundry/internal/handler"
-	"github.com/y-goweb/foundry/internal/routes"
-	"github.com/y-goweb/foundry/internal/server"
-	"github.com/y-goweb/foundry/internal/view"
-	pkgserver "github.com/y-goweb/server"
-	"github.com/y-goweb/server/database"
+	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
+	"github.com/go-sum/forge/internal/adapters"
+	"github.com/go-sum/forge/internal/handler"
+	"github.com/go-sum/forge/internal/routes"
+	"github.com/go-sum/forge/internal/server"
+	"github.com/go-sum/forge/internal/view"
+	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server/database"
 
 	"github.com/labstack/echo/v5"
 )

@@ -1,12 +1,11 @@
 // Package repository defines the storage ports that the auth package requires.
-// Foundry's concrete internal/repository implementations satisfy these interfaces.
 package repository
 
 import (
 	"context"
 
+	"github.com/go-sum/auth/model"
 	"github.com/google/uuid"
-	"github.com/y-goweb/auth/model"
 )
 
 // UserReader is the narrow read-only user storage interface required by auth.

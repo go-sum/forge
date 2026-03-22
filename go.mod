@@ -1,11 +1,11 @@
-module github.com/y-goweb/foundry
+module github.com/go-sum/forge
 
 go 1.26.0
 
 replace (
-	github.com/y-goweb/componentry => ./pkg/componentry
-	github.com/y-goweb/server => ./pkg/server
-	github.com/y-goweb/auth => ./pkg/auth
+	github.com/go-sum/componentry => ./pkg/componentry
+	github.com/go-sum/server => ./pkg/server
+	github.com/go-sum/auth => ./pkg/auth
 )
 
 require (
@@ -17,9 +17,9 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.3
 	github.com/labstack/echo/v5 v5.0.4
-	github.com/y-goweb/auth v0.0.0
-	github.com/y-goweb/componentry v0.0.0
-	github.com/y-goweb/server v0.0.0
+	github.com/go-sum/auth v0.0.0
+	github.com/go-sum/componentry v0.0.0
+	github.com/go-sum/server v0.0.0
 	go.yaml.in/yaml/v3 v3.0.3
 	golang.org/x/sync v0.20.0
 	maragu.dev/gomponents v1.2.0

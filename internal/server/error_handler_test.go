@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/server/apperr"
+	"github.com/go-sum/server/apperr"
 
 	"github.com/labstack/echo/v5"
 )

@@ -1,11 +1,11 @@
 package echocomponentry
 
 import (
-	"github.com/y-goweb/auth/model"
-	uiform "github.com/y-goweb/componentry/form"
-	pkgform "github.com/y-goweb/componentry/patterns/form"
-	"github.com/y-goweb/componentry/ui/core"
-	uidata "github.com/y-goweb/componentry/ui/data"
+	"github.com/go-sum/auth/model"
+	uiform "github.com/go-sum/componentry/form"
+	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/ui/core"
+	uidata "github.com/go-sum/componentry/ui/data"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

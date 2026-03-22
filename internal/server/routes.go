@@ -1,10 +1,10 @@
 package server
 
 import (
-	authadapter "github.com/y-goweb/auth/adapters/echocomponentry"
-	authrepo "github.com/y-goweb/auth/repository"
-	"github.com/y-goweb/auth/session"
-	"github.com/y-goweb/foundry/internal/routes"
+	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
+	authrepo "github.com/go-sum/auth/repository"
+	"github.com/go-sum/auth/session"
+	"github.com/go-sum/forge/internal/routes"
 
 	"github.com/labstack/echo/v5"
 )

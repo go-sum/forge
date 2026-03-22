@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/y-goweb/auth/model"
-	"github.com/y-goweb/auth/repository"
+	"github.com/go-sum/auth/model"
+	"github.com/go-sum/auth/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 

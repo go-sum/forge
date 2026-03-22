@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/componentry/testutil"
+	"github.com/go-sum/componentry/testutil"
 )
 
 func TestSetAndGetAllRoundTripMessages(t *testing.T) {

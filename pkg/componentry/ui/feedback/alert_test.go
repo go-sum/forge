@@ -7,7 +7,7 @@ import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 
-	testutil "github.com/y-goweb/componentry/testutil"
+	testutil "github.com/go-sum/componentry/testutil"
 )
 
 func TestAlertListMapsErrorTypeToDestructiveVariant(t *testing.T) {

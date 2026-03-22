@@ -1,4 +1,4 @@
-module github.com/y-goweb/componentry
+module github.com/go-sum/componentry
 
 go 1.26.0
 

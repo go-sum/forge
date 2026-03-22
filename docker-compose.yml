@@ -84,7 +84,5 @@ volumes:
 networks:
   app_network:
     driver: bridge
-    name: app_network
   test_network:
     driver: bridge
-    name: test_network

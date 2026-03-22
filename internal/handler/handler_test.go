@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/y-goweb/server/apperr"
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/server/ctxkeys"
-	"github.com/y-goweb/server/validate"
+	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/server/ctxkeys"
+	"github.com/go-sum/server/validate"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"

@@ -4,9 +4,9 @@ package layout
 import (
 	"strings"
 
-	componenticons "github.com/y-goweb/componentry/icons"
-	iconrender "github.com/y-goweb/componentry/icons/render"
-	"github.com/y-goweb/componentry/ui/core"
+	componenticons "github.com/go-sum/componentry/icons"
+	iconrender "github.com/go-sum/componentry/icons/render"
+	"github.com/go-sum/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

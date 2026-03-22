@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/y-goweb/foundry/internal/routes"
-	"github.com/y-goweb/componentry/patterns/flash"
+	"github.com/go-sum/forge/internal/routes"
+	"github.com/go-sum/componentry/patterns/flash"
 )
 
 func TestHealthCheckReportsStatus(t *testing.T) {

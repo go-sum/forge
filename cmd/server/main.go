@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/y-goweb/foundry/internal/app"
+	"github.com/go-sum/forge/internal/app"
 )
 
 func main() {

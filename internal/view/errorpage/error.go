@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/componentry/ui/core"
-	"github.com/y-goweb/componentry/ui/data"
-	"github.com/y-goweb/componentry/ui/feedback"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/componentry/ui/core"
+	"github.com/go-sum/componentry/ui/data"
+	"github.com/go-sum/componentry/ui/feedback"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

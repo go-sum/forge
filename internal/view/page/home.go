@@ -1,9 +1,9 @@
 package page
 
 import (
-	"github.com/y-goweb/foundry/internal/routes"
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/componentry/ui/core"
+	"github.com/go-sum/forge/internal/routes"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/componentry/ui/core"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"

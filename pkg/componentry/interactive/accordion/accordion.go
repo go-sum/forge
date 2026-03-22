@@ -7,9 +7,9 @@ import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 
-	componenticons "github.com/y-goweb/componentry/icons"
-	iconrender "github.com/y-goweb/componentry/icons/render"
-	core "github.com/y-goweb/componentry/ui/core"
+	componenticons "github.com/go-sum/componentry/icons"
+	iconrender "github.com/go-sum/componentry/icons/render"
+	core "github.com/go-sum/componentry/ui/core"
 )
 
 // Root renders the accordion container.

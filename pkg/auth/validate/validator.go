@@ -4,7 +4,7 @@ package validate
 import "github.com/go-playground/validator/v10"
 
 // Validator is the narrow interface auth requires from the validate package.
-// *server/validate.Validator satisfies this interface (confirmed in foundry's adapters).
+// *server/validate.Validator satisfies this interface (confirmed in forge's adapters).
 type Validator interface {
 	Validate() *validator.Validate
 }

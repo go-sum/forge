@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/y-goweb/foundry/internal/model"
+	"github.com/go-sum/forge/internal/model"
 
 	"github.com/google/uuid"
 )

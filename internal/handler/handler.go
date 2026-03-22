@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
-	"github.com/y-goweb/foundry/config"
-	"github.com/y-goweb/foundry/internal/model"
-	"github.com/y-goweb/foundry/internal/service"
-	"github.com/y-goweb/foundry/internal/view"
-	"github.com/y-goweb/server/validate"
+	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/service"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/server/validate"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"

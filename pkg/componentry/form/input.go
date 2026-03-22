@@ -1,5 +1,5 @@
 // Package form provides shadcn/ui-styled form field components.
-// Import as: uiform "github.com/y-goweb/componentry/form"
+// Import as: uiform "github.com/go-sum/componentry/form"
 package form
 
 import (

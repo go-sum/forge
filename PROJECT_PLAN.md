@@ -21,6 +21,20 @@ The architecture follows a strict layered pattern:
 - `pkg/` contains reusable supporting packages with strict dependency rules.
 - `db/` contains schema SQL, query SQL, and sqlc-generated database bindings.
 
+## Repository Topology
+
+The local monorepo is the canonical source of truth for the application and the
+extractable packages:
+
+- Monorepo: `https://github.com/go-sum/forge`
+- Auth package: `https://github.com/go-sum/auth`
+- Component library: `https://github.com/go-sum/componentry`
+- Server package: `https://github.com/go-sum/server`
+
+Development happens in the monorepo with `go.work`. Package repositories are
+synced from `pkg/auth`, `pkg/componentry`, and `pkg/server` through the GitHub
+Actions workflows under `.github/workflows/`.
+
 ---
 
 ## Key Design Decisions

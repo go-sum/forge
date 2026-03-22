@@ -1,7 +1,7 @@
 package config
 
 import (
-	pkgconfig "github.com/y-goweb/server/config"
+	pkgconfig "github.com/go-sum/server/config"
 )
 
 // envPrefix is stripped from environment variable names before key mapping.
