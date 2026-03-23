@@ -82,9 +82,9 @@ func Page(p Props) g.Node {
 func pageNavSlots(p Props) uilayout.NavSlots {
 	return uilayout.NavSlots{
 		"user_name": uilayout.TextSlot(p.UserName),
-		"logout": uilayout.FormSlot(uilayout.FormSlotProps{
-			Label:  "Logout",
-			Action: "/logout",
+		"signout": uilayout.FormSlot(uilayout.FormSlotProps{
+			Label:  "Signout",
+			Action: "/signout",
 			HiddenFields: []uilayout.NavHiddenField{{
 				Name:  "_csrf",
 				Value: p.CSRFToken,

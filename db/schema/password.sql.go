@@ -46,7 +46,7 @@ ORDER BY p.created_at DESC
 LIMIT 1
 `
 
-// Used for login: fetches the current hash for a given email in one query.
+// Used for signin: fetches the current hash for a given email in one query.
 func (q *Queries) GetCurrentPasswordByEmail(ctx context.Context, email string) (Password, error) {
 	row := q.db.QueryRow(ctx, getCurrentPasswordByEmail, email)
 	var i Password

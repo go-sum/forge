@@ -47,13 +47,13 @@ func TestSubmitStoresBindError(t *testing.T) {
 }
 
 func TestSubmitValidatesStruct(t *testing.T) {
-	type loginForm struct {
+	type signinForm struct {
 		Email string `validate:"required,email"`
 	}
 
 	s := New(validator.New())
 	// Bind succeeds but dest is zero-value — validator should catch the required field.
-	s.Submit(&stubBinder{}, &loginForm{})
+	s.Submit(&stubBinder{}, &signinForm{})
 	if s.IsValid() {
 		t.Fatal("IsValid() should be false when validation fails")
 	}

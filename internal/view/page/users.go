@@ -137,7 +137,7 @@ func emptyUsersState() g.Node {
 				h.H2(h.Class("text-lg font-semibold"), g.Text("No users yet")),
 				h.P(
 					h.Class("max-w-md text-sm text-muted-foreground"),
-					g.Text("User accounts will appear here once people register. This table also handles inline edits and row-level actions when data is present."),
+					g.Text("User accounts will appear here once people sign up. This table also handles inline edits and row-level actions when data is present."),
 				),
 			),
 		),

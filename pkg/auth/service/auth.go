@@ -1,4 +1,4 @@
-// Package service provides the AuthService which handles user registration and login.
+// Package service provides the AuthService which handles user signup and signin.
 package service
 
 import (
@@ -21,7 +21,7 @@ type txBeginner interface {
 	Begin(context.Context) (pgx.Tx, error)
 }
 
-// AuthService handles user registration and login.
+// AuthService handles user registration and signin.
 type AuthService struct {
 	users     repository.UserReader
 	passwords repository.PasswordStore
@@ -44,9 +44,9 @@ func NewAuthService(
 	}
 }
 
-// Register creates a new user and their initial password in a single transaction.
+// Signup creates a new user and their initial password in a single transaction.
 // Returns model.ErrEmailTaken when the email is already in use.
-func (s *AuthService) Register(ctx context.Context, input model.CreateUserInput) (model.User, error) {
+func (s *AuthService) Signup(ctx context.Context, input model.SignupInput) (model.User, error) {
 	role := input.Role
 	if role == "" {
 		role = model.RoleUser
@@ -84,9 +84,9 @@ func (s *AuthService) Register(ctx context.Context, input model.CreateUserInput)
 	return user, nil
 }
 
-// Login authenticates a user by email and password.
+// Signin authenticates a user by email and password.
 // Always returns model.ErrInvalidCredentials on auth failure to prevent user enumeration.
-func (s *AuthService) Login(ctx context.Context, input model.LoginInput) (model.User, error) {
+func (s *AuthService) Signin(ctx context.Context, input model.SigninInput) (model.User, error) {
 	pwd, err := s.passwords.GetCurrentByEmail(ctx, input.Email)
 	if err != nil {
 		if errors.Is(err, model.ErrInvalidCredentials) || errors.Is(err, model.ErrUserNotFound) {

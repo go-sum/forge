@@ -33,15 +33,15 @@ type Password struct {
 	CreatedAt time.Time
 }
 
-// LoginInput carries validated credentials for authentication.
-type LoginInput struct {
+// SigninInput carries validated credentials for authentication.
+type SigninInput struct {
 	Email    string `form:"email"    validate:"required,email"`
 	Password string `form:"password" validate:"required"`
 }
 
-// CreateUserInput carries validated data for registering a new user.
+// SignupInput carries validated data for signing up a new user.
 // Role defaults to "user" when empty (applied by the service layer).
-type CreateUserInput struct {
+type SignupInput struct {
 	Email       string `form:"email"         validate:"required,email,max=255"`
 	DisplayName string `form:"display_name"  validate:"required,min=1,max=255"`
 	Password    string `form:"password"      validate:"required,min=8"`

@@ -21,16 +21,16 @@ func TestNavbarRendersGuestItemsAndHidesUserActions(t *testing.T) {
 		`>Starter</span>`,
 		`>Home</span>`,
 		`>Users</span>`,
-		`href="/login"`,
-		`href="/register"`,
+		`href="/signin"`,
+		`href="/signup"`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(got, check) {
 			t.Fatalf("Navbar() guest output missing %q in %s", check, got)
 		}
 	}
-	if strings.Contains(got, `action="/logout"`) {
-		t.Fatalf("Navbar() guest output unexpectedly rendered logout: %s", got)
+	if strings.Contains(got, `action="/signout"`) {
+		t.Fatalf("Navbar() guest output unexpectedly rendered signout: %s", got)
 	}
 	if strings.Contains(got, `>Ada</span>`) {
 		t.Fatalf("Navbar() guest output unexpectedly rendered user text: %s", got)
@@ -42,7 +42,7 @@ func TestNavbarRendersAuthenticatedItems(t *testing.T) {
 
 	checks := []string{
 		`>Ada</span>`,
-		`action="/logout"`,
+		`action="/signout"`,
 		`value="csrf-token"`,
 	}
 	for _, check := range checks {
@@ -50,8 +50,8 @@ func TestNavbarRendersAuthenticatedItems(t *testing.T) {
 			t.Fatalf("Navbar() authenticated output missing %q in %s", check, got)
 		}
 	}
-	if strings.Contains(got, `href="/login"`) {
-		t.Fatalf("Navbar() authenticated output unexpectedly rendered login link: %s", got)
+	if strings.Contains(got, `href="/signin"`) {
+		t.Fatalf("Navbar() authenticated output unexpectedly rendered signin link: %s", got)
 	}
 }
 
@@ -134,12 +134,12 @@ func testNavbar(authenticated bool, userName string, theme g.Node) g.Node {
 				}},
 			}},
 			{Align: AlignEnd, Items: []NavbarItem{
-				NavLink{Label: "Login", Href: "/login", Visibility: VisibilityGuest},
-				NavLink{Label: "Register", Href: "/register", Visibility: VisibilityGuest},
+				NavLink{Label: "Signin", Href: "/signin", Visibility: VisibilityGuest},
+				NavLink{Label: "Signup", Href: "/signup", Visibility: VisibilityGuest},
 				NavText{Text: userName, Visibility: VisibilityUser},
 				NavForm{
-					Label:      "Logout",
-					Action:     "/logout",
+					Label:      "Signout",
+					Action:     "/signout",
 					Visibility: VisibilityUser,
 					HiddenFields: []NavHiddenField{{
 						Name:  "_csrf",

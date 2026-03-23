@@ -17,32 +17,32 @@ import (
 )
 
 type authService interface {
-	Login(context.Context, model.LoginInput) (model.User, error)
-	Register(context.Context, model.CreateUserInput) (model.User, error)
+	Signin(context.Context, model.SigninInput) (model.User, error)
+	Signup(context.Context, model.SignupInput) (model.User, error)
 }
 
 // Handler holds auth transport dependencies for the Echo + componentry adapter.
 type Handler struct {
-	service      authService
-	sessions     *session.SessionManager
-	validator    authvalidate.Validator
-	loginPath    func() string
-	registerPath func() string
-	homePath     func() string
-	csrfField    string
-	requestFn    func(c *echo.Context) Request
+	service    authService
+	sessions   *session.SessionManager
+	validator  authvalidate.Validator
+	signinPath func() string
+	signupPath func() string
+	homePath   func() string
+	csrfField  string
+	requestFn  func(c *echo.Context) Request
 }
 
 // Config parameterises the adapter with application-specific route paths and layout wiring.
 type Config struct {
-	LoginPath      string
-	RegisterPath   string
-	HomePath       string
-	LoginPathFn    func() string
-	RegisterPathFn func() string
-	HomePathFn     func() string
-	CSRFField      string
-	RequestFn      func(c *echo.Context) Request
+	SigninPath   string
+	SignupPath   string
+	HomePath     string
+	SigninPathFn func() string
+	SignupPathFn func() string
+	HomePathFn   func() string
+	CSRFField    string
+	RequestFn    func(c *echo.Context) Request
 }
 
 // New constructs a Handler.
@@ -57,14 +57,14 @@ func New(
 		csrfField = "_csrf"
 	}
 	return &Handler{
-		service:      svc,
-		sessions:     sessions,
-		validator:    validator,
-		loginPath:    resolvePath(cfg.LoginPath, cfg.LoginPathFn),
-		registerPath: resolvePath(cfg.RegisterPath, cfg.RegisterPathFn),
-		homePath:     resolvePath(cfg.HomePath, cfg.HomePathFn),
-		csrfField:    csrfField,
-		requestFn:    cfg.RequestFn,
+		service:    svc,
+		sessions:   sessions,
+		validator:  validator,
+		signinPath: resolvePath(cfg.SigninPath, cfg.SigninPathFn),
+		signupPath: resolvePath(cfg.SignupPath, cfg.SignupPathFn),
+		homePath:   resolvePath(cfg.HomePath, cfg.HomePathFn),
+		csrfField:  csrfField,
+		requestFn:  cfg.RequestFn,
 	}
 }
 
@@ -82,30 +82,30 @@ func (h *Handler) req(c *echo.Context) Request {
 	return Request{}
 }
 
-// LoginPage renders the login form.
-func (h *Handler) LoginPage(c *echo.Context) error {
+// SigninPage renders the signin form.
+func (h *Handler) SigninPage(c *echo.Context) error {
 	req := h.req(c)
-	node := LoginPage(req, nil, model.LoginInput{}, h.loginPath(), h.registerPath(), h.csrfField)
+	node := SigninPage(req, nil, model.SigninInput{}, h.signinPath(), h.signupPath(), h.csrfField)
 	return render.Component(c, node)
 }
 
-// Login processes a login form submission.
-func (h *Handler) Login(c *echo.Context) error {
+// Signin processes a signin form submission.
+func (h *Handler) Signin(c *echo.Context) error {
 	req := h.req(c)
-	var input model.LoginInput
+	var input model.SigninInput
 	sub := form.New(h.validator.Validate())
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
+		node := SigninPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
 		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
-	user, err := h.service.Login(c.Request().Context(), input)
+	user, err := h.service.Signin(c.Request().Context(), input)
 	if err != nil {
 		if errors.Is(err, model.ErrInvalidCredentials) {
 			sub.SetFormError("Invalid email or password.")
-			node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
+			node := SigninPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
 			return render.ComponentWithStatus(c, http.StatusUnauthorized, node)
 		}
 		return apperr.Internal(err)
@@ -118,30 +118,30 @@ func (h *Handler) Login(c *echo.Context) error {
 	return redirect.New(c.Response(), c.Request()).To(h.homePath()).Go()
 }
 
-// RegisterPage renders the account registration form.
-func (h *Handler) RegisterPage(c *echo.Context) error {
+// SignupPage renders the account signup form.
+func (h *Handler) SignupPage(c *echo.Context) error {
 	req := h.req(c)
-	node := RegisterPage(req, nil, model.CreateUserInput{}, h.loginPath(), h.registerPath(), h.csrfField)
+	node := SignupPage(req, nil, model.SignupInput{}, h.signinPath(), h.signupPath(), h.csrfField)
 	return render.Component(c, node)
 }
 
-// Register processes a registration form submission.
-func (h *Handler) Register(c *echo.Context) error {
+// Signup processes a signup form submission.
+func (h *Handler) Signup(c *echo.Context) error {
 	req := h.req(c)
-	var input model.CreateUserInput
+	var input model.SignupInput
 	sub := form.New(h.validator.Validate())
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
+		node := SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
 		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
-	_, err := h.service.Register(c.Request().Context(), input)
+	_, err := h.service.Signup(c.Request().Context(), input)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
-			node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
+			node := SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
 			return render.ComponentWithStatus(c, http.StatusConflict, node)
 		}
 		return apperr.Internal(err)
@@ -150,13 +150,13 @@ func (h *Handler) Register(c *echo.Context) error {
 	if err := flash.Success(c.Response(), "Account created. Please sign in."); err != nil {
 		return apperr.Internal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.loginPath()).Go()
+	return redirect.New(c.Response(), c.Request()).To(h.signinPath()).Go()
 }
 
-// Logout clears the session and redirects to the login page.
-func (h *Handler) Logout(c *echo.Context) error {
+// Signout clears the session and redirects to the signin page.
+func (h *Handler) Signout(c *echo.Context) error {
 	if err := h.sessions.Clear(c.Response(), c.Request()); err != nil {
 		return apperr.Internal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.loginPath()).Go()
+	return redirect.New(c.Response(), c.Request()).To(h.signinPath()).Go()
 }

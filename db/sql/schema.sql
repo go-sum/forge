@@ -44,5 +44,5 @@ CREATE TABLE passwords (
 CREATE INDEX idx_passwords_user_id ON passwords (user_id);
 
 -- Composite index for "current password" queries: ORDER BY created_at DESC LIMIT 1
--- Eliminates the sort pass on the login hot-path and GetCurrentPasswordByUserID.
+-- Eliminates the sort pass on the signin hot-path and GetCurrentPasswordByUserID.
 CREATE INDEX idx_passwords_user_id_created_at ON passwords (user_id, created_at DESC);

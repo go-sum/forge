@@ -219,7 +219,7 @@ func (i NavNode) render(ctx navbarItemContext) g.Node {
 	return i.Desktop
 }
 
-// NavForm renders an inline form action such as logout.
+// NavForm renders an inline form action such as signout.
 type NavForm struct {
 	Visibility   NavbarVisibility
 	Label        string
@@ -422,7 +422,7 @@ func renderSection(viewport navbarViewport, section NavbarSection, ctx NavbarCon
 				g.Text(section.Label),
 			))
 		}
-		children = append(children, h.Div(h.Class("flex items-stretch gap-2"), g.Group(items)))
+		children = append(children, h.Div(h.Class("flex items-center gap-2"), g.Group(items)))
 		return h.Div(h.Class("flex min-w-0 items-center gap-3"), g.Group(children))
 	}
 

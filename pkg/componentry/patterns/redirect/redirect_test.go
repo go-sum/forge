@@ -11,13 +11,13 @@ func TestBuilderUsesHXRedirectForHTMXRequests(t *testing.T) {
 	req.Header.Set("HX-Request", "true")
 	rec := httptest.NewRecorder()
 
-	if err := New(rec, req).To("/login").Go(); err != nil {
+	if err := New(rec, req).To("/signin").Go(); err != nil {
 		t.Fatalf("Go() error = %v", err)
 	}
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
-	if got := rec.Header().Get("HX-Redirect"); got != "/login" {
+	if got := rec.Header().Get("HX-Redirect"); got != "/signin" {
 		t.Fatalf("HX-Redirect = %q", got)
 	}
 }

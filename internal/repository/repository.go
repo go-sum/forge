@@ -7,8 +7,8 @@ package repository
 import (
 	"context"
 
-	"github.com/go-sum/forge/internal/model"
 	db "github.com/go-sum/forge/db/schema"
+	"github.com/go-sum/forge/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -52,7 +52,7 @@ func NewRepositories(pool *pgxpool.Pool) *Repositories {
 }
 
 // WithTx returns a new Repositories where both repos share the given transaction.
-// Used by AuthService.Register to atomically create a user and their password.
+// Used by AuthService.Signup to atomically create a user and their password.
 // Calling Create on the returned repos executes within tx — no separate
 // transaction-variant methods are needed.
 func (r *Repositories) WithTx(tx pgx.Tx) *Repositories {

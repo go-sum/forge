@@ -298,7 +298,7 @@ There are three error categories in this application:
 
 ### Domain errors express expected failure modes
 
-When a user is not found, a login fails, or an email is already taken — these
+When a user is not found, a signin fails, or an email is already taken — these
 are expected outcomes, not exceptional conditions. Name them:
 
 ```go
@@ -413,7 +413,7 @@ before editing, a paginated region after navigation.
 
 ### Redirects from HTMX forms
 
-When an HTMX form submission should navigate the browser (e.g., login
+When an HTMX form submission should navigate the browser (e.g., signin
 success), use `pkg/components/patterns/redirect`. It detects whether the
 request is an HTMX partial and emits either `HX-Redirect` (for HTMX) or a
 standard `303 See Other` redirect automatically.
@@ -458,7 +458,7 @@ Do add it to standard HTML form submissions.
 Input struct tags define the shape of valid data:
 
 ```go
-type CreateUserInput struct {
+type SignupInput struct {
     Email       string `form:"email"        validate:"required,email,max=255"`
     DisplayName string `form:"display_name" validate:"required,min=1,max=255"`
     Password    string `form:"password"     validate:"required,min=8"`

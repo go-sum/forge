@@ -6,7 +6,7 @@ import (
 	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
 	"github.com/go-sum/forge/internal/adapters"
 	"github.com/go-sum/forge/internal/handler"
-	route "github.com/go-sum/server/route"
+	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
 )
@@ -26,20 +26,20 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: h.HealthCheck})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: h.Home})
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/login", Name: "session.new", Handler: authH.LoginPage})
-	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/login", Name: "session.create", Handler: authH.Login})
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/register", Name: "registration.new", Handler: authH.RegisterPage})
-	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/register", Name: "registration.create", Handler: authH.Register})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: authH.SigninPage})
+	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/signin", Name: "signin.post", Handler: authH.Signin})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: authH.SignupPage})
+	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/signup", Name: "signup.post", Handler: authH.Signup})
 
 	protected := e.Group("")
 	protected.Use(
 		authadapter.RequireAuthPath(func() string {
-			return route.Reverse(e.Router().Routes(), "session.new")
+			return route.Reverse(e.Router().Routes(), "signin.get")
 		}, authKeys),
 		authadapter.LoadUserContext(users, authKeys),
 	)
-	route.Add(protected, echo.Route{Method: http.MethodPost, Path: "/logout", Name: "session.delete", Handler: authH.Logout})
-	route.Add(protected, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "component-example.list", Handler: h.ComponentExamples})
+	route.Add(protected, echo.Route{Method: http.MethodPost, Path: "/signout", Name: "signout.post", Handler: authH.Signout})
+	route.Add(protected, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "components.list", Handler: h.ComponentExamples})
 
 	usersGroup := protected.Group("/users")
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: h.UserList})

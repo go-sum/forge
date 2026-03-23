@@ -24,7 +24,7 @@ func TestNavMenuRendersConfiguredGuestMenu(t *testing.T) {
 		`for="app-toggle"`,
 		`id="app-panel"`,
 		`>Starter</span>`,
-		`href="/login"`,
+		`href="/signin"`,
 		`Theme toggle`,
 		`>Theme</span>`,
 	}
@@ -33,8 +33,8 @@ func TestNavMenuRendersConfiguredGuestMenu(t *testing.T) {
 			t.Fatalf("NavMenu() guest output missing %q in %s", check, got)
 		}
 	}
-	if strings.Contains(got, `action="/logout"`) {
-		t.Fatalf("NavMenu() guest output unexpectedly rendered logout: %s", got)
+	if strings.Contains(got, `action="/signout"`) {
+		t.Fatalf("NavMenu() guest output unexpectedly rendered signout: %s", got)
 	}
 }
 
@@ -45,9 +45,9 @@ func TestNavMenuRendersAuthenticatedMenuWithSlots(t *testing.T) {
 		IsAuthenticated: true,
 		Slots: NavSlots{
 			"user_name": TextSlot("Ada"),
-			"logout": FormSlot(FormSlotProps{
-				Label:  "Logout",
-				Action: "/logout",
+			"signout": FormSlot(FormSlotProps{
+				Label:  "Signout",
+				Action: "/signout",
 				HiddenFields: []NavHiddenField{{
 					Name:  "_csrf",
 					Value: "csrf-token",
@@ -58,7 +58,7 @@ func TestNavMenuRendersAuthenticatedMenuWithSlots(t *testing.T) {
 
 	checks := []string{
 		`>Ada</span>`,
-		`action="/logout"`,
+		`action="/signout"`,
 		`value="csrf-token"`,
 	}
 	for _, check := range checks {
@@ -66,8 +66,8 @@ func TestNavMenuRendersAuthenticatedMenuWithSlots(t *testing.T) {
 			t.Fatalf("NavMenu() authenticated output missing %q in %s", check, got)
 		}
 	}
-	if strings.Contains(got, `href="/login"`) {
-		t.Fatalf("NavMenu() authenticated output unexpectedly rendered login link: %s", got)
+	if strings.Contains(got, `href="/signin"`) {
+		t.Fatalf("NavMenu() authenticated output unexpectedly rendered signin link: %s", got)
 	}
 }
 
@@ -106,10 +106,10 @@ func testNavMenuConfig() NavConfig {
 				}},
 			}},
 			{Align: AlignEnd, Items: []NavItem{
-				{Label: "Login", Href: "/login", Visibility: VisibilityGuest},
-				{Label: "Register", Href: "/register", Visibility: VisibilityGuest},
+				{Label: "Signin", Href: "/signin", Visibility: VisibilityGuest},
+				{Label: "Signup", Href: "/signup", Visibility: VisibilityGuest},
 				{Slot: "user_name", Visibility: VisibilityUser},
-				{Slot: "logout", Visibility: VisibilityUser},
+				{Slot: "signout", Visibility: VisibilityUser},
 				{Slot: "theme_toggle"},
 			}},
 		},

@@ -12,12 +12,12 @@ import (
 func HomePage(req view.Request) g.Node {
 	primary := core.Button(core.ButtonProps{
 		Label:   "Browse Components",
-		Href:    req.Path("component-example.list"),
+		Href:    req.Path("components.list"),
 		Variant: core.VariantOutline,
 	})
 	secondary := core.Button(core.ButtonProps{
 		Label: "Sign In",
-		Href:  req.Path("session.new"),
+		Href:  req.Path("signin.get"),
 	})
 	if req.IsAuthenticated {
 		secondary = core.Button(core.ButtonProps{

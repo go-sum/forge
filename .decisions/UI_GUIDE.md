@@ -65,7 +65,7 @@ user is doing, not around abstract page chrome.
 
 In this repo that means:
 
-- design the login form before rethinking the navbar
+- design the signin form before rethinking the navbar
 - design the users table before inventing a dashboard layout
 - design the inline edit flow before adding decorative wrappers
 

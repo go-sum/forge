@@ -56,7 +56,7 @@ type NavMenuProps struct {
 	IsAuthenticated bool
 }
 
-// FormSlotProps configures a reusable form slot such as logout.
+// FormSlotProps configures a reusable form slot such as signout.
 type FormSlotProps struct {
 	Label        string
 	Action       string

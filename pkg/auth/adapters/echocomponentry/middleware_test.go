@@ -17,7 +17,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-const testLoginPath = "/login"
+const testSigninPath = "/signin"
 
 var testContextKeys = ContextKeys{
 	UserID:      "user_id",
@@ -25,14 +25,14 @@ var testContextKeys = ContextKeys{
 	DisplayName: "user_display_name",
 }
 
-func TestRequireAuthRedirectsToLogin(t *testing.T) {
+func TestRequireAuthRedirectsToSignin(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testLoginPath, testContextKeys)(func(c *echo.Context) error {
+	err := RequireAuth(testSigninPath, testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -46,7 +46,7 @@ func TestRequireAuthRedirectsToLogin(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := rec.Header().Get(echo.HeaderLocation); got != testLoginPath {
+	if got := rec.Header().Get(echo.HeaderLocation); got != testSigninPath {
 		t.Fatalf("location = %q", got)
 	}
 }
@@ -59,7 +59,7 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testLoginPath, testContextKeys)(func(c *echo.Context) error {
+	err := RequireAuth(testSigninPath, testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -73,7 +73,7 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := rec.Header().Get("HX-Redirect"); got != testLoginPath {
+	if got := rec.Header().Get("HX-Redirect"); got != testSigninPath {
 		t.Fatalf("HX-Redirect = %q", got)
 	}
 }

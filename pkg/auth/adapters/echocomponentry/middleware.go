@@ -35,17 +35,17 @@ func LoadSession(sessions *session.SessionManager, keys ContextKeys) echo.Middle
 }
 
 // RequireAuth protects routes by checking for a valid session user ID.
-func RequireAuth(loginPath string, keys ContextKeys) echo.MiddlewareFunc {
-	return RequireAuthPath(func() string { return loginPath }, keys)
+func RequireAuth(signinPath string, keys ContextKeys) echo.MiddlewareFunc {
+	return RequireAuthPath(func() string { return signinPath }, keys)
 }
 
 // RequireAuthPath protects routes by checking for a valid session user ID.
-func RequireAuthPath(loginPath func() string, keys ContextKeys) echo.MiddlewareFunc {
+func RequireAuthPath(signinPath func() string, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			userID, _ := config.Get[string](c, keys.UserID)
 			if userID == "" {
-				path := loginPath()
+				path := signinPath()
 				if htmx.NewRequest(c.Request()).IsPartial() {
 					htmx.Response{Redirect: path}.Apply(c.Response())
 					return c.NoContent(http.StatusUnauthorized)

@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-sum/auth/model"
+	"github.com/go-sum/auth/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/go-sum/auth/model"
-	"github.com/go-sum/auth/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -153,13 +153,13 @@ func TestAuthServiceRegisterCreatesUserAndPasswordInTransaction(t *testing.T) {
 		fakePool{tx: tx},
 	)
 
-	user, err := service.Register(context.Background(), model.CreateUserInput{
+	user, err := service.Signup(context.Background(), model.SignupInput{
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
 		Password:    "correct-password",
 	})
 	if err != nil {
-		t.Fatalf("Register() error = %v", err)
+		t.Fatalf("Signup() error = %v", err)
 	}
 	if user != serviceTestUser {
 		t.Fatalf("user = %#v", user)
@@ -194,7 +194,7 @@ func TestAuthServiceRegisterPropagatesEmailTaken(t *testing.T) {
 		fakePool{tx: tx},
 	)
 
-	_, err := service.Register(context.Background(), model.CreateUserInput{
+	_, err := service.Signup(context.Background(), model.SignupInput{
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
 		Password:    "correct-password",
@@ -204,9 +204,9 @@ func TestAuthServiceRegisterPropagatesEmailTaken(t *testing.T) {
 	}
 }
 
-func TestAuthServiceRegisterHandlesBeginAndCommitFailures(t *testing.T) {
+func TestAuthServiceSignupHandlesBeginAndCommitFailures(t *testing.T) {
 	beginSvc := NewAuthService(nil, nil, fakeTxFactory{}, fakePool{err: errors.New("begin failed")})
-	_, err := beginSvc.Register(context.Background(), model.CreateUserInput{
+	_, err := beginSvc.Signup(context.Background(), model.SignupInput{
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
 		Password:    "correct-password",
@@ -229,7 +229,7 @@ func TestAuthServiceRegisterHandlesBeginAndCommitFailures(t *testing.T) {
 		}},
 		fakePool{tx: tx},
 	)
-	_, err = commitSvc.Register(context.Background(), model.CreateUserInput{
+	_, err = commitSvc.Signup(context.Background(), model.SignupInput{
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
 		Password:    "correct-password",
@@ -239,7 +239,7 @@ func TestAuthServiceRegisterHandlesBeginAndCommitFailures(t *testing.T) {
 	}
 }
 
-func TestAuthServiceLoginAuthenticatesAndNormalizesFailures(t *testing.T) {
+func TestAuthServiceSigninAuthenticatesAndNormalizesFailures(t *testing.T) {
 	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatalf("GenerateFromPassword() error = %v", err)
@@ -263,18 +263,18 @@ func TestAuthServiceLoginAuthenticatesAndNormalizesFailures(t *testing.T) {
 		fakePool{},
 	)
 
-	user, err := service.Login(context.Background(), model.LoginInput{
+	user, err := service.Signin(context.Background(), model.SigninInput{
 		Email:    serviceTestUser.Email,
 		Password: "correct-password",
 	})
 	if err != nil {
-		t.Fatalf("Login() error = %v", err)
+		t.Fatalf("Signin() error = %v", err)
 	}
 	if user != serviceTestUser {
 		t.Fatalf("user = %#v", user)
 	}
 
-	_, err = service.Login(context.Background(), model.LoginInput{
+	_, err = service.Signin(context.Background(), model.SigninInput{
 		Email:    serviceTestUser.Email,
 		Password: "wrong-password",
 	})
@@ -292,7 +292,7 @@ func TestAuthServiceLoginAuthenticatesAndNormalizesFailures(t *testing.T) {
 		fakeTxFactory{},
 		fakePool{},
 	)
-	_, err = invalidSvc.Login(context.Background(), model.LoginInput{
+	_, err = invalidSvc.Signin(context.Background(), model.SigninInput{
 		Email:    "missing@example.com",
 		Password: "whatever",
 	})

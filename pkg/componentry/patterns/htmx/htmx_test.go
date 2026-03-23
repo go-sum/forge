@@ -36,7 +36,7 @@ func TestRequestAndResponseHelpers(t *testing.T) {
 		t.Fatal("request helper values were not preserved")
 	}
 
-	SetRedirect(rec, "/login")
+	SetRedirect(rec, "/signin")
 	SetRefresh(rec)
 	SetPushURL(rec, "/users?page=2")
 	SetReplaceURL(rec, "/users?page=3")
@@ -48,7 +48,7 @@ func TestRequestAndResponseHelpers(t *testing.T) {
 
 	headers := rec.Header()
 	checks := map[string]string{
-		"HX-Redirect":             "/login",
+		"HX-Redirect":             "/signin",
 		"HX-Refresh":              "true",
 		"HX-Push-Url":             "/users?page=2",
 		"HX-Replace-Url":          "/users?page=3",

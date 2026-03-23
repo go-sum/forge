@@ -49,7 +49,7 @@ func TestUserListRegionRendersEmptyStateWhenNoUsersExist(t *testing.T) {
 
 	wantSnippets := []string{
 		`No users yet`,
-		`User accounts will appear here once people register.`,
+		`User accounts will appear here once people sign up.`,
 		`id="users-loading"`,
 	}
 	for _, want := range wantSnippets {

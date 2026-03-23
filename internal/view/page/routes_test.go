@@ -21,9 +21,9 @@ func mustPageRoutes(t *testing.T) echo.Routes {
 		noOp := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }
 
 		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: noOp})
-		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "component-example.list", Handler: noOp})
-		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/login", Name: "session.new", Handler: noOp})
-		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/register", Name: "registration.new", Handler: noOp})
+		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "components.list", Handler: noOp})
+		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: noOp})
+		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: noOp})
 
 		users := e.Group("/users")
 		route.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})

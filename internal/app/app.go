@@ -36,10 +36,10 @@ func New() *App {
 		c.Sessions,
 		c.Validator,
 		authadapter.Config{
-			CSRFField:      c.ServerConfig.CSRFCookieName,
-			LoginPathFn:    func() string { return route.Reverse(c.Web.Router().Routes(), "session.new") },
-			RegisterPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "registration.new") },
-			HomePathFn:     func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
+			CSRFField:    c.ServerConfig.CSRFCookieName,
+			SigninPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
+			SignupPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
+			HomePathFn:   func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
 			RequestFn: func(ec *echo.Context) authadapter.Request {
 				req := view.NewRequest(ec, c.Config.Nav, c.Config.Keys)
 				return authadapter.Request{

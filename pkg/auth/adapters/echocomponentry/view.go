@@ -26,10 +26,10 @@ func FormError(messages []string) g.Node {
 	)
 }
 
-// LoginPage renders the full login page inside the host layout.
-func LoginPage(req Request, submission *form.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
+// SigninPage renders the full signin page inside the host layout.
+func SigninPage(req Request, submission *form.Submission, input model.SigninInput, signinPath, signupPath, csrfField string) g.Node {
 	return req.Page(
-		"Login",
+		"Signin",
 		h.Div(
 			h.Class("mx-auto w-full max-w-sm px-4 py-12 sm:py-16"),
 			uidata.Card.Root(
@@ -37,13 +37,13 @@ func LoginPage(req Request, submission *form.Submission, input model.LoginInput,
 					uidata.Card.Title(g.Text("Sign In")),
 					uidata.Card.Description(g.Text("Enter your account details to continue into the application.")),
 				),
-				uidata.Card.Content(loginForm(req, submission, input, loginPath, registerPath, csrfField)),
+				uidata.Card.Content(signinForm(req, submission, input, signinPath, signupPath, csrfField)),
 			),
 		),
 	)
 }
 
-func loginForm(req Request, submission *form.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
+func signinForm(req Request, submission *form.Submission, input model.SigninInput, signinPath, signupPath, csrfField string) g.Node {
 	var emailErrors, passwordErrors, formErrors []string
 	if submission != nil {
 		emailErrors = submission.GetFieldErrors("Email")
@@ -52,7 +52,7 @@ func loginForm(req Request, submission *form.Submission, input model.LoginInput,
 	}
 	return h.Form(
 		h.Method("post"),
-		h.Action(loginPath),
+		h.Action(signinPath),
 		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, FormError(formErrors)),
@@ -92,15 +92,15 @@ func loginForm(req Request, submission *form.Submission, input model.LoginInput,
 		h.P(
 			h.Class("pt-1 text-center text-sm text-muted-foreground"),
 			g.Text("Don't have an account? "),
-			h.A(h.Href(registerPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Register")),
+			h.A(h.Href(signupPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Signup")),
 		),
 	)
 }
 
-// RegisterPage renders the full registration page inside the host layout.
-func RegisterPage(req Request, submission *form.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
+// SignupPage renders the full registration page inside the host layout.
+func SignupPage(req Request, submission *form.Submission, input model.SignupInput, signinPath, signupPath, csrfField string) g.Node {
 	return req.Page(
-		"Register",
+		"Signup",
 		h.Div(
 			h.Class("mx-auto w-full max-w-sm px-4 py-12 sm:py-16"),
 			uidata.Card.Root(
@@ -108,13 +108,13 @@ func RegisterPage(req Request, submission *form.Submission, input model.CreateUs
 					uidata.Card.Title(g.Text("Create Account")),
 					uidata.Card.Description(g.Text("Set up an account so you can start working with the app.")),
 				),
-				uidata.Card.Content(registerForm(req, submission, input, loginPath, registerPath, csrfField)),
+				uidata.Card.Content(signupForm(req, submission, input, signinPath, signupPath, csrfField)),
 			),
 		),
 	)
 }
 
-func registerForm(req Request, submission *form.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
+func signupForm(req Request, submission *form.Submission, input model.SignupInput, signinPath, signupPath, csrfField string) g.Node {
 	var emailErrors, nameErrors, passwordErrors, formErrors []string
 	if submission != nil {
 		emailErrors = submission.GetFieldErrors("Email")
@@ -124,7 +124,7 @@ func registerForm(req Request, submission *form.Submission, input model.CreateUs
 	}
 	return h.Form(
 		h.Method("post"),
-		h.Action(registerPath),
+		h.Action(signupPath),
 		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, FormError(formErrors)),
@@ -177,7 +177,7 @@ func registerForm(req Request, submission *form.Submission, input model.CreateUs
 		h.P(
 			h.Class("pt-1 text-center text-sm text-muted-foreground"),
 			g.Text("Already have an account? "),
-			h.A(h.Href(loginPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Sign in")),
+			h.A(h.Href(signinPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Sign in")),
 		),
 	)
 }

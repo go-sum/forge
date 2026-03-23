@@ -55,8 +55,8 @@ auth:
               href: /_components
     - align: end
       items:
-        - label: Login
-          href: /login
+        - label: Signin
+          href: /signin
           visibility: guest
         - slot: theme_toggle
 `,
