@@ -53,6 +53,14 @@ func GetAll(r *http.Request, w http.ResponseWriter) ([]Message, error) {
 		return []Message{}, nil
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	data, err := base64.RawURLEncoding.DecodeString(cookie.Value)
 	if err != nil {
 		return nil, err
@@ -62,14 +70,6 @@ func GetAll(r *http.Request, w http.ResponseWriter) ([]Message, error) {
 	if err := json.Unmarshal(data, &msgs); err != nil {
 		return nil, err
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	return msgs, nil
 }

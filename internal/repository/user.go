@@ -7,10 +7,10 @@ import (
 
 	db "github.com/go-sum/forge/db/schema"
 	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/server/database"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type userRepository struct{ q *db.Queries }
@@ -104,8 +104,7 @@ func (r *userRepository) Count(ctx context.Context) (int64, error) {
 
 // mapUserErr translates Postgres unique constraint violations to domain errors.
 func mapUserErr(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if database.IsUniqueViolation(err) {
 		return model.ErrEmailTaken
 	}
 	return err

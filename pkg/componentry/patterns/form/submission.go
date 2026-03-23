@@ -45,7 +45,7 @@ func (s *Submission) Submit(b Binder, dest any) {
 		if errors.As(err, &verrs) {
 			for _, fe := range verrs {
 				field := fe.Field()
-				s.errors[field] = append(s.errors[field], fe.Translate(nil))
+				s.errors[field] = append(s.errors[field], fe.Error())
 			}
 			return
 		}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-sum/forge/config"
 	srv "github.com/go-sum/server"
+	"github.com/go-sum/server/ctxkeys"
 	servermw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -84,6 +85,7 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, navConfig config.NavConfig
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+		ContextKey:     string(ctxkeys.CSRF),
 		TokenLookup:    "header:X-CSRF-Token,form:" + cfg.CSRFCookieName,
 		CookieName:     cfg.CSRFCookieName,
 		CookieSameSite: http.SameSiteLaxMode,

@@ -11,12 +11,15 @@ import (
 )
 
 func TestSessionManagerUserRoundTripAndClear(t *testing.T) {
-	manager := NewSessionStore(SessionConfig{
+	manager, err := NewSessionStore(SessionConfig{
 		Name:       "test-session",
 		AuthKey:    strings.Repeat("a", 32),
 		EncryptKey: strings.Repeat("b", 32),
 		MaxAge:     3600,
 	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -44,15 +47,38 @@ func TestSessionManagerUserRoundTripAndClear(t *testing.T) {
 }
 
 func TestSessionManagerDefaultsAndMissingUser(t *testing.T) {
-	manager := NewSessionStore(SessionConfig{
+	manager, err := NewSessionStore(SessionConfig{
 		AuthKey:    strings.Repeat("a", 32),
 		EncryptKey: strings.Repeat("b", 32),
 	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
 	if manager.name != "session" {
 		t.Fatalf("default name = %q", manager.name)
 	}
 	if _, err := manager.GetUserID(httptest.NewRequest(http.MethodGet, "/", nil)); !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("GetUserID() err = %v", err)
+	}
+}
+
+func TestNewSessionStoreRejectsInvalidKeys(t *testing.T) {
+	tests := []struct {
+		name       string
+		authKey    string
+		encryptKey string
+	}{
+		{"auth key too short", strings.Repeat("a", 16), strings.Repeat("b", 32)},
+		{"auth key wrong length", strings.Repeat("a", 48), strings.Repeat("b", 32)},
+		{"encrypt key too short", strings.Repeat("a", 32), strings.Repeat("b", 8)},
+		{"encrypt key wrong length", strings.Repeat("a", 32), strings.Repeat("b", 48)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := NewSessionStore(SessionConfig{AuthKey: tt.authKey, EncryptKey: tt.encryptKey}); err == nil {
+				t.Fatal("NewSessionStore() error = nil, want error")
+			}
+		})
 	}
 }
 

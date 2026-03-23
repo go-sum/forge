@@ -8,8 +8,10 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,4 +50,12 @@ func CheckHealth(ctx context.Context, pool *pgxpool.Pool) error {
 
 func Close(pool *pgxpool.Pool) {
 	pool.Close()
+}
+
+// IsUniqueViolation reports whether err is a PostgreSQL unique constraint
+// violation (SQLSTATE 23505). Use this to map database errors to domain errors
+// without duplicating the postgres error code string at each call site.
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

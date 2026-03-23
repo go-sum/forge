@@ -8,4 +8,5 @@ const (
 	UserID          ctxKey = "user_id"
 	UserRole        ctxKey = "user_role"
 	UserDisplayName ctxKey = "user_display_name"
+	CSRF            ctxKey = "csrf"
 )

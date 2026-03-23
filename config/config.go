@@ -44,14 +44,7 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	JWT     JWTConfig     `koanf:"jwt"`
 	Session SessionConfig `koanf:"session"`
-}
-
-type JWTConfig struct {
-	Secret        string `koanf:"secret"         validate:"required,min=32"`
-	Issuer        string `koanf:"issuer"`
-	TokenDuration int    `koanf:"token_duration" validate:"required,min=1"`
 }
 
 type SessionConfig struct {

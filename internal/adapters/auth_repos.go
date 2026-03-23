@@ -9,9 +9,9 @@ import (
 	db "github.com/go-sum/forge/db/schema"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/repository"
+	"github.com/go-sum/server/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -32,31 +32,6 @@ func (a *authUserReader) GetByID(ctx context.Context, id uuid.UUID) (authmodel.U
 
 func (a *authUserReader) GetByEmail(ctx context.Context, email string) (authmodel.User, error) {
 	u, err := a.repo.GetByEmail(ctx, email)
-	return toAuthUser(u, err)
-}
-
-// --- UserWriter adapter (for registration transactions) ---
-
-// authUserWriter adapts forge's UserRepository to auth's UserWriter port.
-type authUserWriter struct{ repo repository.UserRepository }
-
-// NewAuthUserWriter wraps forge's user repository to satisfy auth/repository.UserWriter.
-func NewAuthUserWriter(repo repository.UserRepository) authrepo.UserWriter {
-	return &authUserWriter{repo: repo}
-}
-
-func (a *authUserWriter) GetByID(ctx context.Context, id uuid.UUID) (authmodel.User, error) {
-	u, err := a.repo.GetByID(ctx, id)
-	return toAuthUser(u, err)
-}
-
-func (a *authUserWriter) GetByEmail(ctx context.Context, email string) (authmodel.User, error) {
-	u, err := a.repo.GetByEmail(ctx, email)
-	return toAuthUser(u, err)
-}
-
-func (a *authUserWriter) Create(ctx context.Context, email, displayName, role string) (authmodel.User, error) {
-	u, err := a.repo.Create(ctx, email, displayName, role)
 	return toAuthUser(u, err)
 }
 
@@ -264,8 +239,7 @@ func toAuthUser(u model.User, err error) (authmodel.User, error) {
 }
 
 func mapAuthUserErr(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if database.IsUniqueViolation(err) {
 		return authmodel.ErrEmailTaken
 	}
 	return err

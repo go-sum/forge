@@ -118,7 +118,7 @@ func resolveErr(err error) *apperr.Error {
 	if errors.Is(err, model.ErrUserNotFound) {
 		return apperr.NotFound("The requested user does not exist.")
 	}
-	return resolveErr(err)
+	return apperr.Resolve(err)
 }
 
 // UserDelete removes a user and returns 204 so HTMX can remove the row.

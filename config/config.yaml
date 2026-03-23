@@ -20,10 +20,6 @@ csp_hashes:
   dev_only: []
 
 auth:
-  jwt:
-    secret: ""
-    issuer: starter
-    token_duration: 86400  # 24 h
   session:
     name: _session
     auth_key: ""

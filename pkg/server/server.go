@@ -26,12 +26,11 @@ type Config struct {
 	PublicPrefix    string // URL prefix for public assets, e.g. "/public"
 }
 
-// New creates a bare Echo v5 instance with only the error handler configured.
-// Call internal/server.Setup to wire the application's middleware stack.
-func New(cfg Config) *echo.Echo {
-	e := echo.New()
-	e.HTTPErrorHandler = echo.DefaultHTTPErrorHandler(cfg.Debug)
-	return e
+// New creates a bare Echo v5 instance.
+// Call internal/server.RegisterMiddleware to wire the application's middleware stack,
+// including the error handler.
+func New() *echo.Echo {
+	return echo.New()
 }
 
 // Start begins listening and blocks until a shutdown signal is received.

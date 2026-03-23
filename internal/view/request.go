@@ -14,7 +14,6 @@ import (
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
-	echomw "github.com/labstack/echo/v5/middleware"
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
@@ -53,7 +52,7 @@ func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
 	if name, _ := c.Get(string(ctxkeys.UserDisplayName)).(string); name != "" {
 		req.UserName = name
 	}
-	if csrf, _ := c.Get(echomw.DefaultCSRFConfig.ContextKey).(string); csrf != "" {
+	if csrf, _ := c.Get(string(ctxkeys.CSRF)).(string); csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {

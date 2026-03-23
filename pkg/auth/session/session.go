@@ -2,6 +2,7 @@ package session
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -29,7 +30,21 @@ type SessionManager struct {
 }
 
 // NewSessionStore creates a SessionManager backed by a signed+encrypted cookie store.
-func NewSessionStore(cfg SessionConfig) *SessionManager {
+// Returns an error if the key lengths are invalid:
+//   - AuthKey must be 32 or 64 bytes (HMAC-SHA256 or HMAC-SHA512)
+//   - EncryptKey must be 16, 24, or 32 bytes (AES-128, AES-192, or AES-256)
+func NewSessionStore(cfg SessionConfig) (*SessionManager, error) {
+	switch len(cfg.AuthKey) {
+	case 32, 64:
+	default:
+		return nil, fmt.Errorf("session: auth_key must be 32 or 64 bytes, got %d", len(cfg.AuthKey))
+	}
+	switch len(cfg.EncryptKey) {
+	case 16, 24, 32:
+	default:
+		return nil, fmt.Errorf("session: encrypt_key must be 16, 24, or 32 bytes, got %d", len(cfg.EncryptKey))
+	}
+
 	store := sessions.NewCookieStore([]byte(cfg.AuthKey), []byte(cfg.EncryptKey))
 	store.Options = &sessions.Options{
 		MaxAge:   cfg.MaxAge,
@@ -42,7 +57,7 @@ func NewSessionStore(cfg SessionConfig) *SessionManager {
 	if name == "" {
 		name = "session"
 	}
-	return &SessionManager{name: name, store: store}
+	return &SessionManager{name: name, store: store}, nil
 }
 
 // SetUserID stores the user ID in the session cookie.

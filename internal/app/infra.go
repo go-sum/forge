@@ -128,18 +128,22 @@ func (c *Container) initWeb() {
 		CSRFCookieName:  cfg.Server.CSRFCookieName,
 		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
-	c.Web = server.New(c.ServerConfig)
+	c.Web = server.New()
 	appserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg.Nav)
 }
 
 func (c *Container) initAuth() {
-	c.Sessions = session.NewSessionStore(session.SessionConfig{
+	sm, err := session.NewSessionStore(session.SessionConfig{
 		Name:       c.Config.Auth.Session.Name,
 		AuthKey:    c.Config.Auth.Session.AuthKey,
 		EncryptKey: c.Config.Auth.Session.EncryptKey,
 		MaxAge:     c.Config.Auth.Session.MaxAge,
 		Secure:     c.Config.Auth.Session.Secure,
 	})
+	if err != nil {
+		panic(fmt.Sprintf("session: %v", err))
+	}
+	c.Sessions = sm
 }
 
 func (c *Container) initValidator() {

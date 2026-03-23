@@ -31,10 +31,6 @@ csp_hashes:
   always: []
   dev_only: []
 auth:
-  jwt:
-    secret: "12345678901234567890123456789012"
-    issuer: starter
-    token_duration: 86400
   session:
     name: _session
     auth_key: "12345678901234567890123456789012"
@@ -149,10 +145,6 @@ csp_hashes:
   always: []
   dev_only: []
 auth:
-  jwt:
-    secret: "12345678901234567890123456789012"
-    issuer: starter
-    token_duration: 86400
   session:
     name: _session
     auth_key: "12345678901234567890123456789012"

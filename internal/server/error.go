@@ -194,7 +194,7 @@ func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool
 		RequestID:       requestID(c),
 		Debug:           debug,
 		TechnicalDetail: technicalDetail,
-		HomePath:        "/",
+		HomePath:        req.Path("home.show"),
 	}))
 }
 
