@@ -12,7 +12,6 @@ import (
 	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
 	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/routes"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/errorpage"
 	"github.com/go-sum/server/apperr"
@@ -195,7 +194,7 @@ func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool
 		RequestID:       requestID(c),
 		Debug:           debug,
 		TechnicalDetail: technicalDetail,
-		HomePath:        routes.Home,
+		HomePath:        "/",
 	}))
 }
 

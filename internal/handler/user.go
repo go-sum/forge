@@ -1,5 +1,5 @@
 // Example: safe to delete as a unit (along with service/user.go, repository/user.go,
-// view/page/users.go, view/partial/userpartial/, and user routes in routes/routes.go).
+// view/page/users.go, view/partial/userpartial/, and the user routes in app/routes.go).
 package handler
 
 import (
@@ -41,7 +41,7 @@ func (h *Handler) UserList(c *echo.Context) error {
 		Users: users,
 		Pager: pg,
 	}
-	return view.Render(c, req, page.UserListPage(req, data), page.UserListRegion(data))
+	return view.Render(c, req, page.UserListPage(req, data), page.UserListRegion(req, data))
 }
 
 // UserEditForm renders the inline edit form for a single user row (HTMX swap).
@@ -60,6 +60,7 @@ func (h *Handler) UserEditForm(c *echo.Context) error {
 
 // UserRow renders a single read-only user table row (HTMX swap after save/cancel).
 func (h *Handler) UserRow(c *echo.Context) error {
+	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
@@ -68,7 +69,7 @@ func (h *Handler) UserRow(c *echo.Context) error {
 	if err != nil {
 		return resolveErr(err)
 	}
-	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
+	return render.Fragment(c, userpartial.UserRow(req, userpartial.UserRowProps{
 		User: user,
 	}))
 }
@@ -106,7 +107,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 		return resolveErr(err)
 	}
 
-	return render.Fragment(c, userpartial.UserRow(userpartial.UserRowProps{
+	return render.Fragment(c, userpartial.UserRow(req, userpartial.UserRowProps{
 		User: user,
 	}))
 }

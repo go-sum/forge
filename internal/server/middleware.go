@@ -4,7 +4,7 @@
 //
 // The separation from pkg/server is intentional:
 //   - pkg/server.New() creates a bare Echo instance (generic, extractable)
-//   - internal/server.Setup() configures this app's specific middleware (edit freely)
+//   - internal/server.RegisterMiddleware() configures this app's specific middleware (edit freely)
 package server
 
 import (
@@ -19,11 +19,11 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-// Setup wires the application middleware stack onto e in the correct order.
+// RegisterMiddleware wires the application middleware stack onto e in the correct order.
 // cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
 // navConfig is forwarded to the error handler so error pages render the correct nav.
-func Setup(e *echo.Echo, cfg pkgserver.Config, navConfig config.NavConfig) {
+func RegisterMiddleware(e *echo.Echo, cfg pkgserver.Config, navConfig config.NavConfig) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
 		Debug:     cfg.Debug,
 		Logger:    slog.Default(),

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v5"
 	"github.com/go-sum/auth/model"
 	"github.com/go-sum/auth/session"
 	authvalidate "github.com/go-sum/auth/validate"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-sum/componentry/patterns/redirect"
 	renderecho "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/server/apperr"
+	"github.com/labstack/echo/v5"
 )
 
 type authService interface {
@@ -26,20 +26,23 @@ type Handler struct {
 	service      authService
 	sessions     *session.SessionManager
 	validator    authvalidate.Validator
-	loginPath    string
-	registerPath string
-	homePath     string
+	loginPath    func() string
+	registerPath func() string
+	homePath     func() string
 	csrfField    string
 	requestFn    func(c *echo.Context) Request
 }
 
 // Config parameterises the adapter with application-specific route paths and layout wiring.
 type Config struct {
-	LoginPath    string
-	RegisterPath string
-	HomePath     string
-	CSRFField    string
-	RequestFn    func(c *echo.Context) Request
+	LoginPath      string
+	RegisterPath   string
+	HomePath       string
+	LoginPathFn    func() string
+	RegisterPathFn func() string
+	HomePathFn     func() string
+	CSRFField      string
+	RequestFn      func(c *echo.Context) Request
 }
 
 // New constructs a Handler.
@@ -57,12 +60,19 @@ func New(
 		service:      svc,
 		sessions:     sessions,
 		validator:    validator,
-		loginPath:    cfg.LoginPath,
-		registerPath: cfg.RegisterPath,
-		homePath:     cfg.HomePath,
+		loginPath:    resolvePath(cfg.LoginPath, cfg.LoginPathFn),
+		registerPath: resolvePath(cfg.RegisterPath, cfg.RegisterPathFn),
+		homePath:     resolvePath(cfg.HomePath, cfg.HomePathFn),
 		csrfField:    csrfField,
 		requestFn:    cfg.RequestFn,
 	}
+}
+
+func resolvePath(path string, pathFn func() string) func() string {
+	if pathFn != nil {
+		return pathFn
+	}
+	return func() string { return path }
 }
 
 func (h *Handler) req(c *echo.Context) Request {
@@ -75,7 +85,7 @@ func (h *Handler) req(c *echo.Context) Request {
 // LoginPage renders the login form.
 func (h *Handler) LoginPage(c *echo.Context) error {
 	req := h.req(c)
-	node := LoginPage(req, nil, model.LoginInput{}, h.loginPath, h.registerPath, h.csrfField)
+	node := LoginPage(req, nil, model.LoginInput{}, h.loginPath(), h.registerPath(), h.csrfField)
 	return renderecho.Component(c, node)
 }
 
@@ -87,7 +97,7 @@ func (h *Handler) Login(c *echo.Context) error {
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		node := LoginPage(req, sub, input, h.loginPath, h.registerPath, h.csrfField)
+		node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
 		return renderecho.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
@@ -95,7 +105,7 @@ func (h *Handler) Login(c *echo.Context) error {
 	if err != nil {
 		if errors.Is(err, model.ErrInvalidCredentials) {
 			sub.SetFormError("Invalid email or password.")
-			node := LoginPage(req, sub, input, h.loginPath, h.registerPath, h.csrfField)
+			node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
 			return renderecho.ComponentWithStatus(c, http.StatusUnauthorized, node)
 		}
 		return apperr.Internal(err)
@@ -105,13 +115,13 @@ func (h *Handler) Login(c *echo.Context) error {
 		return apperr.Internal(err)
 	}
 
-	return redirect.New(c.Response(), c.Request()).To(h.homePath).Go()
+	return redirect.New(c.Response(), c.Request()).To(h.homePath()).Go()
 }
 
 // RegisterPage renders the account registration form.
 func (h *Handler) RegisterPage(c *echo.Context) error {
 	req := h.req(c)
-	node := RegisterPage(req, nil, model.CreateUserInput{}, h.loginPath, h.registerPath, h.csrfField)
+	node := RegisterPage(req, nil, model.CreateUserInput{}, h.loginPath(), h.registerPath(), h.csrfField)
 	return renderecho.Component(c, node)
 }
 
@@ -123,7 +133,7 @@ func (h *Handler) Register(c *echo.Context) error {
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
-		node := RegisterPage(req, sub, input, h.loginPath, h.registerPath, h.csrfField)
+		node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
 		return renderecho.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
@@ -131,7 +141,7 @@ func (h *Handler) Register(c *echo.Context) error {
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
-			node := RegisterPage(req, sub, input, h.loginPath, h.registerPath, h.csrfField)
+			node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
 			return renderecho.ComponentWithStatus(c, http.StatusConflict, node)
 		}
 		return apperr.Internal(err)
@@ -140,7 +150,7 @@ func (h *Handler) Register(c *echo.Context) error {
 	if err := pkgflash.Success(c.Response(), "Account created. Please sign in."); err != nil {
 		return apperr.Internal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.loginPath).Go()
+	return redirect.New(c.Response(), c.Request()).To(h.loginPath()).Go()
 }
 
 // Logout clears the session and redirects to the login page.
@@ -148,5 +158,5 @@ func (h *Handler) Logout(c *echo.Context) error {
 	if err := h.sessions.Clear(c.Response(), c.Request()); err != nil {
 		return apperr.Internal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.loginPath).Go()
+	return redirect.New(c.Response(), c.Request()).To(h.loginPath()).Go()
 }

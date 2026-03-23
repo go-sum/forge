@@ -16,7 +16,7 @@ import (
 )
 
 // TestRunConfigFailureSkipsDependentChecks verifies that a bad config dir
-// causes config_load to fail and all downstream checks to skip.
+// causes the config assertion to fail and all downstream checks to skip.
 func TestRunConfigFailureSkipsDependentChecks(t *testing.T) {
 	prev := config.App
 	t.Cleanup(func() { config.App = prev })
@@ -31,27 +31,27 @@ func TestRunConfigFailureSkipsDependentChecks(t *testing.T) {
 	if got := report.Status; got != "error" {
 		t.Fatalf("report.Status = %q, want %q", got, "error")
 	}
-	// config_load + database_dsn + database_connectivity + required_relations
+	// assertLoadConfig + assertDSNConfigured + assertConnectDB + assertUsersSchema
 	if got := len(report.Checks); got != 4 {
 		t.Fatalf("len(report.Checks) = %d, want 4", got)
 	}
 
-	if c := report.Checks[0]; c.Name != "config_load" || c.Status != StatusFail {
-		t.Fatalf("config_load = %+v", c)
+	if c := report.Checks[0]; c.Name != "assertLoadConfig" || c.Status != StatusFail {
+		t.Fatalf("assertLoadConfig = %+v", c)
 	}
-	if c := report.Checks[1]; c.Name != "config_dsn" || c.Status != StatusSkip {
-		t.Fatalf("config_dsn = %+v, want skip", c)
+	if c := report.Checks[1]; c.Name != "assertDSNConfigured" || c.Status != StatusSkip {
+		t.Fatalf("assertDSNConfigured = %+v, want skip", c)
 	}
-	if c := report.Checks[2]; c.Name != "connect_db" || c.Status != StatusSkip {
-		t.Fatalf("connect_db = %+v, want skip", c)
+	if c := report.Checks[2]; c.Name != "assertConnectDB" || c.Status != StatusSkip {
+		t.Fatalf("assertConnectDB = %+v, want skip", c)
 	}
-	if c := report.Checks[3]; c.Name != "users_schema" || c.Status != StatusSkip {
-		t.Fatalf("users_schema = %+v, want skip", c)
+	if c := report.Checks[3]; c.Name != "assertUsersSchema" || c.Status != StatusSkip {
+		t.Fatalf("assertUsersSchema = %+v, want skip", c)
 	}
 }
 
 // TestRunDatabaseFailureAndHTTPSuccessAreIndependent verifies that a bad DSN
-// fails database_connectivity, skips required_relations, but http_reachability
+// fails DB connectivity, skips required relations, but the HTTP assertion
 // still runs and passes independently.
 func TestRunDatabaseFailureAndHTTPSuccessAreIndependent(t *testing.T) {
 	prev := config.App
@@ -73,7 +73,7 @@ func TestRunDatabaseFailureAndHTTPSuccessAreIndependent(t *testing.T) {
 	if !report.HasFailures() {
 		t.Fatal("Run() unexpectedly succeeded")
 	}
-	// config_load + database_dsn + database_connectivity + required_relations + http_reachability
+	// assertLoadConfig + assertDSNConfigured + assertConnectDB + assertUsersSchema + assertHTTPRequest
 	if got := len(report.Checks); got != 5 {
 		t.Fatalf("len(report.Checks) = %d, want 5", got)
 	}
@@ -81,11 +81,11 @@ func TestRunDatabaseFailureAndHTTPSuccessAreIndependent(t *testing.T) {
 		name   string
 		status Status
 	}{
-		{"config_load", StatusPass},
-		{"config_dsn", StatusPass},
-		{"connect_db", StatusFail},
-		{"users_schema", StatusSkip},
-		{"http_request", StatusPass},
+		{"assertLoadConfig", StatusPass},
+		{"assertDSNConfigured", StatusPass},
+		{"assertConnectDB", StatusFail},
+		{"assertUsersSchema", StatusSkip},
+		{"assertHTTPRequest", StatusPass},
 	}
 	for i, want := range checkWant {
 		c := report.Checks[i]

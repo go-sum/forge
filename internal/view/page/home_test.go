@@ -4,14 +4,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/componentry/testutil"
+	"github.com/go-sum/forge/internal/view"
 )
 
 func TestHomePageRendersWelcomeAndFlash(t *testing.T) {
 	got := testutil.RenderNode(t, HomePage(view.Request{
 		CSRFToken: "csrf-token",
+		Routes:    mustPageRoutes(t),
 		Flash: []flash.Message{{
 			Type: flash.TypeSuccess,
 			Text: "Saved",

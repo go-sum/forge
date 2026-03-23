@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/server/ctxkeys"
+	serverroute "github.com/go-sum/server/route"
 	"github.com/go-sum/server/validate"
 
 	"github.com/google/uuid"
@@ -89,6 +91,7 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 
 func newRequestContext(method, target string, body io.Reader) (*echo.Context, *httptest.ResponseRecorder) {
 	e := echo.New()
+	registerTestRoutes(e)
 	req := httptest.NewRequest(method, target, body)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -126,4 +129,19 @@ func assertAppErrorStatus(t *testing.T, err error, status int) {
 	if appErr.Status != status {
 		t.Fatalf("status = %d, want %d", appErr.Status, status)
 	}
+}
+
+func registerTestRoutes(e *echo.Echo) {
+	noOp := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }
+	serverroute.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: noOp})
+	serverroute.Add(e, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "component-example.list", Handler: noOp})
+	serverroute.Add(e, echo.Route{Method: http.MethodGet, Path: "/login", Name: "session.new", Handler: noOp})
+	serverroute.Add(e, echo.Route{Method: http.MethodGet, Path: "/register", Name: "registration.new", Handler: noOp})
+
+	users := e.Group("/users")
+	serverroute.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})
+	serverroute.Add(users, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "user.edit", Handler: noOp})
+	serverroute.Add(users, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: noOp})
+	serverroute.Add(users, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "user.update", Handler: noOp})
+	serverroute.Add(users, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "user.delete", Handler: noOp})
 }

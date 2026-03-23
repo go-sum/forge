@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-sum/componentry/testutil"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/view"
-	"github.com/go-sum/componentry/testutil"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +23,7 @@ var partialTestUser = model.User{
 func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 	got := testutil.RenderNode(t, UserEditForm(view.Request{
 		CSRFToken: "csrf-token",
+		Routes:    mustPartialRoutes(t),
 	}, UserFormData{
 		User: partialTestUser,
 		Values: model.UpdateUserInput{

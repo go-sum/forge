@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/forge/internal/routes"
 	"github.com/go-sum/componentry/patterns/flash"
 )
 
@@ -35,8 +34,8 @@ func TestHealthCheckReportsStatus(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newTestHandler(fakeUserService{},tc.checkHealth)
-			c, rec := newRequestContext(http.MethodGet, routes.Health, nil)
+			h := newTestHandler(fakeUserService{}, tc.checkHealth)
+			c, rec := newRequestContext(http.MethodGet, "/health", nil)
 
 			if err := h.HealthCheck(c); err != nil {
 				t.Fatalf("HealthCheck() error = %v", err)
@@ -52,8 +51,8 @@ func TestHealthCheckReportsStatus(t *testing.T) {
 }
 
 func TestHomeRendersFlashMessages(t *testing.T) {
-	h := newTestHandler(fakeUserService{},nil)
-	c, rec := newRequestContext(http.MethodGet, routes.Home, nil)
+	h := newTestHandler(fakeUserService{}, nil)
+	c, rec := newRequestContext(http.MethodGet, "/", nil)
 	setCSRFToken(c)
 	setUserID(c, testUser.ID.String())
 
@@ -78,8 +77,8 @@ func TestHomeRendersFlashMessages(t *testing.T) {
 }
 
 func TestComponentExamplesRenders(t *testing.T) {
-	h := newTestHandler(fakeUserService{},nil)
-	c, rec := newRequestContext(http.MethodGet, routes.Components, nil)
+	h := newTestHandler(fakeUserService{}, nil)
+	c, rec := newRequestContext(http.MethodGet, "/_components", nil)
 	setCSRFToken(c)
 
 	if err := h.ComponentExamples(c); err != nil {

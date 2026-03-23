@@ -1,9 +1,8 @@
 package page
 
 import (
-	"github.com/go-sum/forge/internal/routes"
-	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/componentry/ui/core"
+	"github.com/go-sum/forge/internal/view"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -13,17 +12,17 @@ import (
 func HomePage(req view.Request) g.Node {
 	primary := core.Button(core.ButtonProps{
 		Label:   "Browse Components",
-		Href:    routes.Components,
+		Href:    req.Path("component-example.list"),
 		Variant: core.VariantOutline,
 	})
 	secondary := core.Button(core.ButtonProps{
 		Label: "Sign In",
-		Href:  routes.Login,
+		Href:  req.Path("session.new"),
 	})
 	if req.IsAuthenticated {
 		secondary = core.Button(core.ButtonProps{
 			Label: "Manage Users",
-			Href:  routes.Users,
+			Href:  req.Path("user.list"),
 		})
 	}
 

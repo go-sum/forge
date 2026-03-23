@@ -4,7 +4,7 @@
 
 bin/
 tmp/
-server
+/server
 
 # Generated / downloaded assets — rebuild with `make css` and `make js`
 public/css/

@@ -2,11 +2,11 @@
 package userpartial
 
 import (
-	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/forge/internal/routes"
 	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
 	"github.com/go-sum/componentry/ui/data"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/view"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -20,7 +20,7 @@ type UserRowProps struct {
 // UserRow renders a <tr> with display data and HTMX-powered Edit/Delete actions.
 // CSRF for HTMX mutations is provided by the body-level hx-headers attribute
 // set in the page layout — no per-row token is needed.
-func UserRow(p UserRowProps) g.Node {
+func UserRow(req view.Request, p UserRowProps) g.Node {
 	u := p.User
 	id := u.ID.String()
 
@@ -40,7 +40,7 @@ func UserRow(p UserRowProps) g.Node {
 					Variant: core.VariantGhost,
 					Size:    core.SizeSm,
 					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-						Get:       routes.UserEditPath(id),
+						Get:       req.Path("user.edit", id),
 						Target:    "closest tr",
 						Swap:      componenthtmx.SwapOuterHTML,
 						Indicator: "#users-loading",
@@ -53,7 +53,7 @@ func UserRow(p UserRowProps) g.Node {
 					Type:    "button",
 					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
 						Confirm:   "Delete " + u.DisplayName + "?",
-						Delete:    routes.UserPath(id),
+						Delete:    req.Path("user.delete", id),
 						Target:    "closest tr",
 						Swap:      "outerHTML swap:500ms",
 						Indicator: "#users-loading",

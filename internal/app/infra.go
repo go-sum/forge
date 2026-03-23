@@ -129,7 +129,7 @@ func (c *Container) initWeb() {
 		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
 	c.Web = pkgserver.New(c.ServerConfig)
-	internalserver.Setup(c.Web, c.ServerConfig, cfg.Nav)
+	internalserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg.Nav)
 }
 
 func (c *Container) initAuth() {

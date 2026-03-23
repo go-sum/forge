@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/go-sum/componentry/testutil"
+	"github.com/go-sum/forge/internal/view"
 )
 
 func TestUserRowRendersActionsAndRoleBadge(t *testing.T) {
-	got := testutil.RenderNode(t, UserRow(UserRowProps{User: partialTestUser}))
+	got := testutil.RenderNode(t, UserRow(view.Request{Routes: mustPartialRoutes(t)}, UserRowProps{User: partialTestUser}))
 
 	wantSnippets := []string{
 		`id="user-11111111-1111-1111-1111-111111111111"`,

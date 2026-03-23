@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/forge/internal/routes"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +23,7 @@ func TestUserListRendersFullPage(t *testing.T) {
 			return []model.User{testUser}, nil
 		},
 	}, nil)
-	c, rec := newRequestContext(http.MethodGet, routes.Users+"?page=2&per_page=10", nil)
+	c, rec := newRequestContext(http.MethodGet, "/users?page=2&per_page=10", nil)
 	setCSRFToken(c)
 	setUserID(c, testUser.ID.String())
 
@@ -45,7 +44,7 @@ func TestUserListRendersHTMXFragment(t *testing.T) {
 		countFn: func(context.Context) (int64, error) { return 1, nil },
 		listFn:  func(context.Context, int, int) ([]model.User, error) { return []model.User{testUser}, nil },
 	}, nil)
-	c, rec := newRequestContext(http.MethodGet, routes.Users, nil)
+	c, rec := newRequestContext(http.MethodGet, "/users", nil)
 	c.Request().Header.Set("HX-Request", "true")
 
 	if err := h.UserList(c); err != nil {
@@ -64,7 +63,7 @@ func TestUserListCountFailureReturnsUnavailable(t *testing.T) {
 	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 0, errors.New("db down") },
 	}, nil)
-	c, _ := newRequestContext(http.MethodGet, routes.Users, nil)
+	c, _ := newRequestContext(http.MethodGet, "/users", nil)
 
 	err := h.UserList(c)
 	assertAppErrorStatus(t, err, http.StatusServiceUnavailable)
@@ -73,7 +72,7 @@ func TestUserListCountFailureReturnsUnavailable(t *testing.T) {
 func TestUserEditFormRejectsInvalidID(t *testing.T) {
 	h := newTestHandler(fakeUserService{}, nil)
 	c, _ := newRequestContext(http.MethodGet, "/users/not-a-uuid/edit", nil)
-	setPathParam(c, routes.UserEdit, "id", "not-a-uuid")
+	setPathParam(c, "/users/:id/edit", "id", "not-a-uuid")
 
 	err := h.UserEditForm(c)
 	assertAppErrorStatus(t, err, http.StatusBadRequest)
@@ -88,9 +87,9 @@ func TestUserEditFormRenders(t *testing.T) {
 			return testUser, nil
 		},
 	}, nil)
-	c, rec := newRequestContext(http.MethodGet, routes.UserEditPath(testUser.ID.String()), nil)
+	c, rec := newRequestContext(http.MethodGet, "/users/"+testUser.ID.String()+"/edit", nil)
 	setCSRFToken(c)
-	setPathParam(c, routes.UserEdit, "id", testUser.ID.String())
+	setPathParam(c, "/users/:id/edit", "id", testUser.ID.String())
 
 	if err := h.UserEditForm(c); err != nil {
 		t.Fatalf("UserEditForm() error = %v", err)
@@ -108,8 +107,8 @@ func TestUserRowReturnsResolvedError(t *testing.T) {
 	h := newTestHandler(fakeUserService{
 		getByID: func(context.Context, uuid.UUID) (model.User, error) { return model.User{}, model.ErrUserNotFound },
 	}, nil)
-	c, _ := newRequestContext(http.MethodGet, routes.UserRowPath(testUser.ID.String()), nil)
-	setPathParam(c, routes.UserRow, "id", testUser.ID.String())
+	c, _ := newRequestContext(http.MethodGet, "/users/"+testUser.ID.String()+"/row", nil)
+	setPathParam(c, "/users/:id/row", "id", testUser.ID.String())
 
 	err := h.UserRow(c)
 	assertAppErrorStatus(t, err, http.StatusNotFound)
@@ -117,11 +116,11 @@ func TestUserRowReturnsResolvedError(t *testing.T) {
 
 func TestUserUpdateValidationFailureRenders422(t *testing.T) {
 	h := newTestHandler(fakeUserService{}, nil)
-	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
+	c, rec := newFormContext(http.MethodPut, "/users/"+testUser.ID.String(), url.Values{
 		"email": {"not-an-email"},
 	})
 	setCSRFToken(c)
-	setPathParam(c, routes.UserByID, "id", testUser.ID.String())
+	setPathParam(c, "/users/:id", "id", testUser.ID.String())
 
 	if err := h.UserUpdate(c); err != nil {
 		t.Fatalf("UserUpdate() error = %v", err)
@@ -141,13 +140,13 @@ func TestUserUpdateConflictRenders409(t *testing.T) {
 			return model.User{}, model.ErrEmailTaken
 		},
 	}, nil)
-	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
+	c, rec := newFormContext(http.MethodPut, "/users/"+testUser.ID.String(), url.Values{
 		"email":        {"grace@example.com"},
 		"display_name": {"Ada"},
 		"role":         {"admin"},
 	})
 	setCSRFToken(c)
-	setPathParam(c, routes.UserByID, "id", testUser.ID.String())
+	setPathParam(c, "/users/:id", "id", testUser.ID.String())
 
 	if err := h.UserUpdate(c); err != nil {
 		t.Fatalf("UserUpdate() error = %v", err)
@@ -171,11 +170,11 @@ func TestUserUpdateRendersUpdatedRow(t *testing.T) {
 			return updated, nil
 		},
 	}, nil)
-	c, rec := newFormContext(http.MethodPut, routes.UserPath(testUser.ID.String()), url.Values{
+	c, rec := newFormContext(http.MethodPut, "/users/"+testUser.ID.String(), url.Values{
 		"display_name": {"Grace Hopper"},
 		"role":         {"admin"},
 	})
-	setPathParam(c, routes.UserByID, "id", testUser.ID.String())
+	setPathParam(c, "/users/:id", "id", testUser.ID.String())
 
 	if err := h.UserUpdate(c); err != nil {
 		t.Fatalf("UserUpdate() error = %v", err)
@@ -192,7 +191,7 @@ func TestUserUpdateRendersUpdatedRow(t *testing.T) {
 func TestUserDeleteRejectsInvalidID(t *testing.T) {
 	h := newTestHandler(fakeUserService{}, nil)
 	c, _ := newRequestContext(http.MethodDelete, "/users/not-a-uuid", nil)
-	setPathParam(c, routes.UserByID, "id", "not-a-uuid")
+	setPathParam(c, "/users/:id", "id", "not-a-uuid")
 
 	err := h.UserDelete(c)
 	assertAppErrorStatus(t, err, http.StatusBadRequest)
@@ -207,8 +206,8 @@ func TestUserDeleteReturnsNoContent(t *testing.T) {
 			return nil
 		},
 	}, nil)
-	c, rec := newRequestContext(http.MethodDelete, routes.UserPath(testUser.ID.String()), nil)
-	setPathParam(c, routes.UserByID, "id", testUser.ID.String())
+	c, rec := newRequestContext(http.MethodDelete, "/users/"+testUser.ID.String(), nil)
+	setPathParam(c, "/users/:id", "id", testUser.ID.String())
 
 	if err := h.UserDelete(c); err != nil {
 		t.Fatalf("UserDelete() error = %v", err)

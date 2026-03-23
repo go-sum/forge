@@ -3,12 +3,11 @@
 package userpartial
 
 import (
-	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/forge/internal/routes"
-	"github.com/go-sum/forge/internal/view"
 	uiform "github.com/go-sum/componentry/form"
 	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/view"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -49,7 +48,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 			h.ColSpan("5"),
 			h.Form(
 				g.Group(componenthtmx.Attrs(componenthtmx.AttrsProps{
-					Put:       routes.UserPath(id),
+					Put:       req.Path("user.update", id),
 					Target:    "closest tr",
 					Swap:      componenthtmx.SwapOuterHTML,
 					Indicator: "#users-loading",
@@ -116,7 +115,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 						Variant: core.VariantGhost,
 						Size:    core.SizeSm,
 						Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
-							Get:       routes.UserRowPath(id),
+							Get:       req.Path("user.row", id),
 							Target:    "closest tr",
 							Swap:      componenthtmx.SwapOuterHTML,
 							Indicator: "#users-loading",

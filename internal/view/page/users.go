@@ -3,15 +3,16 @@ package page
 
 import (
 	"fmt"
-	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/forge/internal/routes"
-	"github.com/go-sum/forge/internal/view"
-	"github.com/go-sum/forge/internal/view/partial/userpartial"
+	"net/url"
+
 	uipagination "github.com/go-sum/componentry/interactive/pagination"
 	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/patterns/pager"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/forge/internal/view"
+	"github.com/go-sum/forge/internal/view/partial/userpartial"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -30,19 +31,19 @@ func UserListPage(req view.Request, data UserListData) g.Node {
 		h.Div(
 			h.Class("space-y-6"),
 			usersPageHeader(data.Pager.TotalItems),
-			UserListRegion(data),
+			UserListRegion(req, data),
 		),
 	)
 }
 
 // UserListRegion renders the HTMX-replaceable table + pagination region.
-func UserListRegion(data UserListData) g.Node {
+func UserListRegion(req view.Request, data UserListData) g.Node {
 	return h.Div(
 		h.ID("users-list-region"),
 		h.Class("space-y-4"),
-		userTable(data.Users),
+		userTable(req, data.Users),
 		usersLoadingIndicator(),
-		pagination(data.Pager),
+		pagination(req, data.Pager),
 	)
 }
 
@@ -64,14 +65,14 @@ func usersPageHeader(total int) g.Node {
 	)
 }
 
-func userTable(users []model.User) g.Node {
+func userTable(req view.Request, users []model.User) g.Node {
 	if len(users) == 0 {
 		return emptyUsersState()
 	}
 
 	rows := make([]g.Node, len(users))
 	for i, u := range users {
-		rows[i] = userpartial.UserRow(userpartial.UserRowProps{
+		rows[i] = userpartial.UserRow(req, userpartial.UserRowProps{
 			User: u,
 		})
 	}
@@ -94,12 +95,12 @@ func userTable(users []model.User) g.Node {
 	)
 }
 
-func pagination(p pager.Pager) g.Node {
+func pagination(req view.Request, p pager.Pager) g.Node {
 	if p.TotalPages <= 1 {
 		return g.Text("")
 	}
 	items := []g.Node{
-		uipagination.Item(uipagination.Previous(routes.UserListPage(p.PrevPage()), p.IsFirst(), paginatedLinkAttrs(p.PrevPage())...)),
+		uipagination.Item(uipagination.Previous(userListPagePath(req, p.PrevPage()), p.IsFirst(), paginatedLinkAttrs(req, p.PrevPage())...)),
 	}
 	for _, pageNumber := range paginationSequence(p) {
 		if pageNumber == 0 {
@@ -107,13 +108,13 @@ func pagination(p pager.Pager) g.Node {
 			continue
 		}
 		items = append(items, uipagination.Item(uipagination.Link(
-			routes.UserListPage(pageNumber),
+			userListPagePath(req, pageNumber),
 			pageNumber == p.Page,
-			append(paginatedLinkAttrs(pageNumber), g.Textf("%d", pageNumber))...,
+			append(paginatedLinkAttrs(req, pageNumber), g.Textf("%d", pageNumber))...,
 		)))
 	}
 	items = append(items,
-		uipagination.Item(uipagination.Next(routes.UserListPage(p.NextPage()), p.IsLast(), paginatedLinkAttrs(p.NextPage())...)),
+		uipagination.Item(uipagination.Next(userListPagePath(req, p.NextPage()), p.IsLast(), paginatedLinkAttrs(req, p.NextPage())...)),
 	)
 
 	return h.Div(
@@ -159,14 +160,20 @@ func userCountLabel(total int) string {
 	return fmt.Sprintf("%d users", total)
 }
 
-func paginatedLinkAttrs(page int) []g.Node {
+func paginatedLinkAttrs(req view.Request, page int) []g.Node {
 	return componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
-		Path:      routes.Users,
+		Path:      req.Path("user.list"),
 		Page:      page,
 		Target:    "#users-list-region",
 		Swap:      componenthtmx.SwapOuterHTML,
 		PushURL:   true,
 		Indicator: "#users-loading",
+	})
+}
+
+func userListPagePath(req view.Request, page int) string {
+	return req.PathWithQuery("user.list", url.Values{
+		"page": {fmt.Sprintf("%d", page)},
 	})
 }
 

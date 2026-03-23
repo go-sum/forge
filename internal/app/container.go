@@ -7,15 +7,15 @@ package app
 import (
 	"log/slog"
 
+	authservice "github.com/go-sum/auth/service"
+	"github.com/go-sum/auth/session"
+	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
 	"github.com/go-sum/forge/internal/service"
-	"github.com/go-sum/componentry/assetconfig"
-	"github.com/go-sum/componentry/assets"
-	authservice "github.com/go-sum/auth/service"
-	"github.com/go-sum/auth/session"
-	"github.com/go-sum/server/database"
 	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 
 	"github.com/jackc/pgx/v5/pgxpool"

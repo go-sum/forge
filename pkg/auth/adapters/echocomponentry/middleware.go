@@ -4,14 +4,14 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v5"
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/auth/session"
 	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/server/ctxkeys"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v5"
 )
 
 // LoadSession reads the session non-destructively and sets ctxkeys.UserID in context.
@@ -28,15 +28,21 @@ func LoadSession(sessions *session.SessionManager) echo.MiddlewareFunc {
 
 // RequireAuth protects routes by checking for a valid session user ID.
 func RequireAuth(loginPath string) echo.MiddlewareFunc {
+	return RequireAuthPath(func() string { return loginPath })
+}
+
+// RequireAuthPath protects routes by checking for a valid session user ID.
+func RequireAuthPath(loginPath func() string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
 			if userID == "" {
+				path := loginPath()
 				if componenthtmx.NewRequest(c.Request()).IsPartial() {
-					componenthtmx.Response{Redirect: loginPath}.Apply(c.Response())
+					componenthtmx.Response{Redirect: path}.Apply(c.Response())
 					return c.NoContent(http.StatusUnauthorized)
 				}
-				return c.Redirect(http.StatusSeeOther, loginPath)
+				return c.Redirect(http.StatusSeeOther, path)
 			}
 			return next(c)
 		}

@@ -14,7 +14,7 @@ import (
 
 func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 	pg := pager.Pager{Page: 2, PerPage: 20, TotalItems: 45, TotalPages: 3}
-	got := testutil.RenderNode(t, UserListRegion(UserListData{
+	got := testutil.RenderNode(t, UserListRegion(view.Request{Routes: mustPageRoutes(t)}, UserListData{
 		Users: []model.User{{
 			DisplayName: "Ada Lovelace",
 			Email:       "ada@example.com",
@@ -43,7 +43,7 @@ func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 }
 
 func TestUserListRegionRendersEmptyStateWhenNoUsersExist(t *testing.T) {
-	got := testutil.RenderNode(t, UserListRegion(UserListData{
+	got := testutil.RenderNode(t, UserListRegion(view.Request{Routes: mustPageRoutes(t)}, UserListData{
 		Pager: pager.Pager{Page: 1, PerPage: 20, TotalItems: 0, TotalPages: 0},
 	}))
 
@@ -64,6 +64,7 @@ func TestUserListPageRendersShellFromRequest(t *testing.T) {
 		CurrentPath:     "/users",
 		CSRFToken:       "csrf-token",
 		IsAuthenticated: true,
+		Routes:          mustPageRoutes(t),
 		NavConfig: config.NavConfig{
 			Brand: config.NavbarBrand{Label: "Starter", Href: "/"},
 			Sections: []config.NavSection{{
