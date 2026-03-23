@@ -9,27 +9,27 @@ import (
 	"strings"
 	"time"
 
-	authservice "github.com/go-sum/auth/service"
+	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
-	componenticons "github.com/go-sum/componentry/icons"
-	componentinstall "github.com/go-sum/componentry/install"
+	icons "github.com/go-sum/componentry/icons"
+	install "github.com/go-sum/componentry/install"
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters"
 	"github.com/go-sum/forge/internal/health"
 	"github.com/go-sum/forge/internal/repository"
-	internalserver "github.com/go-sum/forge/internal/server"
+	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
-	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 )
 
 const assetConfigPath = assetconfig.DefaultConfigPath
 
-var componentIconOverrides = map[componenticons.Key]componenticons.Ref{}
+var componentIconOverrides = map[icons.Key]icons.Ref{}
 
 func (c *Container) initConfig() {
 	if err := config.Init("config"); err != nil {
@@ -81,7 +81,7 @@ func (c *Container) initAssets() {
 		panic(fmt.Sprintf("assets: %v", err))
 	}
 
-	componentinstall.ApplyDefault(componentinstall.Config{
+	install.ApplyDefault(install.Config{
 		PathFunc:      assets.Path,
 		IconOverrides: componentIconOverrides,
 	})
@@ -118,7 +118,7 @@ func (c *Container) initWeb() {
 	if cfg.IsDevelopment() {
 		hashes = append(hashes, cfg.CSPHashes.DevOnly...)
 	}
-	c.ServerConfig = pkgserver.Config{
+	c.ServerConfig = server.Config{
 		Host:            cfg.Server.Host,
 		Port:            strconv.Itoa(cfg.Server.Port),
 		Debug:           cfg.IsDevelopment(),
@@ -128,8 +128,8 @@ func (c *Container) initWeb() {
 		CSRFCookieName:  cfg.Server.CSRFCookieName,
 		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
-	c.Web = pkgserver.New(c.ServerConfig)
-	internalserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg.Nav)
+	c.Web = server.New(c.ServerConfig)
+	appserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg.Nav)
 }
 
 func (c *Container) initAuth() {
@@ -155,7 +155,7 @@ func (c *Container) initServices() {
 
 	// Instantiate the auth service from the auth module, wired with adapted repositories.
 	authFactory := adapters.NewAuthTxFactory(c.DB)
-	c.AuthService = authservice.NewAuthService(
+	c.AuthService = authsvc.NewAuthService(
 		adapters.NewAuthUserReader(c.Repos.User),
 		adapters.NewAuthPasswordStore(c.Repos.Password),
 		authFactory,

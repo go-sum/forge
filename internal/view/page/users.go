@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	uipagination "github.com/go-sum/componentry/interactive/pagination"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/patterns/pager"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
@@ -161,11 +161,11 @@ func userCountLabel(total int) string {
 }
 
 func paginatedLinkAttrs(req view.Request, page int) []g.Node {
-	return componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
+	return htmx.PaginatedTableLink(htmx.PaginatedTableProps{
 		Path:      req.Path("user.list"),
 		Page:      page,
 		Target:    "#users-list-region",
-		Swap:      componenthtmx.SwapOuterHTML,
+		Swap:      htmx.SwapOuterHTML,
 		PushURL:   true,
 		Indicator: "#users-loading",
 	})

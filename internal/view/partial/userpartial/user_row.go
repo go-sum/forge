@@ -2,7 +2,7 @@
 package userpartial
 
 import (
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
 	"github.com/go-sum/componentry/ui/data"
 	"github.com/go-sum/forge/internal/model"
@@ -39,10 +39,10 @@ func UserRow(req view.Request, p UserRowProps) g.Node {
 					Label:   "Edit",
 					Variant: core.VariantGhost,
 					Size:    core.SizeSm,
-					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
+					Extra: htmx.Attrs(htmx.AttrsProps{
 						Get:       req.Path("user.edit", id),
 						Target:    "closest tr",
-						Swap:      componenthtmx.SwapOuterHTML,
+						Swap:      htmx.SwapOuterHTML,
 						Indicator: "#users-loading",
 					}),
 				}),
@@ -51,7 +51,7 @@ func UserRow(req view.Request, p UserRowProps) g.Node {
 					Variant: core.VariantDestructiveGhost,
 					Size:    core.SizeSm,
 					Type:    "button",
-					Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
+					Extra: htmx.Attrs(htmx.AttrsProps{
 						Confirm:   "Delete " + u.DisplayName + "?",
 						Delete:    req.Path("user.delete", id),
 						Target:    "closest tr",

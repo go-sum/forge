@@ -7,7 +7,7 @@ import (
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/auth/session"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/server/ctxkeys"
 	"github.com/google/uuid"
@@ -38,8 +38,8 @@ func RequireAuthPath(loginPath func() string) echo.MiddlewareFunc {
 			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
 			if userID == "" {
 				path := loginPath()
-				if componenthtmx.NewRequest(c.Request()).IsPartial() {
-					componenthtmx.Response{Redirect: path}.Apply(c.Response())
+				if htmx.NewRequest(c.Request()).IsPartial() {
+					htmx.Response{Redirect: path}.Apply(c.Response())
 					return c.NoContent(http.StatusUnauthorized)
 				}
 				return c.Redirect(http.StatusSeeOther, path)

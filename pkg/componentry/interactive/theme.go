@@ -9,7 +9,7 @@ import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"
 	core "github.com/go-sum/componentry/ui/core"
 )
@@ -78,10 +78,10 @@ func ThemeSelector() g.Node {
 		g.Attr("aria-label", "Toggle theme"),
 		h.Class("inline-flex items-center justify-center size-9 rounded-md text-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"),
 		// Sun — visible when data-theme-preference="light" on <html>.
-		h.Span(h.Class("contents theme-icon-light"), core.Icon(iconrender.PropsFor(componenticons.ThemeLight, core.IconProps{}))),
+		h.Span(h.Class("contents theme-icon-light"), core.Icon(iconrender.PropsFor(icons.ThemeLight, core.IconProps{}))),
 		// Moon — visible when data-theme-preference="dark" on <html>.
-		h.Span(h.Class("contents theme-icon-dark"), core.Icon(iconrender.PropsFor(componenticons.ThemeDark, core.IconProps{}))),
+		h.Span(h.Class("contents theme-icon-dark"), core.Icon(iconrender.PropsFor(icons.ThemeDark, core.IconProps{}))),
 		// Monitor — visible when data-theme-preference="system" (default).
-		h.Span(h.Class("contents theme-icon-system"), core.Icon(iconrender.PropsFor(componenticons.ThemeSystem, core.IconProps{}))),
+		h.Span(h.Class("contents theme-icon-system"), core.Icon(iconrender.PropsFor(icons.ThemeSystem, core.IconProps{}))),
 	)
 }

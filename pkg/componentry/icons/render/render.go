@@ -1,14 +1,14 @@
 package render
 
 import (
-	componentassets "github.com/go-sum/componentry/assets"
-	componenticons "github.com/go-sum/componentry/icons"
+	assets "github.com/go-sum/componentry/assets"
+	icons "github.com/go-sum/componentry/icons"
 	"github.com/go-sum/componentry/ui/core"
 )
 
 // PropsForAssets returns IconProps for a concrete sprite symbol using the
 // provided asset registry.
-func PropsForAssets(r *componentassets.Registry, spriteKey, symbolID string, p core.IconProps) core.IconProps {
+func PropsForAssets(r *assets.Registry, spriteKey, symbolID string, p core.IconProps) core.IconProps {
 	if r == nil {
 		p.Src = ""
 		p.ID = ""
@@ -21,12 +21,12 @@ func PropsForAssets(r *componentassets.Registry, spriteKey, symbolID string, p c
 
 // Props returns IconProps for a concrete sprite symbol on assets.Default.
 func Props(spriteKey, symbolID string, p core.IconProps) core.IconProps {
-	return PropsForAssets(componentassets.DefaultRegistry, spriteKey, symbolID, p)
+	return PropsForAssets(assets.DefaultRegistry, spriteKey, symbolID, p)
 }
 
 // PropsForRegistries returns IconProps for a semantic component icon key using
 // the provided asset and icon registries.
-func PropsForRegistries(assetRegistry *componentassets.Registry, iconRegistry *componenticons.Registry, key componenticons.Key, p core.IconProps) core.IconProps {
+func PropsForRegistries(assetRegistry *assets.Registry, iconRegistry *icons.Registry, key icons.Key, p core.IconProps) core.IconProps {
 	if iconRegistry == nil {
 		p.Src = ""
 		p.ID = ""
@@ -45,11 +45,11 @@ func PropsForRegistries(assetRegistry *componentassets.Registry, iconRegistry *c
 
 // PropsForRegistry returns IconProps for a semantic component icon key using
 // assets.Default plus the provided icon registry.
-func PropsForRegistry(r *componenticons.Registry, key componenticons.Key, p core.IconProps) core.IconProps {
-	return PropsForRegistries(componentassets.DefaultRegistry, r, key, p)
+func PropsForRegistry(r *icons.Registry, key icons.Key, p core.IconProps) core.IconProps {
+	return PropsForRegistries(assets.DefaultRegistry, r, key, p)
 }
 
 // PropsFor returns IconProps for a semantic component icon key on the default registries.
-func PropsFor(key componenticons.Key, p core.IconProps) core.IconProps {
-	return PropsForRegistries(componentassets.DefaultRegistry, componenticons.Default, key, p)
+func PropsFor(key icons.Key, p core.IconProps) core.IconProps {
+	return PropsForRegistries(assets.DefaultRegistry, icons.Default, key, p)
 }

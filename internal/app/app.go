@@ -7,9 +7,9 @@ import (
 	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
-	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
-	route "github.com/go-sum/server/route"
+	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
 )
@@ -58,7 +58,7 @@ func New() *App {
 
 // Start starts the HTTP server.
 func (a *App) Start() error {
-	return pkgserver.Start(a.container.Web, a.container.ServerConfig)
+	return server.Start(a.container.Web, a.container.ServerConfig)
 }
 
 // Shutdown releases application resources.

@@ -4,9 +4,9 @@
 package examples
 
 import (
-	componentassets "github.com/go-sum/componentry/assets"
+	assets "github.com/go-sum/componentry/assets"
 	uiform "github.com/go-sum/componentry/form"
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"
 	"github.com/go-sum/componentry/interactive/accordion"
 	"github.com/go-sum/componentry/interactive/breadcrumb"
@@ -15,7 +15,7 @@ import (
 	"github.com/go-sum/componentry/interactive/pagination"
 	"github.com/go-sum/componentry/interactive/tabs"
 	"github.com/go-sum/componentry/interactive/tooltip"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
 	"github.com/go-sum/componentry/ui/data"
 	"github.com/go-sum/componentry/ui/feedback"
@@ -119,7 +119,7 @@ func Page() g.Node {
 			h.Div(h.Class("grid gap-4 md:grid-cols-2"),
 				example("Image and placeholder", h.Div(
 					h.Class("flex gap-4"),
-					core.Avatar.Image(componentassets.PublicPath("img/svg/avatar.svg"), "shadcn"),
+					core.Avatar.Image(assets.PublicPath("img/svg/avatar.svg"), "shadcn"),
 					core.Avatar.Fallback(g.Text("AB")),
 				)),
 				example("Lucide icon", core.Icon(iconrender.Props("lucide-icons", "circle-user", core.IconProps{
@@ -261,7 +261,7 @@ func Page() g.Node {
 					ID:          "search-users",
 					Name:        "q",
 					Placeholder: "Search users...",
-					Extra: componenthtmx.LiveSearch(componenthtmx.LiveSearchProps{
+					Extra: htmx.LiveSearch(htmx.LiveSearchProps{
 						Path:      "/users/search",
 						Target:    "#search-results",
 						Indicator: "#search-indicator",
@@ -272,13 +272,13 @@ func Page() g.Node {
 					ID:    "validate-email",
 					Name:  "email",
 					Type:  uiform.TypeEmail,
-					Extra: componenthtmx.InlineValidation(componenthtmx.InlineValidationProps{Path: "/validate/email", Target: "#email-field"}),
+					Extra: htmx.InlineValidation(htmx.InlineValidationProps{Path: "/validate/email", Target: "#email-field"}),
 				})),
 				example("Paginated table link", core.Button(core.ButtonProps{
 					Label:   "Next page",
 					Variant: core.VariantGhost,
 					Size:    core.SizeSm,
-					Extra: componenthtmx.PaginatedTableLink(componenthtmx.PaginatedTableProps{
+					Extra: htmx.PaginatedTableLink(htmx.PaginatedTableProps{
 						Path:      "/users",
 						Page:      2,
 						Target:    "#users-table",
@@ -288,7 +288,7 @@ func Page() g.Node {
 				})),
 				example("Async dialog trigger", core.Button(core.ButtonProps{
 					Label: "Load User Dialog",
-					Extra: componenthtmx.AsyncDialogTrigger(componenthtmx.AsyncDialogProps{
+					Extra: htmx.AsyncDialogTrigger(htmx.AsyncDialogProps{
 						Path:     "/users/new",
 						DialogID: "async-user-dialog",
 						Target:   "#async-user-dialog-body",
@@ -301,12 +301,12 @@ func Page() g.Node {
 						{Value: "se", Label: "Sweden"},
 						{Value: "us", Label: "United States"},
 					},
-					Extra: componenthtmx.DependentSelect(componenthtmx.DependentSelectProps{
+					Extra: htmx.DependentSelect(htmx.DependentSelectProps{
 						Path:   "/regions",
 						Target: "#region-field",
 					}),
 				})),
-				example("OOB toast", componenthtmx.ToastOOB(componenthtmx.ToastOOBProps{
+				example("OOB toast", htmx.ToastOOB(htmx.ToastOOBProps{
 					Toast: feedback.ToastProps{
 						Description: "Saved in the background",
 						Variant:     feedback.ToastSuccess,
@@ -662,7 +662,7 @@ func section(id, title string, content ...g.Node) g.Node {
 			h.A(
 				h.Href("#top"),
 				h.Class("text-xs text-muted-foreground hover:text-foreground hover:underline"),
-				core.Icon(iconrender.PropsFor(componenticons.ChevronsUp, core.IconProps{Size: "size-4 shrink-0"})),
+				core.Icon(iconrender.PropsFor(icons.ChevronsUp, core.IconProps{Size: "size-4 shrink-0"})),
 			),
 		),
 		h.Div(h.Class("space-y-4"), g.Group(content)),

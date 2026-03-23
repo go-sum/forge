@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/patterns/pager"
 	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/forge/internal/model"
@@ -83,7 +83,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 	}
 
 	var input model.UpdateUserInput
-	sub := pkgform.New(h.validator.Validate())
+	sub := form.New(h.validator.Validate())
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {

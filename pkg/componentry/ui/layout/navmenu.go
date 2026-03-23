@@ -1,7 +1,7 @@
 package layout
 
 import (
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 
 	"github.com/go-playground/validator/v10"
 	g "maragu.dev/gomponents"
@@ -61,7 +61,7 @@ type FormSlotProps struct {
 	Label        string
 	Action       string
 	Method       string
-	Icon         componenticons.Key
+	Icon         icons.Key
 	HiddenFields []NavHiddenField
 }
 
@@ -153,7 +153,7 @@ func buildItem(item NavItem, slots NavSlots) NavbarItem {
 		return NavNode{Visibility: item.Visibility, Desktop: slot.Desktop, Mobile: slot.Mobile}
 	}
 
-	icon := componenticons.Key(item.Icon)
+	icon := icons.Key(item.Icon)
 	if len(item.Items) > 0 {
 		return NavGroup{
 			Visibility:  item.Visibility,

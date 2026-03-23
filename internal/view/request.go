@@ -5,13 +5,13 @@ import (
 	"net/url"
 
 	"github.com/go-sum/componentry/patterns/flash"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/componentry/ui/feedback"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/view/layout"
 	"github.com/go-sum/server/ctxkeys"
-	serverroute "github.com/go-sum/server/route"
+	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -30,7 +30,7 @@ type Request struct {
 	UserName        string
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
-	HTMX            componenthtmx.Request
+	HTMX            htmx.Request
 	Routes          echo.Routes
 }
 
@@ -39,7 +39,7 @@ func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
 	req := Request{
 		CurrentPath: c.Request().URL.Path,
 		NavConfig:   navConfig,
-		HTMX:        componenthtmx.NewRequest(c.Request()),
+		HTMX:        htmx.NewRequest(c.Request()),
 		Routes:      c.Echo().Router().Routes(),
 	}
 
@@ -64,11 +64,11 @@ func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
 }
 
 func (r Request) Path(name string, pathValues ...any) string {
-	return serverroute.Reverse(r.Routes, name, pathValues...)
+	return route.Reverse(r.Routes, name, pathValues...)
 }
 
 func (r Request) PathWithQuery(name string, query url.Values, pathValues ...any) string {
-	return serverroute.ReverseWithQuery(r.Routes, name, query, pathValues...)
+	return route.ReverseWithQuery(r.Routes, name, query, pathValues...)
 }
 
 // FormError renders a destructive alert listing validation messages.

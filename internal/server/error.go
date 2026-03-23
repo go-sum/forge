@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-sum/componentry/patterns/flash"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/view"
@@ -59,7 +59,7 @@ func NewErrorHandler(cfg ErrorHandlerConfig) echo.HTTPErrorHandler {
 		switch {
 		case wantsProblemJSON(c.Request()):
 			writeProblem(c, appErr, err, cfg.Debug)
-		case componenthtmx.NewRequest(c.Request()).IsPartial():
+		case htmx.NewRequest(c.Request()).IsPartial():
 			writeHTMXToast(c, appErr)
 		default:
 			writeErrorPage(c, appErr, err, cfg.Debug, cfg.NavConfig)

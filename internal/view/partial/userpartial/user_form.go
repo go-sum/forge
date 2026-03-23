@@ -4,7 +4,7 @@ package userpartial
 
 import (
 	uiform "github.com/go-sum/componentry/form"
-	componenthtmx "github.com/go-sum/componentry/patterns/htmx"
+	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/view"
@@ -15,7 +15,7 @@ import (
 
 // UserFormData configures the inline edit form row.
 // Errors keys match Go struct field names (e.g. "Email", "DisplayName", "Role")
-// as returned by pkgform.Submission.GetErrors() — no remapping needed at the call site.
+// as returned by patterns/form.Submission.GetErrors() — no remapping needed at the call site.
 type UserFormData struct {
 	User   model.User
 	Values model.UpdateUserInput
@@ -47,10 +47,10 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 		h.Td(
 			h.ColSpan("5"),
 			h.Form(
-				g.Group(componenthtmx.Attrs(componenthtmx.AttrsProps{
+				g.Group(htmx.Attrs(htmx.AttrsProps{
 					Put:       req.Path("user.update", id),
 					Target:    "closest tr",
-					Swap:      componenthtmx.SwapOuterHTML,
+					Swap:      htmx.SwapOuterHTML,
 					Indicator: "#users-loading",
 				})),
 				h.Class("grid gap-4 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1.1fr)_12rem_auto] xl:items-end"),
@@ -114,10 +114,10 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 						Label:   "Cancel",
 						Variant: core.VariantGhost,
 						Size:    core.SizeSm,
-						Extra: componenthtmx.Attrs(componenthtmx.AttrsProps{
+						Extra: htmx.Attrs(htmx.AttrsProps{
 							Get:       req.Path("user.row", id),
 							Target:    "closest tr",
-							Swap:      componenthtmx.SwapOuterHTML,
+							Swap:      htmx.SwapOuterHTML,
 							Indicator: "#users-loading",
 						}),
 					}),

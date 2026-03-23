@@ -7,7 +7,7 @@ import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"
 	core "github.com/go-sum/componentry/ui/core"
 )
@@ -35,7 +35,7 @@ func Trigger(children ...g.Node) g.Node {
 		g.Group(children),
 		h.Span(
 			h.Class("transition-transform duration-200 details-chevron"),
-			core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{Size: "size-4 shrink-0"})),
+			core.Icon(iconrender.PropsFor(icons.ChevronDown, core.IconProps{Size: "size-4 shrink-0"})),
 		),
 	)
 }

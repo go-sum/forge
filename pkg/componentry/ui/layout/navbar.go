@@ -4,7 +4,7 @@ package layout
 import (
 	"strings"
 
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"
 	"github.com/go-sum/componentry/ui/core"
 
@@ -76,7 +76,7 @@ type NavLink struct {
 	Visibility  NavbarVisibility
 	Label       string
 	Href        string
-	Icon        componenticons.Key
+	Icon        icons.Key
 	MatchPrefix bool
 }
 
@@ -108,7 +108,7 @@ type NavGroup struct {
 	Visibility  NavbarVisibility
 	Label       string
 	Href        string
-	Icon        componenticons.Key
+	Icon        icons.Key
 	MatchPrefix bool
 	Items       []NavbarItem
 }
@@ -173,7 +173,7 @@ func (i NavSeparator) render(ctx navbarItemContext) g.Node {
 type NavText struct {
 	Visibility NavbarVisibility
 	Text       string
-	Icon       componenticons.Key
+	Icon       icons.Key
 }
 
 func (NavText) navbarItem() {}
@@ -225,7 +225,7 @@ type NavForm struct {
 	Label        string
 	Action       string
 	Method       string
-	Icon         componenticons.Key
+	Icon         icons.Key
 	HiddenFields []NavHiddenField
 }
 
@@ -451,7 +451,7 @@ func renderItems(items []NavbarItem, ctx navbarItemContext) []g.Node {
 	return nodes
 }
 
-func submenuNodes(href, label string, matchPrefix bool, icon componenticons.Key, items []NavbarItem, ctx navbarItemContext) []g.Node {
+func submenuNodes(href, label string, matchPrefix bool, icon icons.Key, items []NavbarItem, ctx navbarItemContext) []g.Node {
 	nodes := []g.Node{}
 	if href != "" && label != "" {
 		current := linkIsCurrent(ctx.CurrentPath, href, matchPrefix)
@@ -491,7 +491,7 @@ func navLinkClass(viewport navbarViewport, depth int, current bool) string {
 	return "block w-full px-4 py-4 text-sm font-medium " + base
 }
 
-func groupSummary(label string, icon componenticons.Key, ctx navbarItemContext) g.Node {
+func groupSummary(label string, icon icons.Key, ctx navbarItemContext) g.Node {
 	children := navItemContent(icon, label)
 	children = append(children, chevronIcon())
 
@@ -538,7 +538,7 @@ func separatorClass(viewport navbarViewport, depth int) string {
 	return "mx-2 my-2"
 }
 
-func navItemContent(icon componenticons.Key, label string) []g.Node {
+func navItemContent(icon icons.Key, label string) []g.Node {
 	nodes := []g.Node{}
 	if icon != "" {
 		nodes = append(nodes, core.Icon(iconrender.PropsFor(icon, core.IconProps{
@@ -549,7 +549,7 @@ func navItemContent(icon componenticons.Key, label string) []g.Node {
 	return nodes
 }
 
-func buttonChildren(icon componenticons.Key, label string) []g.Node {
+func buttonChildren(icon icons.Key, label string) []g.Node {
 	if icon == "" {
 		return []g.Node{g.Text(label)}
 	}
@@ -560,7 +560,7 @@ func buttonChildren(icon componenticons.Key, label string) []g.Node {
 }
 
 func chevronIcon() g.Node {
-	return core.Icon(iconrender.PropsFor(componenticons.ChevronDown, core.IconProps{
+	return core.Icon(iconrender.PropsFor(icons.ChevronDown, core.IconProps{
 		Size: "navmenu-chevron size-4 shrink-0 text-muted-foreground transition-transform",
 	}))
 }

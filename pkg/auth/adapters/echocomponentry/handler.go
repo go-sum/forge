@@ -8,10 +8,10 @@ import (
 	"github.com/go-sum/auth/model"
 	"github.com/go-sum/auth/session"
 	authvalidate "github.com/go-sum/auth/validate"
-	pkgflash "github.com/go-sum/componentry/patterns/flash"
-	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/patterns/flash"
+	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/patterns/redirect"
-	renderecho "github.com/go-sum/componentry/render/echo"
+	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/server/apperr"
 	"github.com/labstack/echo/v5"
 )
@@ -86,19 +86,19 @@ func (h *Handler) req(c *echo.Context) Request {
 func (h *Handler) LoginPage(c *echo.Context) error {
 	req := h.req(c)
 	node := LoginPage(req, nil, model.LoginInput{}, h.loginPath(), h.registerPath(), h.csrfField)
-	return renderecho.Component(c, node)
+	return render.Component(c, node)
 }
 
 // Login processes a login form submission.
 func (h *Handler) Login(c *echo.Context) error {
 	req := h.req(c)
 	var input model.LoginInput
-	sub := pkgform.New(h.validator.Validate())
+	sub := form.New(h.validator.Validate())
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
 		node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
-		return renderecho.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
 	user, err := h.service.Login(c.Request().Context(), input)
@@ -106,7 +106,7 @@ func (h *Handler) Login(c *echo.Context) error {
 		if errors.Is(err, model.ErrInvalidCredentials) {
 			sub.SetFormError("Invalid email or password.")
 			node := LoginPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
-			return renderecho.ComponentWithStatus(c, http.StatusUnauthorized, node)
+			return render.ComponentWithStatus(c, http.StatusUnauthorized, node)
 		}
 		return apperr.Internal(err)
 	}
@@ -122,19 +122,19 @@ func (h *Handler) Login(c *echo.Context) error {
 func (h *Handler) RegisterPage(c *echo.Context) error {
 	req := h.req(c)
 	node := RegisterPage(req, nil, model.CreateUserInput{}, h.loginPath(), h.registerPath(), h.csrfField)
-	return renderecho.Component(c, node)
+	return render.Component(c, node)
 }
 
 // Register processes a registration form submission.
 func (h *Handler) Register(c *echo.Context) error {
 	req := h.req(c)
 	var input model.CreateUserInput
-	sub := pkgform.New(h.validator.Validate())
+	sub := form.New(h.validator.Validate())
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
 		node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
-		return renderecho.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
 	}
 
 	_, err := h.service.Register(c.Request().Context(), input)
@@ -142,12 +142,12 @@ func (h *Handler) Register(c *echo.Context) error {
 		if errors.Is(err, model.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
 			node := RegisterPage(req, sub, input, h.loginPath(), h.registerPath(), h.csrfField)
-			return renderecho.ComponentWithStatus(c, http.StatusConflict, node)
+			return render.ComponentWithStatus(c, http.StatusConflict, node)
 		}
 		return apperr.Internal(err)
 	}
 
-	if err := pkgflash.Success(c.Response(), "Account created. Please sign in."); err != nil {
+	if err := flash.Success(c.Response(), "Account created. Please sign in."); err != nil {
 		return apperr.Internal(err)
 	}
 	return redirect.New(c.Response(), c.Request()).To(h.loginPath()).Go()

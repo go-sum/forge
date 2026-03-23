@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	icons "github.com/go-sum/componentry/icons"
 	testutil "github.com/go-sum/componentry/testutil"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
-	componenticons "github.com/go-sum/componentry/icons"
 )
 
 func TestNavbarRendersGuestItemsAndHidesUserActions(t *testing.T) {
@@ -125,7 +125,7 @@ func testNavbar(authenticated bool, userName string, theme g.Node) g.Node {
 		Brand:           NavbarBrand{Label: "Starter", Href: "/"},
 		Sections: []NavbarSection{
 			{Items: []NavbarItem{
-				NavLink{Label: "Home", Href: "/", Icon: componenticons.ChevronRight},
+				NavLink{Label: "Home", Href: "/", Icon: icons.ChevronRight},
 				NavGroup{Label: "Explore", Items: []NavbarItem{
 					NavLink{Label: "Components", Href: "/_components"},
 					NavGroup{Label: "Admin", Items: []NavbarItem{

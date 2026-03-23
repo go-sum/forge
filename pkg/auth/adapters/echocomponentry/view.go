@@ -3,7 +3,7 @@ package echocomponentry
 import (
 	"github.com/go-sum/auth/model"
 	uiform "github.com/go-sum/componentry/form"
-	pkgform "github.com/go-sum/componentry/patterns/form"
+	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
 
@@ -27,7 +27,7 @@ func FormError(messages []string) g.Node {
 }
 
 // LoginPage renders the full login page inside the host layout.
-func LoginPage(req Request, form *pkgform.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
+func LoginPage(req Request, submission *form.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
 	return req.Page(
 		"Login",
 		h.Div(
@@ -37,18 +37,18 @@ func LoginPage(req Request, form *pkgform.Submission, input model.LoginInput, lo
 					uidata.Card.Title(g.Text("Sign In")),
 					uidata.Card.Description(g.Text("Enter your account details to continue into the application.")),
 				),
-				uidata.Card.Content(loginForm(req, form, input, loginPath, registerPath, csrfField)),
+				uidata.Card.Content(loginForm(req, submission, input, loginPath, registerPath, csrfField)),
 			),
 		),
 	)
 }
 
-func loginForm(req Request, form *pkgform.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
+func loginForm(req Request, submission *form.Submission, input model.LoginInput, loginPath, registerPath, csrfField string) g.Node {
 	var emailErrors, passwordErrors, formErrors []string
-	if form != nil {
-		emailErrors = form.GetFieldErrors("Email")
-		passwordErrors = form.GetFieldErrors("Password")
-		formErrors = form.GetFormErrors()
+	if submission != nil {
+		emailErrors = submission.GetFieldErrors("Email")
+		passwordErrors = submission.GetFieldErrors("Password")
+		formErrors = submission.GetFormErrors()
 	}
 	return h.Form(
 		h.Method("post"),
@@ -98,7 +98,7 @@ func loginForm(req Request, form *pkgform.Submission, input model.LoginInput, lo
 }
 
 // RegisterPage renders the full registration page inside the host layout.
-func RegisterPage(req Request, form *pkgform.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
+func RegisterPage(req Request, submission *form.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
 	return req.Page(
 		"Register",
 		h.Div(
@@ -108,19 +108,19 @@ func RegisterPage(req Request, form *pkgform.Submission, input model.CreateUserI
 					uidata.Card.Title(g.Text("Create Account")),
 					uidata.Card.Description(g.Text("Set up an account so you can start working with the app.")),
 				),
-				uidata.Card.Content(registerForm(req, form, input, loginPath, registerPath, csrfField)),
+				uidata.Card.Content(registerForm(req, submission, input, loginPath, registerPath, csrfField)),
 			),
 		),
 	)
 }
 
-func registerForm(req Request, form *pkgform.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
+func registerForm(req Request, submission *form.Submission, input model.CreateUserInput, loginPath, registerPath, csrfField string) g.Node {
 	var emailErrors, nameErrors, passwordErrors, formErrors []string
-	if form != nil {
-		emailErrors = form.GetFieldErrors("Email")
-		nameErrors = form.GetFieldErrors("DisplayName")
-		passwordErrors = form.GetFieldErrors("Password")
-		formErrors = form.GetFormErrors()
+	if submission != nil {
+		emailErrors = submission.GetFieldErrors("Email")
+		nameErrors = submission.GetFieldErrors("DisplayName")
+		passwordErrors = submission.GetFieldErrors("Password")
+		formErrors = submission.GetFormErrors()
 	}
 	return h.Form(
 		h.Method("post"),

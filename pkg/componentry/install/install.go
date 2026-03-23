@@ -1,28 +1,28 @@
 package install
 
 import (
-	componentassets "github.com/go-sum/componentry/assets"
-	componenticonset "github.com/go-sum/componentry/assets/iconset"
-	componenticons "github.com/go-sum/componentry/icons"
+	assets "github.com/go-sum/componentry/assets"
+	"github.com/go-sum/componentry/assets/iconset"
+	icons "github.com/go-sum/componentry/icons"
 )
 
 // Registries holds the asset and icon registries a consumer can install into
 // component rendering paths without relying on package-global defaults.
 type Registries struct {
-	Assets *componentassets.Registry
-	Icons  *componenticons.Registry
+	Assets *assets.Registry
+	Icons  *icons.Registry
 }
 
 // Config controls how component registries are populated.
 type Config struct {
 	PathFunc      func(string) string
-	Catalog       componenticonset.Catalog
-	IconOverrides map[componenticons.Key]componenticons.Ref
+	Catalog       iconset.Catalog
+	IconOverrides map[icons.Key]icons.Ref
 }
 
-func catalogOrDefault(c Config) componenticonset.Catalog {
+func catalogOrDefault(c Config) iconset.Catalog {
 	if c.Catalog.Sprites == nil && c.Catalog.Icons == nil {
-		return componenticonset.Default
+		return iconset.Default
 	}
 	return c.Catalog
 }
@@ -43,15 +43,15 @@ func apply(r Registries, c Config) Registries {
 // New returns isolated registries populated from the provided config.
 func New(c Config) Registries {
 	return apply(Registries{
-		Assets: componentassets.NewRegistry(),
-		Icons:  componenticons.NewRegistry(),
+		Assets: assets.NewRegistry(),
+		Icons:  icons.NewRegistry(),
 	}, c)
 }
 
 // ApplyDefault installs the config onto the package-global default registries.
 func ApplyDefault(c Config) Registries {
 	return apply(Registries{
-		Assets: componentassets.DefaultRegistry,
-		Icons:  componenticons.Default,
+		Assets: assets.DefaultRegistry,
+		Icons:  icons.Default,
 	}, c)
 }

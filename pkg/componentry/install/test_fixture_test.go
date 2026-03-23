@@ -1,17 +1,17 @@
 package install
 
 import (
-	componenticonset "github.com/go-sum/componentry/assets/iconset"
-	componenticons "github.com/go-sum/componentry/icons"
+	"github.com/go-sum/componentry/assets/iconset"
+	icons "github.com/go-sum/componentry/icons"
 )
 
-func componentassetsiconsetFixture() componenticonset.Catalog {
-	return componenticonset.Catalog{
+func iconsetFixture() iconset.Catalog {
+	return iconset.Catalog{
 		Sprites: map[string]string{
 			"custom": "icons/custom.svg",
 		},
-		Icons: map[componenticons.Key]componenticons.Ref{
-			componenticons.ChevronDown: {Sprite: "custom", ID: "chevron-down"},
+		Icons: map[icons.Key]icons.Ref{
+			icons.ChevronDown: {Sprite: "custom", ID: "chevron-down"},
 		},
 	}
 }

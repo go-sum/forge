@@ -7,7 +7,7 @@ import (
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 
-	componenticons "github.com/go-sum/componentry/icons"
+	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"
 	core "github.com/go-sum/componentry/ui/core"
 )
@@ -55,7 +55,7 @@ func dismissButton(cls string) g.Node {
 		h.Class(cls+" outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"),
 		h.Type("button"),
 		g.Attr("aria-label", "Dismiss"),
-		core.Icon(iconrender.PropsFor(componenticons.Close, core.IconProps{Size: "size-4"})),
+		core.Icon(iconrender.PropsFor(icons.Close, core.IconProps{Size: "size-4"})),
 	)
 }
 

@@ -1,11 +1,11 @@
 package iconset
 
-import componenticons "github.com/go-sum/componentry/icons"
+import icons "github.com/go-sum/componentry/icons"
 
 // Catalog bundles a sprite-file set with semantic icon bindings.
 type Catalog struct {
 	Sprites map[string]string
-	Icons   map[componenticons.Key]componenticons.Ref
+	Icons   map[icons.Key]icons.Ref
 }
 
 // Default is the built-in sprite and semantic icon catalog used by pkg/components.
@@ -14,14 +14,14 @@ var Default = Catalog{
 		"lucide-icons": "img/svg/lucide-icons.svg",
 		"theme-icons":  "img/svg/theme-icons.svg",
 	},
-	Icons: map[componenticons.Key]componenticons.Ref{
-		componenticons.ChevronDown:  {Sprite: "lucide-icons", ID: "chevron-down"},
-		componenticons.ChevronLeft:  {Sprite: "lucide-icons", ID: "chevron-left"},
-		componenticons.ChevronRight: {Sprite: "lucide-icons", ID: "chevron-right"},
-		componenticons.ChevronsUp:   {Sprite: "lucide-icons", ID: "chevrons-up"},
-		componenticons.Close:        {Sprite: "lucide-icons", ID: "x"},
-		componenticons.ThemeLight:   {Sprite: "theme-icons", ID: "sun"},
-		componenticons.ThemeDark:    {Sprite: "theme-icons", ID: "moon"},
-		componenticons.ThemeSystem:  {Sprite: "theme-icons", ID: "monitor"},
+	Icons: map[icons.Key]icons.Ref{
+		icons.ChevronDown:  {Sprite: "lucide-icons", ID: "chevron-down"},
+		icons.ChevronLeft:  {Sprite: "lucide-icons", ID: "chevron-left"},
+		icons.ChevronRight: {Sprite: "lucide-icons", ID: "chevron-right"},
+		icons.ChevronsUp:   {Sprite: "lucide-icons", ID: "chevrons-up"},
+		icons.Close:        {Sprite: "lucide-icons", ID: "x"},
+		icons.ThemeLight:   {Sprite: "theme-icons", ID: "sun"},
+		icons.ThemeDark:    {Sprite: "theme-icons", ID: "moon"},
+		icons.ThemeSystem:  {Sprite: "theme-icons", ID: "monitor"},
 	},
 }

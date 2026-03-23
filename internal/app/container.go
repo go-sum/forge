@@ -7,14 +7,14 @@ package app
 import (
 	"log/slog"
 
-	authservice "github.com/go-sum/auth/service"
+	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
 	"github.com/go-sum/forge/internal/service"
-	pkgserver "github.com/go-sum/server"
+	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 
@@ -30,13 +30,13 @@ type Container struct {
 	DB           *pgxpool.Pool
 	Assets       *assets.Assets
 	Web          *echo.Echo
-	ServerConfig pkgserver.Config
+	ServerConfig server.Config
 	PublicDir    string // filesystem path to built public assets, e.g. "public"
 	Sessions     *session.SessionManager
 	Validator    *validate.Validator
 	Repos        *repository.Repositories
 	Services     *service.Services
-	AuthService  *authservice.AuthService
+	AuthService  *authsvc.AuthService
 }
 
 // NewContainer initialises all services in dependency order.

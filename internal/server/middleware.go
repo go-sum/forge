@@ -12,8 +12,8 @@ import (
 	"net/http"
 
 	"github.com/go-sum/forge/config"
-	pkgserver "github.com/go-sum/server"
-	pkgmw "github.com/go-sum/server/middleware"
+	srv "github.com/go-sum/server"
+	servermw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -23,7 +23,7 @@ import (
 // cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
 // navConfig is forwarded to the error handler so error pages render the correct nav.
-func RegisterMiddleware(e *echo.Echo, cfg pkgserver.Config, navConfig config.NavConfig) {
+func RegisterMiddleware(e *echo.Echo, cfg srv.Config, navConfig config.NavConfig) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
 		Debug:     cfg.Debug,
 		Logger:    slog.Default(),
@@ -91,5 +91,5 @@ func RegisterMiddleware(e *echo.Echo, cfg pkgserver.Config, navConfig config.Nav
 		CookiePath:     "/",
 	}))
 
-	e.Use(pkgmw.StaticCacheControl(cfg.PublicPrefix))
+	e.Use(servermw.StaticCacheControl(cfg.PublicPrefix))
 }
