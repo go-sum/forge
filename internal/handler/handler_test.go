@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/server/ctxkeys"
+	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/route"
 	"github.com/go-sum/server/validate"
 
@@ -23,6 +24,13 @@ import (
 )
 
 const testCSRFToken = "csrf-token"
+
+var testKeys = config.ContextKeysConfig{
+	UserID:      "user_id",
+	UserRole:    "user_role",
+	DisplayName: "user_display_name",
+	CSRF:        "csrf",
+}
 
 var testUser = model.User{
 	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
@@ -86,6 +94,7 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 		},
 		validator:   validate.New(),
 		checkHealth: checkHealth,
+		keys:        testKeys,
 	}
 }
 
@@ -109,7 +118,7 @@ func setCSRFToken(c *echo.Context) {
 }
 
 func setUserID(c *echo.Context, userID string) {
-	c.Set(string(ctxkeys.UserID), userID)
+	cfgs.Set(c, testKeys.UserID, userID)
 }
 
 func setPathParam(c *echo.Context, path, name, value string) {

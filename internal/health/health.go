@@ -136,7 +136,7 @@ func withDefaults(opts Options) Options {
 }
 
 func assertLoadConfig(_ context.Context, state *verificationState) Result {
-	if err := config.Init(state.opts.ConfigDir); err != nil {
+	if err := config.InitConfig(state.opts.ConfigDir); err != nil {
 		return failResult(fmt.Errorf("load config from %s: %w", state.opts.ConfigDir, err))
 	}
 	state.cfg = config.App

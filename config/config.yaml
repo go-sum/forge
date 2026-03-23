@@ -19,6 +19,12 @@ csp_hashes:
   always: []
   dev_only: []
 
+keys:
+  user_id: user_id
+  user_role: user_role
+  display_name: user_display_name
+  csrf: csrf
+
 auth:
   session:
     name: _session

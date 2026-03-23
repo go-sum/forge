@@ -10,9 +10,19 @@ import (
 	"testing"
 
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
 )
+
+// newTestEcho returns an Echo instance with the minimum routes registered so
+// that writeErrorPage can resolve named routes (e.g. "home.show") without panicking.
+func newTestEcho() *echo.Echo {
+	e := echo.New()
+	noOp := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: noOp})
+	return e
+}
 
 func TestErrorHandlerWritesProblemJSON(t *testing.T) {
 	e := echo.New()
@@ -47,7 +57,7 @@ func TestErrorHandlerWritesProblemJSON(t *testing.T) {
 }
 
 func TestErrorHandlerRendersProductionHTMLPage(t *testing.T) {
-	e := echo.New()
+	e := newTestEcho()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	rec := httptest.NewRecorder()
@@ -68,7 +78,7 @@ func TestErrorHandlerRendersProductionHTMLPage(t *testing.T) {
 }
 
 func TestErrorHandlerRendersDevelopmentDetail(t *testing.T) {
-	e := echo.New()
+	e := newTestEcho()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	rec := httptest.NewRecorder()
@@ -107,7 +117,7 @@ func TestErrorHandlerWritesHTMXToast(t *testing.T) {
 }
 
 func TestErrorHandlerTreatsBoostedHTMXAsFullPage(t *testing.T) {
-	e := echo.New()
+	e := newTestEcho()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	req.Header.Set("HX-Request", "true")
 	req.Header.Set("HX-Boosted", "true")

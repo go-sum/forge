@@ -17,7 +17,12 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	users := adapters.NewAuthUserReader(c.Repos.User)
 	e := c.Web
 
-	e.Use(authadapter.LoadSession(c.Sessions))
+	authKeys := authadapter.ContextKeys{
+		UserID:      c.Config.Keys.UserID,
+		UserRole:    c.Config.Keys.UserRole,
+		DisplayName: c.Config.Keys.DisplayName,
+	}
+	e.Use(authadapter.LoadSession(c.Sessions, authKeys))
 
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: h.HealthCheck})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: h.Home})
@@ -30,8 +35,8 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	protected.Use(
 		authadapter.RequireAuthPath(func() string {
 			return route.Reverse(e.Router().Routes(), "session.new")
-		}),
-		authadapter.LoadUserContext(users),
+		}, authKeys),
+		authadapter.LoadUserContext(users, authKeys),
 	)
 	route.Add(protected, echo.Route{Method: http.MethodPost, Path: "/logout", Name: "session.delete", Handler: authH.Logout})
 	route.Add(protected, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "component-example.list", Handler: h.ComponentExamples})

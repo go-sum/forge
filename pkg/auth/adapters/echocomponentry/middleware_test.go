@@ -8,16 +8,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v5"
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/server/ctxkeys"
+	cfgs "github.com/go-sum/server/config"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v5"
 )
 
 const testLoginPath = "/login"
+
+var testContextKeys = ContextKeys{
+	UserID:      "user_id",
+	UserRole:    "user_role",
+	DisplayName: "user_display_name",
+}
 
 func TestRequireAuthRedirectsToLogin(t *testing.T) {
 	e := echo.New()
@@ -26,7 +32,7 @@ func TestRequireAuthRedirectsToLogin(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testLoginPath)(func(c *echo.Context) error {
+	err := RequireAuth(testLoginPath, testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -53,7 +59,7 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testLoginPath)(func(c *echo.Context) error {
+	err := RequireAuth(testLoginPath, testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -76,7 +82,10 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
-	sessions := session.NewSessionStore(testSessionConfig())
+	sessions, err := session.NewSessionStore(testSessionConfig())
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
 	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
 		t.Fatalf("SetUserID() error = %v", err)
 	}
@@ -86,8 +95,8 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err := LoadSession(sessions)(func(c *echo.Context) error {
-		if got, _ := c.Get(string(ctxkeys.UserID)).(string); got != "11111111-1111-1111-1111-111111111111" {
+	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+		if got, _ := cfgs.Get[string](c, testContextKeys.UserID); got != "11111111-1111-1111-1111-111111111111" {
 			t.Fatalf("user ID = %q", got)
 		}
 		return nil
@@ -139,19 +148,19 @@ func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 			if tc.userID != "" {
-				c.Set(string(ctxkeys.UserID), tc.userID)
+				cfgs.Set(c, testContextKeys.UserID, tc.userID)
 			}
 
 			nextCalled := false
-			err := LoadUserContext(tc.repo)(func(c *echo.Context) error {
+			err := LoadUserContext(tc.repo, testContextKeys)(func(c *echo.Context) error {
 				nextCalled = true
 				if tc.wantRole != "" {
-					if got, _ := c.Get(string(ctxkeys.UserRole)).(string); got != tc.wantRole {
+					if got, _ := cfgs.Get[string](c, testContextKeys.UserRole); got != tc.wantRole {
 						t.Fatalf("role = %q", got)
 					}
 				}
 				if tc.wantDisplayName != "" {
-					if got, _ := c.Get(string(ctxkeys.UserDisplayName)).(string); got != tc.wantDisplayName {
+					if got, _ := cfgs.Get[string](c, testContextKeys.DisplayName); got != tc.wantDisplayName {
 						t.Fatalf("display name = %q", got)
 					}
 				}
@@ -177,10 +186,10 @@ func TestRequireAdminRejectsNonAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(string(ctxkeys.UserRole), "user")
+	cfgs.Set(c, testContextKeys.UserRole, "user")
 
 	called := false
-	err := RequireAdmin()(func(c *echo.Context) error {
+	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -196,10 +205,10 @@ func TestRequireAdminAllowsAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(string(ctxkeys.UserRole), "admin")
+	cfgs.Set(c, testContextKeys.UserRole, "admin")
 
 	called := false
-	err := RequireAdmin()(func(c *echo.Context) error {
+	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)

@@ -68,21 +68,21 @@ auth:
 		}
 	}
 
-	if err := Init(dir); err != nil {
-		t.Fatalf("Init() error = %v", err)
+	if err := InitConfig(dir); err != nil {
+		t.Fatalf("InitConfig() error = %v", err)
 	}
 
 	if got := App.Nav.Brand.Label; got != "Starter" {
-		t.Fatalf("Init() brand label = %q, want %q", got, "Starter")
+		t.Fatalf("InitConfig() brand label = %q, want %q", got, "Starter")
 	}
 	if len(App.Nav.Sections) != 2 {
-		t.Fatalf("Init() sections = %d, want 2", len(App.Nav.Sections))
+		t.Fatalf("InitConfig() sections = %d, want 2", len(App.Nav.Sections))
 	}
 	if got := App.Nav.Sections[1].Align; got != "end" {
-		t.Fatalf("Init() section align = %q, want %q", got, "end")
+		t.Fatalf("InitConfig() section align = %q, want %q", got, "end")
 	}
 	if got := App.Nav.Sections[1].Items[1].Slot; got != "theme_toggle" {
-		t.Fatalf("Init() slot = %q, want %q", got, "theme_toggle")
+		t.Fatalf("InitConfig() slot = %q, want %q", got, "theme_toggle")
 	}
 }
 
@@ -163,10 +163,10 @@ auth:
 				}
 			}
 
-			if err := Init(dir); err == nil {
-				t.Fatal("Init() error = nil, want validation error")
+			if err := InitConfig(dir); err == nil {
+				t.Fatal("InitConfig() error = nil, want validation error")
 			} else if !strings.Contains(err.Error(), "nav.yaml") {
-				t.Fatalf("Init() error = %v, want nav.yaml attribution", err)
+				t.Fatalf("InitConfig() error = %v, want nav.yaml attribution", err)
 			}
 		})
 	}

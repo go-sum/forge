@@ -7,11 +7,18 @@ import (
 
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/server/ctxkeys"
+	cfgs "github.com/go-sum/server/config"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
 )
+
+var testKeys = config.ContextKeysConfig{
+	UserID:      "user_id",
+	UserRole:    "user_role",
+	DisplayName: "user_display_name",
+	CSRF:        "csrf",
+}
 
 func TestNewRequestCollectsPresentationState(t *testing.T) {
 	e := echo.New()
@@ -20,9 +27,9 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	req.Header.Set("HX-Target", "#users")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(string(ctxkeys.UserID), "user-123")
-	c.Set(string(ctxkeys.UserRole), "admin")
-	c.Set(string(ctxkeys.UserDisplayName), "Alice")
+	cfgs.Set(c, testKeys.UserID, "user-123")
+	cfgs.Set(c, testKeys.UserRole, "admin")
+	cfgs.Set(c, testKeys.DisplayName, "Alice")
 	c.Set(echomw.DefaultCSRFConfig.ContextKey, "csrf-token")
 	if err := flash.Success(rec, "Saved"); err != nil {
 		t.Fatalf("set flash: %v", err)
@@ -31,7 +38,7 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 		req.AddCookie(cookie)
 	}
 
-	viewReq := NewRequest(c, config.NavConfig{})
+	viewReq := NewRequest(c, config.NavConfig{}, testKeys)
 
 	if viewReq.CurrentPath != "/users" {
 		t.Fatalf("CurrentPath = %q", viewReq.CurrentPath)

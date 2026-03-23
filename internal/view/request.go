@@ -10,7 +10,7 @@ import (
 	"github.com/go-sum/componentry/ui/feedback"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/view/layout"
-	"github.com/go-sum/server/ctxkeys"
+	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
@@ -34,7 +34,7 @@ type Request struct {
 }
 
 // NewRequest builds request-scoped presentation state from the Echo context.
-func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
+func NewRequest(c *echo.Context, navConfig config.NavConfig, keys config.ContextKeysConfig) Request {
 	req := Request{
 		CurrentPath: c.Request().URL.Path,
 		NavConfig:   navConfig,
@@ -42,17 +42,17 @@ func NewRequest(c *echo.Context, navConfig config.NavConfig) Request {
 		Routes:      c.Echo().Router().Routes(),
 	}
 
-	if userID, _ := c.Get(string(ctxkeys.UserID)).(string); userID != "" {
+	if userID, ok := cfgs.Get[string](c, keys.UserID); ok && userID != "" {
 		req.UserID = userID
 		req.IsAuthenticated = true
 	}
-	if userRole, _ := c.Get(string(ctxkeys.UserRole)).(string); userRole != "" {
+	if userRole, ok := cfgs.Get[string](c, keys.UserRole); ok && userRole != "" {
 		req.UserRole = userRole
 	}
-	if name, _ := c.Get(string(ctxkeys.UserDisplayName)).(string); name != "" {
+	if name, ok := cfgs.Get[string](c, keys.DisplayName); ok && name != "" {
 		req.UserName = name
 	}
-	if csrf, _ := c.Get(string(ctxkeys.CSRF)).(string); csrf != "" {
+	if csrf, ok := cfgs.Get[string](c, keys.CSRF); ok && csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {

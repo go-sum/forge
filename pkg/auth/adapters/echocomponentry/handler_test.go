@@ -53,14 +53,18 @@ func (f fakeAuthService) Register(ctx context.Context, input model.CreateUserInp
 }
 
 func newTestHandler(svc authService) *Handler {
+	sessions, err := session.NewSessionStore(session.SessionConfig{
+		Name:       "test-session",
+		AuthKey:    strings.Repeat("a", 32),
+		EncryptKey: strings.Repeat("b", 32),
+		MaxAge:     3600,
+	})
+	if err != nil {
+		panic(err)
+	}
 	return New(
 		svc,
-		session.NewSessionStore(session.SessionConfig{
-			Name:       "test-session",
-			AuthKey:    strings.Repeat("a", 32),
-			EncryptKey: strings.Repeat("b", 32),
-			MaxAge:     3600,
-		}),
+		sessions,
 		servervalidate.New(),
 		Config{
 			LoginPath:    "/login",

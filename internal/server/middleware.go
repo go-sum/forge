@@ -13,8 +13,7 @@ import (
 
 	"github.com/go-sum/forge/config"
 	srv "github.com/go-sum/server"
-	"github.com/go-sum/server/ctxkeys"
-	servermw "github.com/go-sum/server/middleware"
+	smw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -23,12 +22,14 @@ import (
 // RegisterMiddleware wires the application middleware stack onto e in the correct order.
 // cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
-// navConfig is forwarded to the error handler so error pages render the correct nav.
-func RegisterMiddleware(e *echo.Echo, cfg srv.Config, navConfig config.NavConfig) {
+// appCfg is forwarded to the error handler so error pages render the correct nav
+// and CSRF token is stored under the same key that the view layer reads.
+func RegisterMiddleware(e *echo.Echo, cfg srv.Config, appCfg *config.Config) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
 		Debug:     cfg.Debug,
 		Logger:    slog.Default(),
-		NavConfig: navConfig,
+		NavConfig: appCfg.Nav,
+		Keys:      appCfg.Keys,
 	})
 
 	// Pre-routing: runs before the router dispatches the request.
@@ -85,7 +86,7 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, navConfig config.NavConfig
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-		ContextKey:     string(ctxkeys.CSRF),
+		ContextKey:     appCfg.Keys.CSRF,
 		TokenLookup:    "header:X-CSRF-Token,form:" + cfg.CSRFCookieName,
 		CookieName:     cfg.CSRFCookieName,
 		CookieSameSite: http.SameSiteLaxMode,
@@ -93,5 +94,5 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, navConfig config.NavConfig
 		CookiePath:     "/",
 	}))
 
-	e.Use(servermw.StaticCacheControl(cfg.PublicPrefix))
+	e.Use(smw.StaticCacheControl(cfg.PublicPrefix))
 }

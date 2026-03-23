@@ -49,7 +49,7 @@ site:
 	t.Setenv("CTX_SITE_TITLE", "env-title")
 
 	var cfg loaderTestConfig
-	err := Load(&cfg, Options{
+	err := loadConfig(&cfg, Options{
 		EnvPrefix: "CTX_",
 		BaseDir:   dir,
 		EnvKey:    "app.env",
@@ -59,7 +59,7 @@ site:
 		}},
 	})
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("loadConfig() error = %v", err)
 	}
 	if cfg.App.Env != "development" {
 		t.Fatalf("App.Env = %q", cfg.App.Env)
@@ -89,7 +89,7 @@ site:
 `)
 
 	var cfg loaderTestConfig
-	err := Load(&cfg, Options{
+	err := loadConfig(&cfg, Options{
 		EnvPrefix: "CTX_",
 		BaseDir:   dir,
 		ContentFiles: []ContentFile{{

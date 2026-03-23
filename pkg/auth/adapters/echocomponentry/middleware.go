@@ -9,17 +9,25 @@ import (
 	"github.com/go-sum/auth/session"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/server/ctxkeys"
+	"github.com/go-sum/server/config"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
-// LoadSession reads the session non-destructively and sets ctxkeys.UserID in context.
-func LoadSession(sessions *session.SessionManager) echo.MiddlewareFunc {
+// ContextKeys holds the Echo context key names used by auth middleware.
+// Values come from the application's config.ContextKeysConfig at wiring time.
+type ContextKeys struct {
+	UserID      string
+	UserRole    string
+	DisplayName string
+}
+
+// LoadSession reads the session non-destructively and sets the user ID in context.
+func LoadSession(sessions *session.SessionManager, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			if userID, err := sessions.GetUserID(c.Request()); err == nil && userID != "" {
-				c.Set(string(ctxkeys.UserID), userID)
+				config.Set(c, keys.UserID, userID)
 			}
 			return next(c)
 		}
@@ -27,15 +35,15 @@ func LoadSession(sessions *session.SessionManager) echo.MiddlewareFunc {
 }
 
 // RequireAuth protects routes by checking for a valid session user ID.
-func RequireAuth(loginPath string) echo.MiddlewareFunc {
-	return RequireAuthPath(func() string { return loginPath })
+func RequireAuth(loginPath string, keys ContextKeys) echo.MiddlewareFunc {
+	return RequireAuthPath(func() string { return loginPath }, keys)
 }
 
 // RequireAuthPath protects routes by checking for a valid session user ID.
-func RequireAuthPath(loginPath func() string) echo.MiddlewareFunc {
+func RequireAuthPath(loginPath func() string, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
+			userID, _ := config.Get[string](c, keys.UserID)
 			if userID == "" {
 				path := loginPath()
 				if htmx.NewRequest(c.Request()).IsPartial() {
@@ -50,10 +58,10 @@ func RequireAuthPath(loginPath func() string) echo.MiddlewareFunc {
 }
 
 // LoadUserContext resolves the authenticated user's role and display name.
-func LoadUserContext(users authrepo.UserReader) echo.MiddlewareFunc {
+func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			userID, _ := c.Get(string(ctxkeys.UserID)).(string)
+			userID, _ := config.Get[string](c, keys.UserID)
 			if userID == "" {
 				return next(c)
 			}
@@ -71,18 +79,18 @@ func LoadUserContext(users authrepo.UserReader) echo.MiddlewareFunc {
 				return apperr.Unavailable("Unable to authorize this request right now.", err)
 			}
 
-			c.Set(string(ctxkeys.UserRole), user.Role)
-			c.Set(string(ctxkeys.UserDisplayName), user.DisplayName)
+			config.Set(c, keys.UserRole, user.Role)
+			config.Set(c, keys.DisplayName, user.DisplayName)
 			return next(c)
 		}
 	}
 }
 
 // RequireAdmin ensures the authenticated user has the admin role.
-func RequireAdmin() echo.MiddlewareFunc {
+func RequireAdmin(keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			role, _ := c.Get(string(ctxkeys.UserRole)).(string)
+			role, _ := config.Get[string](c, keys.UserRole)
 			if role != model.RoleAdmin {
 				return apperr.Forbidden("You are not allowed to access this area.")
 			}

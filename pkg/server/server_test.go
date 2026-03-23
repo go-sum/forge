@@ -7,17 +7,14 @@ import (
 )
 
 func TestNewInitializesEcho(t *testing.T) {
-	e := New(Config{Debug: true})
+	e := New()
 	if e == nil {
 		t.Fatal("New() returned nil")
-	}
-	if e.HTTPErrorHandler == nil {
-		t.Fatal("HTTPErrorHandler was not configured")
 	}
 }
 
 func TestStartReturnsErrorForInvalidAddress(t *testing.T) {
-	e := New(Config{})
+	e := New()
 	err := Start(e, Config{
 		Host:            "127.0.0.1",
 		Port:            "not-a-port",

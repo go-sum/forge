@@ -28,6 +28,7 @@ func New() *App {
 		c.Validator,
 		func(ctx context.Context) error { return database.CheckHealth(ctx, c.DB) },
 		c.Config.Nav,
+		c.Config.Keys,
 	)
 
 	authH := authadapter.New(
@@ -40,7 +41,7 @@ func New() *App {
 			RegisterPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "registration.new") },
 			HomePathFn:     func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
 			RequestFn: func(ec *echo.Context) authadapter.Request {
-				req := view.NewRequest(ec, c.Config.Nav)
+				req := view.NewRequest(ec, c.Config.Nav, c.Config.Keys)
 				return authadapter.Request{
 					CSRFToken: req.CSRFToken,
 					PageFn:    req.Page,

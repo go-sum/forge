@@ -53,7 +53,7 @@ type Options struct {
 	ValidatorSetup func(v *validator.Validate)
 }
 
-// Load merges configuration from multiple sources into target and validates it.
+// loadConfig merges configuration from multiple sources into target and validates it.
 //
 // Loading order (last writer wins, except ContentFiles which load after env vars):
 //  1. BaseDir/config.yaml               — required; error if missing
@@ -65,7 +65,7 @@ type Options struct {
 //  6. Per-file validation: for each ContentFile with non-nil Target, v.Struct(Target)
 //     with the filename named in any error
 //  7. Validate target using go-playground/validator struct tags
-func Load(target any, opts Options) error {
+func loadConfig(target any, opts Options) error {
 	k := koanf.New(".")
 
 	// 1. Base config (required).
@@ -141,6 +141,17 @@ func Load(target any, opts Options) error {
 	}
 
 	return nil
+}
+
+// Load allocates a fresh *T, calls opts(cfg) to build the Options (which
+// allows ContentFile.Target to hold addresses of fields within the freshly
+// allocated struct), then delegates to loadConfig.
+func Load[T any](opts func(*T) Options) (*T, error) {
+	cfg := new(T)
+	if err := loadConfig(cfg, opts(cfg)); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 // transformKey converts a lowercased, prefix-stripped env var name into the

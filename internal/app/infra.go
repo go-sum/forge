@@ -32,7 +32,7 @@ const assetConfigPath = assetconfig.DefaultConfigPath
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
 func (c *Container) initConfig() {
-	if err := config.Init("config"); err != nil {
+	if err := config.InitConfig("config"); err != nil {
 		panic(fmt.Sprintf("config: %v", err))
 	}
 	c.Config = config.App
@@ -129,7 +129,7 @@ func (c *Container) initWeb() {
 		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
 	c.Web = server.New()
-	appserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg.Nav)
+	appserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg)
 }
 
 func (c *Container) initAuth() {
