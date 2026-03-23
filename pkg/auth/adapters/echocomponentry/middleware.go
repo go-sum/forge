@@ -9,13 +9,12 @@ import (
 	"github.com/go-sum/auth/session"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/server/config"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
 // ContextKeys holds the Echo context key names used by auth middleware.
-// Values come from the application's config.ContextKeysConfig at wiring time.
+// Values come from the application's ContextKeysConfig at wiring time.
 type ContextKeys struct {
 	UserID      string
 	UserRole    string
@@ -27,7 +26,7 @@ func LoadSession(sessions *session.SessionManager, keys ContextKeys) echo.Middle
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			if userID, err := sessions.GetUserID(c.Request()); err == nil && userID != "" {
-				config.Set(c, keys.UserID, userID)
+				c.Set(keys.UserID, userID)
 			}
 			return next(c)
 		}
@@ -43,7 +42,7 @@ func RequireAuth(signinPath string, keys ContextKeys) echo.MiddlewareFunc {
 func RequireAuthPath(signinPath func() string, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			userID, _ := config.Get[string](c, keys.UserID)
+			userID, _ := c.Get(keys.UserID).(string)
 			if userID == "" {
 				path := signinPath()
 				if htmx.NewRequest(c.Request()).IsPartial() {
@@ -61,7 +60,7 @@ func RequireAuthPath(signinPath func() string, keys ContextKeys) echo.Middleware
 func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			userID, _ := config.Get[string](c, keys.UserID)
+			userID, _ := c.Get(keys.UserID).(string)
 			if userID == "" {
 				return next(c)
 			}
@@ -79,8 +78,8 @@ func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.Middlewar
 				return apperr.Unavailable("Unable to authorize this request right now.", err)
 			}
 
-			config.Set(c, keys.UserRole, user.Role)
-			config.Set(c, keys.DisplayName, user.DisplayName)
+			c.Set(keys.UserRole, user.Role)
+			c.Set(keys.DisplayName, user.DisplayName)
 			return next(c)
 		}
 	}
@@ -90,7 +89,7 @@ func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.Middlewar
 func RequireAdmin(keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			role, _ := config.Get[string](c, keys.UserRole)
+			role, _ := c.Get(keys.UserRole).(string)
 			if role != model.RoleAdmin {
 				return apperr.Forbidden("You are not allowed to access this area.")
 			}

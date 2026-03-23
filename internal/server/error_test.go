@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-sum/forge/config"
 	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/server/route"
 
@@ -63,7 +64,7 @@ func TestErrorHandlerRendersProductionHTMLPage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	NewErrorHandler(ErrorHandlerConfig{Debug: false})(c, apperr.Internal(errors.New("database timeout")))
+	NewErrorHandler(ErrorHandlerConfig{Debug: false, Config: &config.Config{}})(c, apperr.Internal(errors.New("database timeout")))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d", rec.Code)
@@ -84,7 +85,7 @@ func TestErrorHandlerRendersDevelopmentDetail(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	NewErrorHandler(ErrorHandlerConfig{Debug: true})(c, apperr.Internal(errors.New("database timeout")))
+	NewErrorHandler(ErrorHandlerConfig{Debug: true, Config: &config.Config{}})(c, apperr.Internal(errors.New("database timeout")))
 
 	body := rec.Body.String()
 	if !strings.Contains(body, "Technical Detail") {
@@ -124,7 +125,7 @@ func TestErrorHandlerTreatsBoostedHTMXAsFullPage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	NewErrorHandler(ErrorHandlerConfig{})(c, apperr.NotFound("The requested user could not be found."))
+	NewErrorHandler(ErrorHandlerConfig{Config: &config.Config{}})(c, apperr.NotFound("The requested user could not be found."))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rec.Code)

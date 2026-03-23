@@ -12,7 +12,6 @@ import (
 	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/server/apperr"
-	cfgs "github.com/go-sum/server/config"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -96,7 +95,7 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	c := e.NewContext(req, httptest.NewRecorder())
 
 	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
-		if got, _ := cfgs.Get[string](c, testContextKeys.UserID); got != "11111111-1111-1111-1111-111111111111" {
+		if got, _ := c.Get(testContextKeys.UserID).(string); got != "11111111-1111-1111-1111-111111111111" {
 			t.Fatalf("user ID = %q", got)
 		}
 		return nil
@@ -148,19 +147,19 @@ func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 			if tc.userID != "" {
-				cfgs.Set(c, testContextKeys.UserID, tc.userID)
+				c.Set(testContextKeys.UserID, tc.userID)
 			}
 
 			nextCalled := false
 			err := LoadUserContext(tc.repo, testContextKeys)(func(c *echo.Context) error {
 				nextCalled = true
 				if tc.wantRole != "" {
-					if got, _ := cfgs.Get[string](c, testContextKeys.UserRole); got != tc.wantRole {
+					if got, _ := c.Get(testContextKeys.UserRole).(string); got != tc.wantRole {
 						t.Fatalf("role = %q", got)
 					}
 				}
 				if tc.wantDisplayName != "" {
-					if got, _ := cfgs.Get[string](c, testContextKeys.DisplayName); got != tc.wantDisplayName {
+					if got, _ := c.Get(testContextKeys.DisplayName).(string); got != tc.wantDisplayName {
 						t.Fatalf("display name = %q", got)
 					}
 				}
@@ -186,7 +185,7 @@ func TestRequireAdminRejectsNonAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	cfgs.Set(c, testContextKeys.UserRole, "user")
+	c.Set(testContextKeys.UserRole, "user")
 
 	called := false
 	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {
@@ -205,7 +204,7 @@ func TestRequireAdminAllowsAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	cfgs.Set(c, testContextKeys.UserRole, "admin")
+	c.Set(testContextKeys.UserRole, "admin")
 
 	called := false
 	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {

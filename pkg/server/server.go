@@ -18,12 +18,7 @@ import (
 type Config struct {
 	Host            string
 	Port            string
-	Debug           bool
 	GracefulTimeout time.Duration
-	CookieSecure    bool
-	CSP             string
-	CSRFCookieName  string
-	PublicPrefix    string // URL prefix for public assets, e.g. "/public"
 }
 
 // New creates a bare Echo v5 instance.

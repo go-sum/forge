@@ -10,7 +10,6 @@ import (
 	"github.com/go-sum/componentry/ui/feedback"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/view/layout"
-	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
@@ -29,30 +28,32 @@ type Request struct {
 	UserName        string
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
+	CopyrightYear   int
 	HTMX            htmx.Request
 	Routes          echo.Routes
 }
 
 // NewRequest builds request-scoped presentation state from the Echo context.
-func NewRequest(c *echo.Context, navConfig config.NavConfig, keys config.ContextKeysConfig) Request {
+func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	req := Request{
-		CurrentPath: c.Request().URL.Path,
-		NavConfig:   navConfig,
-		HTMX:        htmx.NewRequest(c.Request()),
-		Routes:      c.Echo().Router().Routes(),
+		CurrentPath:   c.Request().URL.Path,
+		NavConfig:     cfg.Nav,
+		CopyrightYear: cfg.Site.CopyrightYear,
+		HTMX:          htmx.NewRequest(c.Request()),
+		Routes:        c.Echo().Router().Routes(),
 	}
 
-	if userID, ok := cfgs.Get[string](c, keys.UserID); ok && userID != "" {
+	if userID, ok := c.Get(cfg.Keys.UserID).(string); ok && userID != "" {
 		req.UserID = userID
 		req.IsAuthenticated = true
 	}
-	if userRole, ok := cfgs.Get[string](c, keys.UserRole); ok && userRole != "" {
+	if userRole, ok := c.Get(cfg.Keys.UserRole).(string); ok && userRole != "" {
 		req.UserRole = userRole
 	}
-	if name, ok := cfgs.Get[string](c, keys.DisplayName); ok && name != "" {
+	if name, ok := c.Get(cfg.Keys.DisplayName).(string); ok && name != "" {
 		req.UserName = name
 	}
-	if csrf, ok := cfgs.Get[string](c, keys.CSRF); ok && csrf != "" {
+	if csrf, ok := c.Get(cfg.Keys.CSRF).(string); ok && csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {
@@ -103,6 +104,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		UserName:        r.UserName,
 		Flash:           r.Flash,
 		NavConfig:       r.NavConfig,
+		CopyrightYear:   r.CopyrightYear,
 		Children:        children,
 	}
 }

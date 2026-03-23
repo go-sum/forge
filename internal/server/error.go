@@ -22,10 +22,9 @@ import (
 const problemContentType = "application/problem+json"
 
 type ErrorHandlerConfig struct {
-	Debug     bool
-	Logger    *slog.Logger
-	NavConfig config.NavConfig
-	Keys      config.ContextKeysConfig
+	Debug  bool
+	Logger *slog.Logger
+	Config *config.Config
 }
 
 type problemDetails struct {
@@ -63,7 +62,7 @@ func NewErrorHandler(cfg ErrorHandlerConfig) echo.HTTPErrorHandler {
 		case htmx.NewRequest(c.Request()).IsPartial():
 			writeHTMXToast(c, appErr)
 		default:
-			writeErrorPage(c, appErr, err, cfg.Debug, cfg.NavConfig, cfg.Keys)
+			writeErrorPage(c, appErr, err, cfg.Debug, cfg.Config)
 		}
 	}
 }
@@ -181,13 +180,13 @@ func writeHTMXToast(c *echo.Context, appErr *apperr.Error) {
 	_ = render.FragmentWithStatus(c, appErr.Status, flash.RenderOOB([]flash.Message{msg}))
 }
 
-func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool, navConfig config.NavConfig, keys config.ContextKeysConfig) {
+func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool, cfg *config.Config) {
 	technicalDetail := ""
 	if debug && err != nil {
 		technicalDetail = err.Error()
 	}
 
-	req := view.NewRequest(c, navConfig, keys)
+	req := view.NewRequest(c, cfg)
 	_ = render.ComponentWithStatus(c, appErr.Status, errorpage.Page(req, errorpage.Props{
 		Status:          appErr.Status,
 		Title:           appErr.Title,

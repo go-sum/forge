@@ -23,6 +23,7 @@ type Props struct {
 	UserName        string
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
+	CopyrightYear   int
 	Children        []g.Node
 }
 
@@ -54,7 +55,7 @@ func Page(p Props) g.Node {
 				},
 			}),
 			h.Body(
-				h.Class("bg-background text-foreground min-h-screen"),
+				h.Class("bg-background text-foreground min-h-screen flex flex-col"),
 				// Inject CSRF token into all HTMX requests via hx-headers on <body>.
 				g.Attr("hx-headers", `{"X-CSRF-Token":"`+p.CSRFToken+`"}`),
 				uilayout.NavMenu(uilayout.NavMenuProps{
@@ -65,7 +66,7 @@ func Page(p Props) g.Node {
 					Slots:           pageNavSlots(p),
 				}),
 				h.Main(
-					h.Class("container mx-auto px-4 py-6"),
+					h.Class("container mx-auto px-4 py-6 flex-1"),
 					g.Group(p.Children),
 				),
 				// Toast container for flash messages and HTMX out-of-band swap notifications.
@@ -74,6 +75,7 @@ func Page(p Props) g.Node {
 					h.Class("fixed bottom-4 right-4 z-50 flex flex-col gap-2"),
 					flash.Render(p.Flash),
 				),
+				Footer(p),
 			),
 		),
 	)

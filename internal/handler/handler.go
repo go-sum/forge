@@ -32,8 +32,7 @@ type Handler struct {
 	services    handlerServices
 	validator   *validate.Validator
 	checkHealth func(context.Context) error
-	navConfig   config.NavConfig
-	keys        config.ContextKeysConfig
+	cfg         *config.Config
 }
 
 // New constructs a Handler with all required dependencies.
@@ -43,8 +42,7 @@ func New(
 	services *service.Services,
 	validator *validate.Validator,
 	checkHealth func(context.Context) error,
-	navConfig config.NavConfig,
-	keys config.ContextKeysConfig,
+	cfg *config.Config,
 ) *Handler {
 	return &Handler{
 		services: handlerServices{
@@ -52,11 +50,10 @@ func New(
 		},
 		validator:   validator,
 		checkHealth: checkHealth,
-		navConfig:   navConfig,
-		keys:        keys,
+		cfg:         cfg,
 	}
 }
 
 func (h *Handler) request(c *echo.Context) view.Request {
-	return view.NewRequest(c, h.navConfig, h.keys)
+	return view.NewRequest(c, h.cfg)
 }

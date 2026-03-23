@@ -20,16 +20,15 @@ import (
 )
 
 // RegisterMiddleware wires the application middleware stack onto e in the correct order.
-// cfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
+// srvCfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
 // cookie security flag) that middleware need to be configured with.
 // appCfg is forwarded to the error handler so error pages render the correct nav
 // and CSRF token is stored under the same key that the view layer reads.
-func RegisterMiddleware(e *echo.Echo, cfg srv.Config, appCfg *config.Config) {
+func RegisterMiddleware(e *echo.Echo, srvCfg srv.Config, appCfg *config.Config) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
-		Debug:     cfg.Debug,
-		Logger:    slog.Default(),
-		NavConfig: appCfg.Nav,
-		Keys:      appCfg.Keys,
+		Debug:  srvCfg.Debug,
+		Logger: slog.Default(),
+		Config: appCfg,
 	})
 
 	// Pre-routing: runs before the router dispatches the request.
@@ -43,7 +42,7 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, appCfg *config.Config) {
 	// (which correlates with HTTPS / production), so dev logs stay clean.
 	const hstsOneYear = 31536000
 	hstsMaxAge := 0
-	if cfg.CookieSecure {
+	if srvCfg.CookieSecure {
 		hstsMaxAge = hstsOneYear
 	}
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
@@ -53,8 +52,8 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, appCfg *config.Config) {
 		ContentTypeNosniff:    "nosniff",
 		XFrameOptions:         "DENY",
 		HSTSMaxAge:            hstsMaxAge,
-		HSTSPreloadEnabled:    cfg.CookieSecure,
-		ContentSecurityPolicy: cfg.CSP,
+		HSTSPreloadEnabled:    srvCfg.CookieSecure,
+		ContentSecurityPolicy: srvCfg.CSP,
 	}))
 
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
@@ -87,12 +86,12 @@ func RegisterMiddleware(e *echo.Echo, cfg srv.Config, appCfg *config.Config) {
 	// CSRF runs after the logger so all requests (including rejections) are logged.
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		ContextKey:     appCfg.Keys.CSRF,
-		TokenLookup:    "header:X-CSRF-Token,form:" + cfg.CSRFCookieName,
-		CookieName:     cfg.CSRFCookieName,
+		TokenLookup:    "header:X-CSRF-Token,form:" + srvCfg.CSRFCookieName,
+		CookieName:     srvCfg.CSRFCookieName,
 		CookieSameSite: http.SameSiteLaxMode,
-		CookieSecure:   cfg.CookieSecure,
+		CookieSecure:   srvCfg.CookieSecure,
 		CookiePath:     "/",
 	}))
 
-	e.Use(smw.StaticCacheControl(cfg.PublicPrefix))
+	e.Use(smw.StaticCacheControl(srvCfg.PublicPrefix))
 }

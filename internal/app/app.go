@@ -27,8 +27,7 @@ func New() *App {
 		c.Services,
 		c.Validator,
 		func(ctx context.Context) error { return database.CheckHealth(ctx, c.DB) },
-		c.Config.Nav,
-		c.Config.Keys,
+		c.Config,
 	)
 
 	authH := authadapter.New(
@@ -36,12 +35,12 @@ func New() *App {
 		c.Sessions,
 		c.Validator,
 		authadapter.Config{
-			CSRFField:    c.ServerConfig.CSRFCookieName,
+			CSRFField:    c.Config.Server.CSRFCookieName,
 			SigninPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
 			SignupPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
 			HomePathFn:   func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
 			RequestFn: func(ec *echo.Context) authadapter.Request {
-				req := view.NewRequest(ec, c.Config.Nav, c.Config.Keys)
+				req := view.NewRequest(ec, c.Config)
 				return authadapter.Request{
 					CSRFToken: req.CSRFToken,
 					PageFn:    req.Page,
@@ -50,7 +49,7 @@ func New() *App {
 		},
 	)
 
-	c.Web.Static(c.ServerConfig.PublicPrefix, c.PublicDir)
+	c.Web.Static(c.AssetPaths.URLPrefix(), c.PublicDir)
 	if err := RegisterRoutes(c, h, authH); err != nil {
 		panic(fmt.Sprintf("routes: %v", err))
 	}

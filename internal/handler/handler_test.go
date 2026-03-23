@@ -14,7 +14,6 @@ import (
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/server/apperr"
-	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/route"
 	"github.com/go-sum/server/validate"
 
@@ -94,7 +93,7 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 		},
 		validator:   validate.New(),
 		checkHealth: checkHealth,
-		keys:        testKeys,
+		cfg:         &config.Config{Keys: testKeys},
 	}
 }
 
@@ -118,7 +117,7 @@ func setCSRFToken(c *echo.Context) {
 }
 
 func setUserID(c *echo.Context, userID string) {
-	cfgs.Set(c, testKeys.UserID, userID)
+	c.Set(testKeys.UserID, userID)
 }
 
 func setPathParam(c *echo.Context, path, name, value string) {

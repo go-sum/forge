@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/forge/config"
-	cfgs "github.com/go-sum/server/config"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -27,9 +26,9 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	req.Header.Set("HX-Target", "#users")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	cfgs.Set(c, testKeys.UserID, "user-123")
-	cfgs.Set(c, testKeys.UserRole, "admin")
-	cfgs.Set(c, testKeys.DisplayName, "Alice")
+	c.Set(testKeys.UserID, "user-123")
+	c.Set(testKeys.UserRole, "admin")
+	c.Set(testKeys.DisplayName, "Alice")
 	c.Set(echomw.DefaultCSRFConfig.ContextKey, "csrf-token")
 	if err := flash.Success(rec, "Saved"); err != nil {
 		t.Fatalf("set flash: %v", err)
@@ -38,7 +37,7 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 		req.AddCookie(cookie)
 	}
 
-	viewReq := NewRequest(c, config.NavConfig{}, testKeys)
+	viewReq := NewRequest(c, &config.Config{Keys: testKeys})
 
 	if viewReq.CurrentPath != "/users" {
 		t.Fatalf("CurrentPath = %q", viewReq.CurrentPath)

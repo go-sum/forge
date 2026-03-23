@@ -118,18 +118,15 @@ func (c *Container) initWeb() {
 	if cfg.IsDevelopment() {
 		hashes = append(hashes, cfg.CSPHashes.DevOnly...)
 	}
+	processedCSP := injectCSPHashes(cfg.Server.CSP, hashes)
+	publicPrefix := c.AssetPaths.URLPrefix()
 	c.ServerConfig = server.Config{
 		Host:            cfg.Server.Host,
 		Port:            strconv.Itoa(cfg.Server.Port),
-		Debug:           cfg.IsDevelopment(),
 		GracefulTimeout: time.Duration(cfg.Server.GracefulTimeout) * time.Second,
-		CookieSecure:    cfg.Auth.Session.Secure,
-		CSP:             injectCSPHashes(cfg.Server.CSP, hashes),
-		CSRFCookieName:  cfg.Server.CSRFCookieName,
-		PublicPrefix:    c.AssetPaths.URLPrefix(),
 	}
 	c.Web = server.New()
-	appserver.RegisterMiddleware(c.Web, c.ServerConfig, cfg)
+	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }
 
 func (c *Container) initAuth() {
