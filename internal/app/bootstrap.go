@@ -23,6 +23,7 @@ import (
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/server"
+	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 )
@@ -32,10 +33,23 @@ const assetConfigPath = assetconfig.DefaultConfigPath
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
 func (c *Container) initConfig() {
-	if err := config.InitConfig("config"); err != nil {
+	cfg, err := cfgs.Load(func(cfg *config.Config) cfgs.Options {
+		return cfgs.Options{
+			EnvPrefix:      config.EnvPrefix,
+			BaseDir:        "config",
+			EnvKey:         "app.env",
+			ValidatorSetup: config.RegisterNavValidations,
+			ContentFiles: []cfgs.ContentFile{
+				{Filename: "site.yaml", Target: &cfg.Site},
+				{Filename: "nav.yaml", Target: &cfg.Nav},
+			},
+		}
+	})
+	if err != nil {
 		panic(fmt.Sprintf("config: %v", err))
 	}
-	c.Config = config.App
+	config.App = cfg
+	c.Config = cfg
 }
 
 // initLogger configures the global slog logger. Handler type is environment-driven

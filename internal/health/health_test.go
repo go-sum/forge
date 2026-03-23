@@ -11,16 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-sum/forge/config"
 	"github.com/jackc/pgx/v5"
 )
 
 // TestRunConfigFailureSkipsDependentChecks verifies that a bad config dir
 // causes the config assertion to fail and all downstream checks to skip.
 func TestRunConfigFailureSkipsDependentChecks(t *testing.T) {
-	prev := config.App
-	t.Cleanup(func() { config.App = prev })
-
 	report := Run(context.Background(), Options{
 		ConfigDir: filepath.Join(t.TempDir(), "missing"),
 	})
@@ -54,9 +50,6 @@ func TestRunConfigFailureSkipsDependentChecks(t *testing.T) {
 // fails DB connectivity, skips required relations, but the HTTP assertion
 // still runs and passes independently.
 func TestRunDatabaseFailureAndHTTPSuccessAreIndependent(t *testing.T) {
-	prev := config.App
-	t.Cleanup(func() { config.App = prev })
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

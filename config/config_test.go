@@ -5,7 +5,24 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	cfgs "github.com/go-sum/server/config"
 )
+
+func loadTestConfig(dir string) (*Config, error) {
+	return cfgs.Load(func(cfg *Config) cfgs.Options {
+		return cfgs.Options{
+			EnvPrefix:      EnvPrefix,
+			BaseDir:        dir,
+			EnvKey:         "app.env",
+			ValidatorSetup: RegisterNavValidations,
+			ContentFiles: []cfgs.ContentFile{
+				{Filename: "site.yaml", Target: &cfg.Site},
+				{Filename: "nav.yaml", Target: &cfg.Nav},
+			},
+		}
+	})
+}
 
 func TestInitLoadsNavContentFile(t *testing.T) {
 	prev := App
@@ -68,9 +85,11 @@ auth:
 		}
 	}
 
-	if err := InitConfig(dir); err != nil {
-		t.Fatalf("InitConfig() error = %v", err)
+	cfg, err := loadTestConfig(dir)
+	if err != nil {
+		t.Fatalf("loadTestConfig() error = %v", err)
 	}
+	App = cfg
 
 	if got := App.Nav.Brand.Label; got != "Starter" {
 		t.Fatalf("InitConfig() brand label = %q, want %q", got, "Starter")
@@ -163,10 +182,10 @@ auth:
 				}
 			}
 
-			if err := InitConfig(dir); err == nil {
-				t.Fatal("InitConfig() error = nil, want validation error")
+			if _, err := loadTestConfig(dir); err == nil {
+				t.Fatal("loadTestConfig() error = nil, want validation error")
 			} else if !strings.Contains(err.Error(), "nav.yaml") {
-				t.Fatalf("InitConfig() error = %v, want nav.yaml attribution", err)
+				t.Fatalf("loadTestConfig() error = %v, want nav.yaml attribution", err)
 			}
 		})
 	}

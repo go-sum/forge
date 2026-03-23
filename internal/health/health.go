@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-sum/forge/config"
+	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/database"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -136,10 +137,22 @@ func withDefaults(opts Options) Options {
 }
 
 func assertLoadConfig(_ context.Context, state *verificationState) Result {
-	if err := config.InitConfig(state.opts.ConfigDir); err != nil {
+	cfg, err := cfgs.Load(func(cfg *config.Config) cfgs.Options {
+		return cfgs.Options{
+			EnvPrefix:      config.EnvPrefix,
+			BaseDir:        state.opts.ConfigDir,
+			EnvKey:         "app.env",
+			ValidatorSetup: config.RegisterNavValidations,
+			ContentFiles: []cfgs.ContentFile{
+				{Filename: "site.yaml", Target: &cfg.Site},
+				{Filename: "nav.yaml", Target: &cfg.Nav},
+			},
+		}
+	})
+	if err != nil {
 		return failResult(fmt.Errorf("load config from %s: %w", state.opts.ConfigDir, err))
 	}
-	state.cfg = config.App
+	state.cfg = cfg
 	return passResult("loaded config from " + state.opts.ConfigDir)
 }
 
