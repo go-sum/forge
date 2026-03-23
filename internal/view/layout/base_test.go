@@ -12,8 +12,10 @@ import (
 
 func TestPageInjectsCSRFAssetsAndFlash(t *testing.T) {
 	got := testutil.RenderNode(t, Page(Props{
-		Title:     "Home",
-		CSRFToken: "csrf-token",
+		Title:         "Home",
+		FaviconPath:   "/public/img/favicon.ico",
+		CSRFFieldName: "_csrf",
+		CSRFToken:     "csrf-token",
 		Flash: []flash.Message{{
 			Type: flash.TypeSuccess,
 			Text: "Saved",
@@ -23,6 +25,7 @@ func TestPageInjectsCSRFAssetsAndFlash(t *testing.T) {
 
 	wantSnippets := []string{
 		`<title>Home</title>`,
+		`rel="icon" href="/public/img/favicon.ico"`,
 		`name="csrf-token" content="csrf-token"`,
 		`hx-headers="{&#34;X-CSRF-Token&#34;:&#34;csrf-token&#34;}"`,
 		`id="toast-container"`,

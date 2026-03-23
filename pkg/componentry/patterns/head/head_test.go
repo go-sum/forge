@@ -13,7 +13,6 @@ import (
 func TestHeadRendersSegmentedMetadataAssetsAndExtras(t *testing.T) {
 	got := testutil.RenderNode(t, Head(Props{
 		Meta: MetaProps{
-			AppName:     "Starter",
 			Title:       "Users",
 			Description: "Manage users.",
 			Keywords:    []string{"go", "echo"},
@@ -31,7 +30,7 @@ func TestHeadRendersSegmentedMetadataAssetsAndExtras(t *testing.T) {
 
 	wantSnippets := []string{
 		`<head>`,
-		`<title>Starter | Users</title>`,
+		`<title>Users</title>`,
 		`name="description" content="Manage users."`,
 		`name="keywords" content="go, echo"`,
 		`rel="icon" href="/public/favicon.png"`,
@@ -47,35 +46,3 @@ func TestHeadRendersSegmentedMetadataAssetsAndExtras(t *testing.T) {
 	}
 }
 
-func TestMetatagsFallsBackToSingleTitleValue(t *testing.T) {
-	tests := []struct {
-		name string
-		meta MetaProps
-		want string
-	}{
-		{
-			name: "app and page title",
-			meta: MetaProps{AppName: "Starter", Title: "Home"},
-			want: `<title>Starter | Home</title>`,
-		},
-		{
-			name: "page title only",
-			meta: MetaProps{Title: "Home"},
-			want: `<title>Home</title>`,
-		},
-		{
-			name: "app name only",
-			meta: MetaProps{AppName: "Starter"},
-			want: `<title>Starter</title>`,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := testutil.RenderNode(t, Metatags(tc.meta))
-			if !strings.Contains(got, tc.want) {
-				t.Fatalf("rendered metatags missing %q:\n%s", tc.want, got)
-			}
-		})
-	}
-}

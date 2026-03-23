@@ -12,7 +12,6 @@ import (
 	"net/http"
 
 	"github.com/go-sum/forge/config"
-	srv "github.com/go-sum/server"
 	smw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -20,15 +19,15 @@ import (
 )
 
 // RegisterMiddleware wires the application middleware stack onto e in the correct order.
-// srvCfg carries the runtime values (CSP policy, CSRF cookie name, public prefix,
-// cookie security flag) that middleware need to be configured with.
-// appCfg is forwarded to the error handler so error pages render the correct nav
-// and CSRF token is stored under the same key that the view layer reads.
-func RegisterMiddleware(e *echo.Echo, srvCfg srv.Config, appCfg *config.Config) {
+// processedCSP is the final CSP header value (with hashes already injected by the caller).
+// publicPrefix is the URL prefix for static assets, used to set long-lived cache headers.
+// cfg is forwarded to the error handler so error pages render the correct nav and
+// the CSRF token is stored under the same key that the view layer reads.
+func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, publicPrefix string) {
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
-		Debug:  srvCfg.Debug,
+		Debug:  cfg.IsDevelopment(),
 		Logger: slog.Default(),
-		Config: appCfg,
+		Config: cfg,
 	})
 
 	// Pre-routing: runs before the router dispatches the request.
@@ -38,11 +37,12 @@ func RegisterMiddleware(e *echo.Echo, srvCfg srv.Config, appCfg *config.Config) 
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
-	// HSTS is only meaningful over TLS. Only emit it when CookieSecure is true
+	// HSTS is only meaningful over TLS. Only emit it when cookies are secure
 	// (which correlates with HTTPS / production), so dev logs stay clean.
 	const hstsOneYear = 31536000
 	hstsMaxAge := 0
-	if srvCfg.CookieSecure {
+	cookieSecure := cfg.Auth.Session.Secure
+	if cookieSecure {
 		hstsMaxAge = hstsOneYear
 	}
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
@@ -52,8 +52,8 @@ func RegisterMiddleware(e *echo.Echo, srvCfg srv.Config, appCfg *config.Config) 
 		ContentTypeNosniff:    "nosniff",
 		XFrameOptions:         "DENY",
 		HSTSMaxAge:            hstsMaxAge,
-		HSTSPreloadEnabled:    srvCfg.CookieSecure,
-		ContentSecurityPolicy: srvCfg.CSP,
+		HSTSPreloadEnabled:    cookieSecure,
+		ContentSecurityPolicy: processedCSP,
 	}))
 
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
@@ -85,13 +85,13 @@ func RegisterMiddleware(e *echo.Echo, srvCfg srv.Config, appCfg *config.Config) 
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-		ContextKey:     appCfg.Keys.CSRF,
-		TokenLookup:    "header:X-CSRF-Token,form:" + srvCfg.CSRFCookieName,
-		CookieName:     srvCfg.CSRFCookieName,
+		ContextKey:     cfg.Keys.CSRF,
+		TokenLookup:    "header:X-CSRF-Token,form:" + cfg.Server.CSRFCookieName,
+		CookieName:     cfg.Server.CSRFCookieName,
 		CookieSameSite: http.SameSiteLaxMode,
-		CookieSecure:   srvCfg.CookieSecure,
+		CookieSecure:   cookieSecure,
 		CookiePath:     "/",
 	}))
 
-	e.Use(smw.StaticCacheControl(srvCfg.PublicPrefix))
+	e.Use(smw.StaticCacheControl(publicPrefix))
 }

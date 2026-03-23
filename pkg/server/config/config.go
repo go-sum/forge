@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	koanyaml "github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -70,7 +70,7 @@ func loadConfig(target any, opts Options) error {
 
 	// 1. Base config (required).
 	baseFile := filepath.Join(opts.BaseDir, "config.yaml")
-	if err := k.Load(file.Provider(baseFile), koanyaml.Parser()); err != nil {
+	if err := k.Load(file.Provider(baseFile), yaml.Parser()); err != nil {
 		return fmt.Errorf("config: load %s: %w", baseFile, err)
 	}
 
@@ -85,7 +85,7 @@ func loadConfig(target any, opts Options) error {
 		}
 		if envName != "" {
 			overlayFile := filepath.Join(opts.BaseDir, "config."+envName+".yaml")
-			if err := k.Load(file.Provider(overlayFile), koanyaml.Parser()); err != nil {
+			if err := k.Load(file.Provider(overlayFile), yaml.Parser()); err != nil {
 				if !errors.Is(err, fs.ErrNotExist) {
 					return fmt.Errorf("config: load %s: %w", overlayFile, err)
 				}
@@ -112,7 +112,7 @@ func loadConfig(target any, opts Options) error {
 			continue
 		}
 		path := filepath.Join(opts.BaseDir, cf.Filename)
-		_ = k.Load(file.Provider(path), koanyaml.Parser()) // missing = fine
+		_ = k.Load(file.Provider(path), yaml.Parser()) // missing = fine
 	}
 
 	// 5. Unmarshal merged config state into the caller's target struct.

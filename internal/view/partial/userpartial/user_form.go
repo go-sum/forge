@@ -54,7 +54,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 					Indicator: "#users-loading",
 				})),
 				h.Class("grid gap-4 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1.1fr)_12rem_auto] xl:items-end"),
-				h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value(req.CSRFToken)),
+				h.Input(h.Type("hidden"), h.Name(req.CSRFFieldName), h.Value(req.CSRFToken)),
 				h.Div(
 					h.Class("sm:col-span-2 xl:col-span-4"),
 					view.FormError(data.Errors["_"]),

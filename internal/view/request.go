@@ -22,6 +22,8 @@ import (
 type Request struct {
 	CurrentPath     string
 	CSRFToken       string
+	CSRFFieldName   string
+	FaviconPath     string
 	IsAuthenticated bool
 	UserID          string
 	UserRole        string
@@ -37,6 +39,8 @@ type Request struct {
 func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	req := Request{
 		CurrentPath:   c.Request().URL.Path,
+		CSRFFieldName: cfg.Server.CSRFCookieName,
+		FaviconPath:   cfg.Site.FaviconPath,
 		NavConfig:     cfg.Nav,
 		CopyrightYear: cfg.Site.CopyrightYear,
 		HTMX:          htmx.NewRequest(c.Request()),
@@ -98,6 +102,8 @@ func (r Request) IsPartial() bool {
 func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 	return layout.Props{
 		Title:           title,
+		FaviconPath:     r.FaviconPath,
+		CSRFFieldName:   r.CSRFFieldName,
 		CurrentPath:     r.CurrentPath,
 		CSRFToken:       r.CSRFToken,
 		IsAuthenticated: r.IsAuthenticated,

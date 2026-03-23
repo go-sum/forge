@@ -5,7 +5,7 @@ import (
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/componentry/patterns/flash"
-	componenthead "github.com/go-sum/componentry/patterns/head"
+	"github.com/go-sum/componentry/patterns/head"
 	uilayout "github.com/go-sum/componentry/ui/layout"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters"
@@ -17,6 +17,8 @@ import (
 // Props configures the full-page HTML shell.
 type Props struct {
 	Title           string
+	FaviconPath     string
+	CSRFFieldName   string
 	CurrentPath     string
 	CSRFToken       string
 	IsAuthenticated bool
@@ -33,11 +35,12 @@ func Page(p Props) g.Node {
 	return h.Doctype(
 		h.HTML(
 			h.Lang("en"),
-			componenthead.Head(componenthead.Props{
-				Meta: componenthead.MetaProps{
-					Title: p.Title,
+			head.Head(head.Props{
+				Meta: head.MetaProps{
+					Title:       p.Title,
+					FaviconHref: p.FaviconPath,
 				},
-				Stylesheets: []componenthead.Stylesheet{{
+				Stylesheets: []head.Stylesheet{{
 					Href: assets.Path("css/app.css"),
 				}},
 				Extra: []g.Node{
@@ -49,7 +52,7 @@ func Page(p Props) g.Node {
 					// CSRF meta tag for non-HTMX fetch calls.
 					h.Meta(h.Name("csrf-token"), h.Content(p.CSRFToken)),
 				},
-				Scripts: []componenthead.Script{
+				Scripts: []head.Script{
 					{Src: assets.Path("js/app.js"), Defer: true},
 					{Src: assets.Path("js/htmx.min.js"), Defer: true},
 				},
@@ -88,7 +91,7 @@ func pageNavSlots(p Props) uilayout.NavSlots {
 			Label:  "Signout",
 			Action: "/signout",
 			HiddenFields: []uilayout.NavHiddenField{{
-				Name:  "_csrf",
+				Name:  p.CSRFFieldName,
 				Value: p.CSRFToken,
 			}},
 		}),

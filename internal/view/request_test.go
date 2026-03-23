@@ -37,7 +37,11 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 		req.AddCookie(cookie)
 	}
 
-	viewReq := NewRequest(c, &config.Config{Keys: testKeys})
+	viewReq := NewRequest(c, &config.Config{
+		Keys:   testKeys,
+		Server: config.ServerConfig{CSRFCookieName: "_csrf"},
+		Site:   config.SiteConfig{FaviconPath: "/public/img/favicon.ico"},
+	})
 
 	if viewReq.CurrentPath != "/users" {
 		t.Fatalf("CurrentPath = %q", viewReq.CurrentPath)
@@ -53,6 +57,12 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	}
 	if viewReq.CSRFToken != "csrf-token" {
 		t.Fatalf("CSRFToken = %q", viewReq.CSRFToken)
+	}
+	if viewReq.CSRFFieldName != "_csrf" {
+		t.Fatalf("CSRFFieldName = %q", viewReq.CSRFFieldName)
+	}
+	if viewReq.FaviconPath != "/public/img/favicon.ico" {
+		t.Fatalf("FaviconPath = %q", viewReq.FaviconPath)
 	}
 	if !viewReq.HTMX.Enabled || viewReq.HTMX.Target != "#users" {
 		t.Fatalf("HTMX = %#v", viewReq.HTMX)

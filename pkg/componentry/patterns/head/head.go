@@ -12,7 +12,6 @@ import (
 
 // MetaProps configures the standard metadata emitted in <head>.
 type MetaProps struct {
-	AppName     string
 	Title       string
 	Description string
 	Keywords    []string
@@ -57,7 +56,7 @@ func Metatags(p MetaProps) g.Node {
 	nodes := []g.Node{
 		h.Meta(h.Charset("utf-8")),
 		h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
-		h.TitleEl(g.Text(pageTitle(p.AppName, p.Title))),
+		h.TitleEl(g.Text(p.Title)),
 	}
 	if p.FaviconHref != "" {
 		nodes = append(nodes, h.Link(h.Rel("icon"), h.Href(p.FaviconHref)))
@@ -118,13 +117,3 @@ func JS(scripts ...Script) g.Node {
 	return g.Group(nodes)
 }
 
-func pageTitle(appName, title string) string {
-	switch {
-	case appName != "" && title != "":
-		return appName + " | " + title
-	case title != "":
-		return title
-	default:
-		return appName
-	}
-}
