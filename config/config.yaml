@@ -45,6 +45,9 @@ security:
     cookie_name: _csrf
     form_field: _csrf
     header_name: X-CSRF-Token
+  rate_limits:
+    server: { rate: 50, burst: 100 }  # server-wide guard
+    auth:   { rate: 2, burst: 5 }  # 5 rapid attempts, then 2/s
 
 csp_hashes:
   always: []

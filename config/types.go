@@ -40,6 +40,15 @@ type SecurityConfig struct {
 	FetchMetadata  FetchMetadataConfig `koanf:"fetch_metadata"`
 	Headers        HeadersConfig       `koanf:"headers"`
 	CSRF           CSRFConfig          `koanf:"csrf"`
+	RateLimits     map[string]RateLimitConfig `koanf:"rate_limits"` // named per-route policies
+}
+
+// RateLimitConfig configures the IP-based rate limiter applied to high-risk
+// unauthenticated mutation routes (e.g. /signin, /signup).
+// Rate 0 disables rate limiting entirely.
+type RateLimitConfig struct {
+	Rate  float64 `koanf:"rate"`  // requests per second (token bucket refill)
+	Burst int     `koanf:"burst"` // maximum burst size above the steady rate
 }
 
 type OriginConfig struct {

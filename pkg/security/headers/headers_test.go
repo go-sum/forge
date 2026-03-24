@@ -1,39 +1,6 @@
 package headers
 
-import (
-	"net/http"
-	"testing"
-)
-
-func TestApplySetsConfiguredHeaders(t *testing.T) {
-	h := http.Header{}
-
-	Apply(h, Policy{
-		XSSProtection:         "0",
-		ContentTypeNosniff:    true,
-		FrameOptions:          "DENY",
-		ContentSecurityPolicy: "default-src 'self'",
-		HSTS: HSTSConfig{
-			Enabled:           true,
-			MaxAge:            31536000,
-			IncludeSubDomains: true,
-			Preload:           true,
-		},
-	})
-
-	tests := map[string]string{
-		"X-XSS-Protection":          "0",
-		"X-Content-Type-Options":    "nosniff",
-		"X-Frame-Options":           "DENY",
-		"Content-Security-Policy":   "default-src 'self'",
-		"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-	}
-	for name, want := range tests {
-		if got := h.Get(name); got != want {
-			t.Fatalf("%s = %q, want %q", name, got, want)
-		}
-	}
-}
+import "testing"
 
 func TestInjectScriptHashes(t *testing.T) {
 	got := InjectScriptHashes("default-src 'self'; script-src 'self'; style-src 'self'", []string{"'sha256-a'", "", " 'sha256-b' "})

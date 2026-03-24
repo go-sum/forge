@@ -9,6 +9,10 @@ server:
 
 security:
   external_origin: http://localhost:8080
+  rate_limits:
+    auth:
+      rate: 0.2   # 5 burst attempts then 1 per 5s
+      burst: 5
   headers:
     # Inline script hashes are injected at startup — see csp_hashes below.
     content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"

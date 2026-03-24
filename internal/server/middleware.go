@@ -9,10 +9,8 @@ package server
 
 import (
 	"log/slog"
-	"net/http"
 
 	"github.com/go-sum/forge/config"
-	secmw "github.com/go-sum/security/middleware"
 	smw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -37,10 +35,18 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 	// Post-routing (order matters — each middleware wraps the next).
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
-	e.Use(secmw.SecurityHeaders(securityHeaderPolicy(cfg, processedCSP)))
+	e.Use(secureMiddleware(cfg, processedCSP))
 
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
+	// Each Log* flag must be explicitly enabled — Echo v5 opts out of capture by default.
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		// HandleError:  true,
+		// LogMethod:    true,
+		// LogURI:       true,
+		// LogStatus:    true,
+		// LogLatency:   true,
+		// LogRemoteIP:  true,
+		// LogRequestID: true,
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			attrs := []any{
 				"method", v.Method,
@@ -67,15 +73,7 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 	}))
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
-	csrfCfg := cfg.Security.CSRF
-	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-		ContextKey:     cfg.Keys.CSRF,
-		TokenLookup:    "header:" + csrfCfg.HeaderName + ",form:" + csrfCfg.FormField,
-		CookieName:     csrfCfg.CookieName,
-		CookieSameSite: http.SameSiteLaxMode,
-		CookieSecure:   cfg.Auth.Session.Secure,
-		CookiePath:     "/",
-	}))
+	e.Use(CSRFMiddleware(cfg))
 
 	e.Use(smw.StaticCacheControl(publicPrefix))
 }

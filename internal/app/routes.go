@@ -31,7 +31,10 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: authH.SignupPage})
 
 	publicMutations := e.Group("")
-	publicMutations.Use(appserver.ProtectBrowserMutation(c.Config))
+	publicMutations.Use(
+		appserver.ProtectBrowserMutation(c.Config),
+		appserver.RateLimitMiddleware(c.Config, "auth"),
+	)
 	route.Add(publicMutations, echo.Route{Method: http.MethodPost, Path: "/signin", Name: "signin.post", Handler: authH.Signin})
 	route.Add(publicMutations, echo.Route{Method: http.MethodPost, Path: "/signup", Name: "signup.post", Handler: authH.Signup})
 

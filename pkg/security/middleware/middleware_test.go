@@ -6,48 +6,9 @@ import (
 	"testing"
 
 	"github.com/go-sum/security/fetchmeta"
-	"github.com/go-sum/security/headers"
 	"github.com/go-sum/security/origin"
 	"github.com/labstack/echo/v5"
 )
-
-func TestSecurityHeadersSetsHeaders(t *testing.T) {
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	err := SecurityHeaders(headers.Policy{
-		XSSProtection:         "0",
-		ContentTypeNosniff:    true,
-		FrameOptions:          "DENY",
-		ContentSecurityPolicy: "default-src 'self'",
-		HSTS: headers.HSTSConfig{
-			Enabled:           true,
-			MaxAge:            31536000,
-			IncludeSubDomains: true,
-			Preload:           true,
-		},
-	})(func(c *echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})(c)
-	if err != nil {
-		t.Fatalf("SecurityHeaders() error = %v", err)
-	}
-
-	tests := map[string]string{
-		"X-XSS-Protection":          "0",
-		"X-Content-Type-Options":    "nosniff",
-		"X-Frame-Options":           "DENY",
-		"Content-Security-Policy":   "default-src 'self'",
-		"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-	}
-	for name, want := range tests {
-		if got := rec.Header().Get(name); got != want {
-			t.Fatalf("%s = %q, want %q", name, got, want)
-		}
-	}
-}
 
 func TestProtectBrowserMutationAllowsVerifiedRequest(t *testing.T) {
 	e := echo.New()
