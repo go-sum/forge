@@ -23,6 +23,7 @@ type Request struct {
 	CurrentPath     string
 	CSRFToken       string
 	CSRFFieldName   string
+	CSRFHeaderName  string
 	FaviconPath     string
 	IsAuthenticated bool
 	UserID          string
@@ -38,13 +39,14 @@ type Request struct {
 // NewRequest builds request-scoped presentation state from the Echo context.
 func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	req := Request{
-		CurrentPath:   c.Request().URL.Path,
-		CSRFFieldName: cfg.Server.CSRFCookieName,
-		FaviconPath:   cfg.Site.FaviconPath,
-		NavConfig:     cfg.Nav,
-		CopyrightYear: cfg.Site.CopyrightYear,
-		HTMX:          htmx.NewRequest(c.Request()),
-		Routes:        c.Echo().Router().Routes(),
+		CurrentPath:    c.Request().URL.Path,
+		CSRFFieldName:  cfg.Security.CSRF.FormField,
+		CSRFHeaderName: cfg.Security.CSRF.HeaderName,
+		FaviconPath:    cfg.Site.FaviconPath,
+		NavConfig:      cfg.Nav,
+		CopyrightYear:  cfg.Site.CopyrightYear,
+		HTMX:           htmx.NewRequest(c.Request()),
+		Routes:         c.Echo().Router().Routes(),
 	}
 
 	if userID, ok := c.Get(cfg.Keys.UserID).(string); ok && userID != "" {
@@ -104,6 +106,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		Title:           title,
 		FaviconPath:     r.FaviconPath,
 		CSRFFieldName:   r.CSRFFieldName,
+		CSRFHeaderName:  r.CSRFHeaderName,
 		CurrentPath:     r.CurrentPath,
 		CSRFToken:       r.CSRFToken,
 		IsAuthenticated: r.IsAuthenticated,

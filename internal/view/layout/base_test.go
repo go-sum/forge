@@ -12,10 +12,11 @@ import (
 
 func TestPageInjectsCSRFAssetsAndFlash(t *testing.T) {
 	got := testutil.RenderNode(t, Page(Props{
-		Title:         "Home",
-		FaviconPath:   "/public/img/favicon.ico",
-		CSRFFieldName: "_csrf",
-		CSRFToken:     "csrf-token",
+		Title:          "Home",
+		FaviconPath:    "/public/img/favicon.ico",
+		CSRFFieldName:  "_csrf",
+		CSRFHeaderName: "X-CSRF-Token",
+		CSRFToken:      "csrf-token",
 		Flash: []flash.Message{{
 			Type: flash.TypeSuccess,
 			Text: "Saved",

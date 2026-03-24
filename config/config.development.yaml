@@ -6,8 +6,14 @@ log:
 
 server:
   port: 3000
-  # Inline script hashes are injected at startup — see csp_hashes below.
-  csp: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+
+security:
+  external_origin: http://localhost:8080
+  headers:
+    # Inline script hashes are injected at startup — see csp_hashes below.
+    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+    hsts:
+      enabled: false
 
 csp_hashes:
   dev_only:

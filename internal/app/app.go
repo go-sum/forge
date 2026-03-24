@@ -35,7 +35,7 @@ func New() *App {
 		c.Sessions,
 		c.Validator,
 		authadapter.Config{
-			CSRFField:    c.Config.Server.CSRFCookieName,
+			CSRFField:    c.Config.Security.CSRF.FormField,
 			SigninPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
 			SignupPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
 			HomePathFn:   func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },

@@ -38,6 +38,7 @@ WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
 COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
+COPY pkg/security/go.mod pkg/security/go.sum /app/pkg/security/
 COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
 RUN go mod download
 # Source mounted as volume — not copied

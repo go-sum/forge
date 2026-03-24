@@ -19,6 +19,7 @@ type Props struct {
 	Title           string
 	FaviconPath     string
 	CSRFFieldName   string
+	CSRFHeaderName  string
 	CurrentPath     string
 	CSRFToken       string
 	IsAuthenticated bool
@@ -60,7 +61,7 @@ func Page(p Props) g.Node {
 			h.Body(
 				h.Class("bg-background text-foreground min-h-screen flex flex-col"),
 				// Inject CSRF token into all HTMX requests via hx-headers on <body>.
-				g.Attr("hx-headers", `{"X-CSRF-Token":"`+p.CSRFToken+`"}`),
+				g.Attr("hx-headers", `{"`+p.CSRFHeaderName+`":"`+p.CSRFToken+`"}`),
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
 					Config:          adapters.ToComponentryNavConfig(p.NavConfig),

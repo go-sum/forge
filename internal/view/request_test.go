@@ -38,9 +38,14 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	}
 
 	viewReq := NewRequest(c, &config.Config{
-		Keys:   testKeys,
-		Server: config.ServerConfig{CSRFCookieName: "_csrf"},
-		Site:   config.SiteConfig{FaviconPath: "/public/img/favicon.ico"},
+		Keys: testKeys,
+		Security: config.SecurityConfig{
+			CSRF: config.CSRFConfig{
+				FormField:  "_csrf",
+				HeaderName: "X-CSRF-Token",
+			},
+		},
+		Site: config.SiteConfig{FaviconPath: "/public/img/favicon.ico"},
 	})
 
 	if viewReq.CurrentPath != "/users" {
@@ -60,6 +65,9 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	}
 	if viewReq.CSRFFieldName != "_csrf" {
 		t.Fatalf("CSRFFieldName = %q", viewReq.CSRFFieldName)
+	}
+	if viewReq.CSRFHeaderName != "X-CSRF-Token" {
+		t.Fatalf("CSRFHeaderName = %q", viewReq.CSRFHeaderName)
 	}
 	if viewReq.FaviconPath != "/public/img/favicon.ico" {
 		t.Fatalf("FaviconPath = %q", viewReq.FaviconPath)

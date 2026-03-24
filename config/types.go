@@ -2,15 +2,16 @@ package config
 
 // Config is the root application configuration struct.
 type Config struct {
-	App       AppConfig          `koanf:"app"`
-	Server    ServerConfig       `koanf:"server"`
-	Database  DatabaseConfig     `koanf:"database"`
-	Auth      AuthConfig         `koanf:"auth"`
-	Log       LogConfig          `koanf:"log"`
-	Site      SiteConfig         `koanf:"site"`
-	Nav       NavConfig          `koanf:"nav"`
-	CSPHashes CSPHashesConfig    `koanf:"csp_hashes"`
-	Keys      ContextKeysConfig  `koanf:"keys"`
+	App       AppConfig         `koanf:"app"`
+	Server    ServerConfig      `koanf:"server"`
+	Security  SecurityConfig    `koanf:"security"`
+	Database  DatabaseConfig    `koanf:"database"`
+	Auth      AuthConfig        `koanf:"auth"`
+	Log       LogConfig         `koanf:"log"`
+	Site      SiteConfig        `koanf:"site"`
+	Nav       NavConfig         `koanf:"nav"`
+	CSPHashes CSPHashesConfig   `koanf:"csp_hashes"`
+	Keys      ContextKeysConfig `koanf:"keys"`
 }
 
 // IsDevelopment reports whether the application is running in development mode.
@@ -31,8 +32,50 @@ type ServerConfig struct {
 	Host            string `koanf:"host"             validate:"required"`
 	Port            int    `koanf:"port"             validate:"required,min=1,max=65535"`
 	GracefulTimeout int    `koanf:"graceful_timeout"`
-	CSP             string `koanf:"csp"              validate:"required"`
-	CSRFCookieName  string `koanf:"csrf_cookie_name" validate:"required"`
+}
+
+type SecurityConfig struct {
+	ExternalOrigin string              `koanf:"external_origin" validate:"required,url"`
+	Origin         OriginConfig        `koanf:"origin"`
+	FetchMetadata  FetchMetadataConfig `koanf:"fetch_metadata"`
+	Headers        HeadersConfig       `koanf:"headers"`
+	CSRF           CSRFConfig          `koanf:"csrf"`
+}
+
+type OriginConfig struct {
+	Enabled        bool     `koanf:"enabled"`
+	RequireHeader  bool     `koanf:"require_header"`
+	AllowedOrigins []string `koanf:"allowed_origins"`
+}
+
+type FetchMetadataConfig struct {
+	Enabled                 bool     `koanf:"enabled"`
+	AllowedSites            []string `koanf:"allowed_sites"`
+	AllowedModes            []string `koanf:"allowed_modes"`
+	AllowedDestinations     []string `koanf:"allowed_destinations"`
+	FallbackWhenMissing     bool     `koanf:"fallback_when_missing"`
+	RejectCrossSiteNavigate bool     `koanf:"reject_cross_site_navigate"`
+}
+
+type HeadersConfig struct {
+	XSSProtection         string     `koanf:"xss_protection" validate:"required"`
+	ContentTypeNosniff    bool       `koanf:"content_type_nosniff"`
+	FrameOptions          string     `koanf:"frame_options" validate:"required"`
+	ContentSecurityPolicy string     `koanf:"content_security_policy" validate:"required"`
+	HSTS                  HSTSConfig `koanf:"hsts"`
+}
+
+type HSTSConfig struct {
+	Enabled           bool `koanf:"enabled"`
+	MaxAge            int  `koanf:"max_age"`
+	IncludeSubDomains bool `koanf:"include_subdomains"`
+	Preload           bool `koanf:"preload"`
+}
+
+type CSRFConfig struct {
+	CookieName string `koanf:"cookie_name" validate:"required"`
+	FormField  string `koanf:"form_field" validate:"required"`
+	HeaderName string `koanf:"header_name" validate:"required"`
 }
 
 type DatabaseConfig struct {

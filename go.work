@@ -5,4 +5,5 @@ use (
 	./pkg/componentry
 	./pkg/server
 	./pkg/auth
+	./pkg/security
 )

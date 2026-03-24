@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	authsvc "github.com/go-sum/auth/service"
@@ -22,6 +21,7 @@ import (
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
+	secheaders "github.com/go-sum/security/headers"
 	"github.com/go-sum/server"
 	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/database"
@@ -117,14 +117,6 @@ func (c *Container) initDatabase() {
 	c.DB = pool
 }
 
-// injectCSPHashes appends all hash tokens to the script-src directive of csp.
-func injectCSPHashes(csp string, hashes []string) string {
-	if len(hashes) == 0 {
-		return csp
-	}
-	return strings.Replace(csp, "script-src", "script-src "+strings.Join(hashes, " "), 1)
-}
-
 func (c *Container) initWeb() {
 	cfg := c.Config
 	hashes := []string{interactive.ScriptCSPHash}
@@ -132,7 +124,7 @@ func (c *Container) initWeb() {
 	if cfg.IsDevelopment() {
 		hashes = append(hashes, cfg.CSPHashes.DevOnly...)
 	}
-	processedCSP := injectCSPHashes(cfg.Server.CSP, hashes)
+	processedCSP := secheaders.InjectScriptHashes(cfg.Security.Headers.ContentSecurityPolicy, hashes)
 	publicPrefix := c.AssetPaths.URLPrefix()
 	c.ServerConfig = server.Config{
 		Host:            cfg.Server.Host,

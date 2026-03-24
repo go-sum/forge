@@ -82,6 +82,10 @@ func classify(err error) *apperr.Error {
 		status := sc.StatusCode()
 		title := http.StatusText(status)
 		msg := title
+		var pm interface{ PublicMessage() string }
+		if errors.As(err, &pm) && pm.PublicMessage() != "" {
+			msg = pm.PublicMessage()
+		}
 		if status >= http.StatusInternalServerError {
 			msg = "Something went wrong on our side. Please try again."
 		}

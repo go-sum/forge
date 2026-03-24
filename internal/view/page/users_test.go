@@ -63,6 +63,7 @@ func TestUserListPageRendersShellFromRequest(t *testing.T) {
 	got := testutil.RenderNode(t, UserListPage(view.Request{
 		CurrentPath:     "/users",
 		CSRFToken:       "csrf-token",
+		CSRFHeaderName:  "X-CSRF-Token",
 		IsAuthenticated: true,
 		Routes:          mustPageRoutes(t),
 		NavConfig: config.NavConfig{

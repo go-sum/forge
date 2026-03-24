@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/go-sum/forge/config"
+	secmw "github.com/go-sum/security/middleware"
 	smw "github.com/go-sum/server/middleware"
 
 	"github.com/labstack/echo/v5"
@@ -36,25 +37,7 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 	// Post-routing (order matters — each middleware wraps the next).
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
-
-	// HSTS is only meaningful over TLS. Only emit it when cookies are secure
-	// (which correlates with HTTPS / production), so dev logs stay clean.
-	const hstsOneYear = 31536000
-	hstsMaxAge := 0
-	cookieSecure := cfg.Auth.Session.Secure
-	if cookieSecure {
-		hstsMaxAge = hstsOneYear
-	}
-	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
-		// X-XSS-Protection: 1; mode=block is obsolete and actively harmful in
-		// some legacy browsers. OWASP recommends "0"; CSP handles real protection.
-		XSSProtection:         "0",
-		ContentTypeNosniff:    "nosniff",
-		XFrameOptions:         "DENY",
-		HSTSMaxAge:            hstsMaxAge,
-		HSTSPreloadEnabled:    cookieSecure,
-		ContentSecurityPolicy: processedCSP,
-	}))
+	e.Use(secmw.SecurityHeaders(securityHeaderPolicy(cfg, processedCSP)))
 
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -84,12 +67,13 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 	}))
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
+	csrfCfg := cfg.Security.CSRF
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		ContextKey:     cfg.Keys.CSRF,
-		TokenLookup:    "header:X-CSRF-Token,form:" + cfg.Server.CSRFCookieName,
-		CookieName:     cfg.Server.CSRFCookieName,
+		TokenLookup:    "header:" + csrfCfg.HeaderName + ",form:" + csrfCfg.FormField,
+		CookieName:     csrfCfg.CookieName,
 		CookieSameSite: http.SameSiteLaxMode,
-		CookieSecure:   cookieSecure,
+		CookieSecure:   cfg.Auth.Session.Secure,
 		CookiePath:     "/",
 	}))
 

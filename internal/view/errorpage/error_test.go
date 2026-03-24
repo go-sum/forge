@@ -4,13 +4,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/componentry/testutil"
+	"github.com/go-sum/forge/internal/view"
 )
 
 func TestPageRendersDebugDetailAndFallbacks(t *testing.T) {
 	got := testutil.RenderNode(t, Page(view.Request{
-		CSRFToken: "csrf-token",
+		CSRFToken:      "csrf-token",
+		CSRFHeaderName: "X-CSRF-Token",
 	}, Props{
 		Status:          500,
 		Message:         "Something went wrong.",

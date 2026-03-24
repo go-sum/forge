@@ -11,8 +11,9 @@ import (
 
 func TestHomePageRendersWelcomeAndFlash(t *testing.T) {
 	got := testutil.RenderNode(t, HomePage(view.Request{
-		CSRFToken: "csrf-token",
-		Routes:    mustPageRoutes(t),
+		CSRFToken:      "csrf-token",
+		CSRFHeaderName: "X-CSRF-Token",
+		Routes:         mustPageRoutes(t),
 		Flash: []flash.Message{{
 			Type: flash.TypeSuccess,
 			Text: "Saved",

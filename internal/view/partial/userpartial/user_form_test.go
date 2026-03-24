@@ -22,9 +22,10 @@ var partialTestUser = model.User{
 
 func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 	got := testutil.RenderNode(t, UserEditForm(view.Request{
-		CSRFToken:     "csrf-token",
-		CSRFFieldName: "_csrf",
-		Routes:        mustPartialRoutes(t),
+		CSRFToken:      "csrf-token",
+		CSRFFieldName:  "_csrf",
+		CSRFHeaderName: "X-CSRF-Token",
+		Routes:         mustPartialRoutes(t),
 	}, UserFormData{
 		User: partialTestUser,
 		Values: model.UpdateUserInput{

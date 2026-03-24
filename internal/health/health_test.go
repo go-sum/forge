@@ -152,8 +152,33 @@ server:
   host: 0.0.0.0
   port: 8080
   graceful_timeout: 10
-  csp: "default-src 'self'; script-src 'self'; style-src 'self'"
-  csrf_cookie_name: _csrf
+security:
+  external_origin: http://localhost:3000
+  origin:
+    enabled: true
+    require_header: true
+    allowed_origins: []
+  fetch_metadata:
+    enabled: true
+    allowed_sites: [same-origin, same-site]
+    allowed_modes: [cors, navigate, same-origin]
+    allowed_destinations: []
+    fallback_when_missing: true
+    reject_cross_site_navigate: true
+  headers:
+    xss_protection: "0"
+    content_type_nosniff: true
+    frame_options: DENY
+    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+    hsts:
+      enabled: false
+      max_age: 31536000
+      include_subdomains: true
+      preload: false
+  csrf:
+    cookie_name: _csrf
+    form_field: _csrf
+    header_name: X-CSRF-Token
 csp_hashes:
   always: []
   dev_only: []
