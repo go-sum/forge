@@ -90,6 +90,14 @@ func Middleware(cfg Config) echo.MiddlewareFunc {
 				return &violation{failureMessage}
 			}
 
+			// Issue a fresh token so handlers that re-render forms on POST
+			// (e.g. validation failures) embed a valid token in the response.
+			fresh, err := token.Issue(cfg.Key, scope, ttl)
+			if err != nil {
+				return err
+			}
+			c.Set(cfg.ContextKey, fresh)
+
 			return next(c)
 		}
 	}
