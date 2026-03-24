@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/knadh/koanf/v2"
 )
 
 type loaderTestConfig struct {
@@ -27,48 +25,46 @@ func TestLoadMergesOverlayEnvAndContentFiles(t *testing.T) {
 	dir := t.TempDir()
 	writeLoaderFile(t, dir, "config.yaml", `
 app:
-  env: production
+  env: ${APP_ENV:-production}
 auth:
   session:
-    auth_key: base-key
+    auth_key: ${TEST_AUTH_KEY}
 site:
   title: base-title
 `)
+	// Overlay sets app.env so cfg.App.Env reflects the active environment.
 	writeLoaderFile(t, dir, "config.development.yaml", `
-auth:
-  session:
-    auth_key: overlay-key
+app:
+  env: development
 `)
+	// Content file wins over base and overlay values.
 	writeLoaderFile(t, dir, "site.yaml", `
 site:
   title: content-title
 `)
 
-	t.Setenv("CTX_APP_ENV", "development")
-	t.Setenv("CTX_AUTH_SESSION_AUTH_KEY", "env-key")
-	t.Setenv("CTX_SITE_TITLE", "env-title")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("TEST_AUTH_KEY", "env-key")
 
 	var cfg loaderTestConfig
 	err := loadConfig(&cfg, Options{
-		EnvPrefix: "CTX_",
-		BaseDir:   dir,
-		EnvKey:    "app.env",
-		ContentFiles: []ContentFile{{
-			Filename: "site.yaml",
-			Target:   &cfg.Site,
-		}},
+		EnvKey: os.Getenv("APP_ENV"),
+		Files: []ConfigFile{
+			{Filepath: filepath.Join(dir, "config.yaml")},
+			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
+		},
 	})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
 	if cfg.App.Env != "development" {
-		t.Fatalf("App.Env = %q", cfg.App.Env)
+		t.Fatalf("App.Env = %q, want development", cfg.App.Env)
 	}
 	if cfg.Auth.Session.AuthKey != "env-key" {
-		t.Fatalf("AuthKey = %q", cfg.Auth.Session.AuthKey)
+		t.Fatalf("AuthKey = %q, want env-key", cfg.Auth.Session.AuthKey)
 	}
 	if cfg.Site.Title != "content-title" {
-		t.Fatalf("Site.Title = %q", cfg.Site.Title)
+		t.Fatalf("Site.Title = %q, want content-title", cfg.Site.Title)
 	}
 }
 
@@ -90,21 +86,95 @@ site:
 
 	var cfg loaderTestConfig
 	err := loadConfig(&cfg, Options{
-		EnvPrefix: "CTX_",
-		BaseDir:   dir,
-		ContentFiles: []ContentFile{{
-			Filename: "site.yaml",
-			Target:   &cfg.Site,
-		}},
+		Files: []ConfigFile{
+			{Filepath: filepath.Join(dir, "config.yaml")},
+			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
+		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "site.yaml") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestTransformKeyFallsBackToDottedPath(t *testing.T) {
-	if got := transformKey(koanf.New("."), "auth_session_auth_key"); got != "auth.session.auth.key" {
-		t.Fatalf("transformKey() = %q", got)
+func TestEnvVarExpansionInYAML(t *testing.T) {
+	dir := t.TempDir()
+	writeLoaderFile(t, dir, "config.yaml", `
+app:
+  env: production
+auth:
+  session:
+    auth_key: ${TEST_EXPAND_KEY}
+site:
+  title: fixed-title
+`)
+
+	t.Setenv("TEST_EXPAND_KEY", "injected-value")
+
+	var cfg loaderTestConfig
+	err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}})
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+	if cfg.Auth.Session.AuthKey != "injected-value" {
+		t.Fatalf("AuthKey = %q, want injected-value", cfg.Auth.Session.AuthKey)
+	}
+	// Unset variable expands to empty string, not the literal placeholder.
+	writeLoaderFile(t, dir, "config.yaml", `
+app:
+  env: production
+auth:
+  session:
+    auth_key: ${TEST_UNSET_VAR}
+site:
+  title: fixed-title
+`)
+	var cfg2 loaderTestConfig
+	_ = loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}) // will fail validation (required), that's fine
+	if cfg2.Auth.Session.AuthKey != "" {
+		t.Fatalf("unset AuthKey = %q, want empty string", cfg2.Auth.Session.AuthKey)
+	}
+}
+
+func TestEnvVarDefaultExpansionInYAML(t *testing.T) {
+	dir := t.TempDir()
+	writeLoaderFile(t, dir, "config.yaml", `
+app:
+  env: ${TEST_ENV_VAR:-production}
+auth:
+  session:
+    auth_key: ${TEST_KEY:-fallback-key}
+site:
+  title: fixed-title
+`)
+
+	// With env var set, it wins over the default.
+	t.Setenv("TEST_ENV_VAR", "development")
+	t.Setenv("TEST_KEY", "real-key")
+
+	var cfg loaderTestConfig
+	if err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}); err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+	if cfg.App.Env != "development" {
+		t.Fatalf("App.Env = %q, want development", cfg.App.Env)
+	}
+	if cfg.Auth.Session.AuthKey != "real-key" {
+		t.Fatalf("AuthKey = %q, want real-key", cfg.Auth.Session.AuthKey)
+	}
+
+	// Without env vars, defaults are used.
+	t.Setenv("TEST_ENV_VAR", "")
+	t.Setenv("TEST_KEY", "")
+
+	var cfg2 loaderTestConfig
+	if err := loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}); err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+	if cfg2.App.Env != "production" {
+		t.Fatalf("App.Env = %q, want production", cfg2.App.Env)
+	}
+	if cfg2.Auth.Session.AuthKey != "fallback-key" {
+		t.Fatalf("AuthKey = %q, want fallback-key", cfg2.Auth.Session.AuthKey)
 	}
 }
 

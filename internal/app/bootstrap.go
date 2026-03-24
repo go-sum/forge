@@ -23,7 +23,6 @@ import (
 	"github.com/go-sum/forge/internal/service"
 	secheaders "github.com/go-sum/security/headers"
 	"github.com/go-sum/server"
-	cfgs "github.com/go-sum/server/config"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 )
@@ -33,18 +32,7 @@ const assetConfigPath = assetconfig.DefaultConfigPath
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
 func (c *Container) initConfig() {
-	cfg, err := cfgs.Load(func(cfg *config.Config) cfgs.Options {
-		return cfgs.Options{
-			EnvPrefix:      config.EnvPrefix,
-			BaseDir:        "config",
-			EnvKey:         "app.env",
-			ValidatorSetup: config.RegisterNavValidations,
-			ContentFiles: []cfgs.ContentFile{
-				{Filename: "site.yaml", Target: &cfg.Site},
-				{Filename: "nav.yaml", Target: &cfg.Nav},
-			},
-		}
-	})
+	cfg, err := config.Load(os.Getenv("APP_ENV"))
 	if err != nil {
 		panic(fmt.Sprintf("config: %v", err))
 	}
@@ -54,10 +42,10 @@ func (c *Container) initConfig() {
 
 // initLogger configures the global slog logger. Handler type is environment-driven
 // (text/stderr in development, JSON/stdout in production); level comes from
-// config.Log.Level ("debug", "info", "warn", "error").
+// config.App.Log.Level ("debug", "info", "warn", "error").
 func (c *Container) initLogger() {
 	dev := c.Config.IsDevelopment()
-	level := parseLogLevel(c.Config.Log.Level)
+	level := parseLogLevel(c.Config.App.Log.Level)
 	opts := &slog.HandlerOptions{Level: level}
 	var h slog.Handler
 	if dev {
@@ -120,16 +108,16 @@ func (c *Container) initDatabase() {
 func (c *Container) initWeb() {
 	cfg := c.Config
 	hashes := []string{interactive.ScriptCSPHash}
-	hashes = append(hashes, cfg.CSPHashes.Always...)
+	hashes = append(hashes, cfg.App.CSPHashes.Always...)
 	if cfg.IsDevelopment() {
-		hashes = append(hashes, cfg.CSPHashes.DevOnly...)
+		hashes = append(hashes, cfg.App.CSPHashes.DevOnly...)
 	}
-	processedCSP := secheaders.InjectScriptHashes(cfg.Security.Headers.ContentSecurityPolicy, hashes)
+	processedCSP := secheaders.InjectScriptHashes(cfg.App.Security.Headers.ContentSecurityPolicy, hashes)
 	publicPrefix := c.AssetPaths.URLPrefix()
 	c.ServerConfig = server.Config{
-		Host:            cfg.Server.Host,
-		Port:            strconv.Itoa(cfg.Server.Port),
-		GracefulTimeout: time.Duration(cfg.Server.GracefulTimeout) * time.Second,
+		Host:            cfg.App.Server.Host,
+		Port:            strconv.Itoa(cfg.App.Server.Port),
+		GracefulTimeout: time.Duration(cfg.App.Server.GracefulTimeout) * time.Second,
 	}
 	c.Web = server.New()
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
@@ -137,11 +125,11 @@ func (c *Container) initWeb() {
 
 func (c *Container) initAuth() {
 	sm, err := session.NewSessionStore(session.SessionConfig{
-		Name:       c.Config.Auth.Session.Name,
-		AuthKey:    c.Config.Auth.Session.AuthKey,
-		EncryptKey: c.Config.Auth.Session.EncryptKey,
-		MaxAge:     c.Config.Auth.Session.MaxAge,
-		Secure:     c.Config.Auth.Session.Secure,
+		Name:       c.Config.App.Auth.Session.Name,
+		AuthKey:    c.Config.App.Auth.Session.AuthKey,
+		EncryptKey: c.Config.App.Auth.Session.EncryptKey,
+		MaxAge:     c.Config.App.Auth.Session.MaxAge,
+		Secure:     c.Config.App.Auth.Session.Secure,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("session: %v", err))

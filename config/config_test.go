@@ -5,23 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	cfgs "github.com/go-sum/server/config"
 )
 
 func loadTestConfig(dir string) (*Config, error) {
-	return cfgs.Load(func(cfg *Config) cfgs.Options {
-		return cfgs.Options{
-			EnvPrefix:      EnvPrefix,
-			BaseDir:        dir,
-			EnvKey:         "app.env",
-			ValidatorSetup: RegisterNavValidations,
-			ContentFiles: []cfgs.ContentFile{
-				{Filename: "site.yaml", Target: &cfg.Site},
-				{Filename: "nav.yaml", Target: &cfg.Nav},
-			},
-		}
-	})
+	return LoadFrom(dir, "")
 }
 
 func TestInitLoadsNavContentFile(t *testing.T) {
@@ -34,51 +21,51 @@ func TestInitLoadsNavContentFile(t *testing.T) {
 		"config.yaml": `app:
   env: development
   name: starter
-database:
-  url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
-log:
-  level: info
-server:
-  host: 0.0.0.0
-  port: 8080
-  graceful_timeout: 10
-security:
-  external_origin: http://localhost:3000
-  origin:
-    enabled: true
-    require_header: true
-    allowed_origins: []
-  fetch_metadata:
-    enabled: true
-    allowed_sites: [same-origin, same-site]
-    allowed_modes: [cors, navigate, same-origin]
-    allowed_destinations: []
-    fallback_when_missing: true
-    reject_cross_site_navigate: true
-  headers:
-    xss_protection: "0"
-    content_type_nosniff: true
-    frame_options: DENY
-    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
-    hsts:
-      enabled: false
-      max_age: 31536000
-      include_subdomains: true
-      preload: false
-  csrf:
-    cookie_name: _csrf
-    form_field: _csrf
-    header_name: X-CSRF-Token
-csp_hashes:
-  always: []
-  dev_only: []
-auth:
-  session:
-    name: _session
-    auth_key: "12345678901234567890123456789012"
-    encrypt_key: "12345678901234567890123456789012"
-    max_age: 86400
-    secure: false
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
 `,
 		"site.yaml": `site:
   title: starter
@@ -175,51 +162,51 @@ func TestInitRejectsInvalidNavContentFile(t *testing.T) {
 				"config.yaml": `app:
   env: development
   name: starter
-database:
-  url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
-log:
-  level: info
-server:
-  host: 0.0.0.0
-  port: 8080
-  graceful_timeout: 10
-security:
-  external_origin: http://localhost:3000
-  origin:
-    enabled: true
-    require_header: true
-    allowed_origins: []
-  fetch_metadata:
-    enabled: true
-    allowed_sites: [same-origin, same-site]
-    allowed_modes: [cors, navigate, same-origin]
-    allowed_destinations: []
-    fallback_when_missing: true
-    reject_cross_site_navigate: true
-  headers:
-    xss_protection: "0"
-    content_type_nosniff: true
-    frame_options: DENY
-    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
-    hsts:
-      enabled: false
-      max_age: 31536000
-      include_subdomains: true
-      preload: false
-  csrf:
-    cookie_name: _csrf
-    form_field: _csrf
-    header_name: X-CSRF-Token
-csp_hashes:
-  always: []
-  dev_only: []
-auth:
-  session:
-    name: _session
-    auth_key: "12345678901234567890123456789012"
-    encrypt_key: "12345678901234567890123456789012"
-    max_age: 86400
-    secure: false
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
 `,
 				"site.yaml": `site:
   title: starter

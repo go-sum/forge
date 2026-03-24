@@ -1,34 +1,47 @@
-// Package csrf wraps Echo's built-in double-submit cookie CSRF middleware behind
-// a transport-neutral Config type and ensures that all failure paths return typed
-// errors compatible with the application's error-classification pipeline.
+// Package csrf provides HMAC-signed, time-limited CSRF protection for Echo v5.
 //
-// Echo v5's CSRF middleware uses Sec-Fetch-Site as the primary defence for modern
-// browsers and falls back to cookie-plus-token comparison for older ones.
-// Two error paths exist in the underlying middleware:
+// Unlike the double-submit cookie approach (where a random token lives in a
+// cookie and must match the submitted form field), this package issues tokens
+// whose integrity is guaranteed by HMAC-SHA256. A valid token can only be
+// produced by a server that holds the signing key, so no cookie comparison is
+// required. Tokens carry their own expiry and cannot be replayed after they
+// expire.
 //
-//  1. Token mismatch — goes through CSRFConfig.ErrorHandler.
-//  2. Sec-Fetch-Site cross-site/same-site block — goes through
-//     CSRFConfig.AllowSecFetchSiteFunc and returns an error directly.
-//
-// Both paths return a *violation value so that the app's classify() function
-// can detect StatusCode() and PublicMessage() and produce a 403 Forbidden
-// response rather than falling through to a 500 Internal Server Error.
+// On every safe request (GET, HEAD, OPTIONS, TRACE) the middleware issues a
+// fresh token and stores it in the Echo context under Config.ContextKey. View
+// templates embed the token in forms via the hidden _csrf field. On unsafe
+// requests (POST, PUT, PATCH, DELETE) the submitted token is verified; any
+// failure returns a typed *violation error so the application's error handler
+// produces a 403 Forbidden response.
 package csrf
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/go-sum/security/httpsec"
+	"github.com/go-sum/security/token"
 	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/middleware"
 )
 
-// Config defines CSRF cookie and token lookup policy.
+const (
+	scope          = "csrf"
+	defaultTTL     = time.Hour
+	failureMessage = "Your security token is invalid or missing. Refresh the page and try again."
+)
+
+// Config defines the signing key, token lifetime, and transport field names.
 type Config struct {
-	ContextKey   string
-	HeaderName   string
-	FormField    string
-	CookieName   string
-	CookieSecure bool
+	// Key is the HMAC-SHA256 signing key. Must be at least 32 bytes.
+	Key []byte
+	// TokenTTL is how long an issued token remains valid. Defaults to 1 hour.
+	TokenTTL time.Duration
+	// ContextKey is the Echo context key under which the token string is stored.
+	ContextKey string
+	// HeaderName is the request header checked before FormField on unsafe methods.
+	HeaderName string
+	// FormField is the form field name read when HeaderName is absent.
+	FormField string
 }
 
 // violation is a typed CSRF failure value. It implements StatusCode() and
@@ -40,39 +53,44 @@ func (v *violation) Error() string         { return v.msg }
 func (v *violation) StatusCode() int       { return http.StatusForbidden }
 func (v *violation) PublicMessage() string { return v.msg }
 
-const failureMessage = "Your security token is invalid or missing. Refresh the page and try again."
-
-// Middleware returns an Echo middleware that applies CSRF protection using
-// Echo's built-in double-submit cookie implementation.
+// Middleware returns an Echo middleware that applies HMAC-signed CSRF protection.
 //
-// On safe methods (GET, HEAD, OPTIONS, TRACE) the middleware generates or
-// reuses a token, writes it to the CSRF cookie, and stores the value in the
-// Echo context under Config.ContextKey so that view templates can embed it
-// in hidden form fields.
+// Safe methods receive a freshly issued token stored in the Echo context under
+// Config.ContextKey. View templates embed this value in a hidden form field.
 //
-// On unsafe methods (POST, PUT, DELETE, PATCH) the submitted token — read from
-// Config.HeaderName first, then Config.FormField — must match the CSRF cookie.
-// Modern browsers that send Sec-Fetch-Site: same-origin bypass token comparison.
-// Any failure returns a *violation error (403 Forbidden with a safe message).
+// Unsafe methods read the submitted token from Config.HeaderName first, then
+// Config.FormField, and verify it with HMAC-SHA256. Any failure — missing,
+// malformed, tampered, or expired token — returns a *violation error (403).
 func Middleware(cfg Config) echo.MiddlewareFunc {
-	return middleware.CSRFWithConfig(middleware.CSRFConfig{
-		ContextKey:     cfg.ContextKey,
-		TokenLookup:    "header:" + cfg.HeaderName + ",form:" + cfg.FormField,
-		CookieName:     cfg.CookieName,
-		CookieSameSite: http.SameSiteLaxMode,
-		CookieSecure:   cfg.CookieSecure,
-		CookiePath:     "/",
+	ttl := cfg.TokenTTL
+	if ttl <= 0 {
+		ttl = defaultTTL
+	}
 
-		// ErrorHandler covers token-mismatch and missing-token failures.
-		ErrorHandler: func(_ *echo.Context, _ error) error {
-			return &violation{failureMessage}
-		},
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if httpsec.IsSafeMethod(c.Request().Method) {
+				tok, err := token.Issue(cfg.Key, scope, ttl)
+				if err != nil {
+					return err // crypto/rand failure; propagates as 500
+				}
+				c.Set(cfg.ContextKey, tok)
+				return next(c)
+			}
 
-		// AllowSecFetchSiteFunc is called for state-changing requests where
-		// Sec-Fetch-Site is "same-site" or "cross-site". Returning (false, err)
-		// blocks the request; the typed error ensures correct 403 classification.
-		AllowSecFetchSiteFunc: func(_ *echo.Context) (bool, error) {
-			return false, &violation{failureMessage}
-		},
-	})
+			// Unsafe method: verify the submitted token.
+			raw := c.Request().Header.Get(cfg.HeaderName)
+			if raw == "" {
+				raw = c.FormValue(cfg.FormField)
+			}
+			if raw == "" {
+				return &violation{failureMessage}
+			}
+			if err := token.Verify(cfg.Key, scope, raw); err != nil {
+				return &violation{failureMessage}
+			}
+
+			return next(c)
+		}
+	}
 }

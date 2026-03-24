@@ -3,8 +3,12 @@ package csrf
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-sum/security/token"
 	"github.com/labstack/echo/v5"
 )
 
@@ -17,15 +21,15 @@ func newContext(method, path string) (*echo.Echo, *echo.Context) {
 
 func testConfig() Config {
 	return Config{
-		ContextKey:   "csrf",
-		HeaderName:   "X-CSRF-Token",
-		FormField:    "_csrf",
-		CookieName:   "_csrf",
-		CookieSecure: false,
+		Key:        []byte("test-signing-key-32-bytes-padded!"),
+		TokenTTL:   time.Hour,
+		ContextKey: "csrf",
+		HeaderName: "X-CSRF-Token",
+		FormField:  "_csrf",
 	}
 }
 
-// GET should always pass through and store a token in the Echo context.
+// GET should always pass through and store an HMAC token in the Echo context.
 func TestMiddlewareSafeMethodPassesThrough(t *testing.T) {
 	_, c := newContext(http.MethodGet, "/")
 
@@ -43,10 +47,7 @@ func TestMiddlewareSafeMethodPassesThrough(t *testing.T) {
 	}
 }
 
-// GET should store a token value in the Echo context.
-// For browsers that send Sec-Fetch-Site: same-origin Echo stores its sentinel
-// constant; for others it stores the generated cookie value. Either way the
-// context value must be a non-empty string.
+// GET should store a non-empty HMAC token string in the Echo context.
 func TestMiddlewareStoresTokenInContext(t *testing.T) {
 	const ctxKey = "csrf"
 	_, c := newContext(http.MethodGet, "/")
@@ -58,14 +59,26 @@ func TestMiddlewareStoresTokenInContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Middleware() error = %v", err)
 	}
-	token, ok := c.Get(ctxKey).(string)
-	if !ok || token == "" {
-		t.Fatalf("context key %q: got %q, want non-empty string", ctxKey, token)
+	tok, ok := c.Get(ctxKey).(string)
+	if !ok || tok == "" {
+		t.Fatalf("context key %q: got %q, want non-empty HMAC token", ctxKey, tok)
 	}
 }
 
-// POST without any CSRF cookie or token should return a typed violation error
-// with StatusCode() == 403 and a non-empty PublicMessage().
+// The context token must be a verifiable HMAC token (not a random cookie value).
+func TestMiddlewareContextTokenIsVerifiable(t *testing.T) {
+	cfg := testConfig()
+	_, c := newContext(http.MethodGet, "/")
+
+	_ = Middleware(cfg)(func(c *echo.Context) error { return nil })(c)
+
+	tok, _ := c.Get(cfg.ContextKey).(string)
+	if err := token.Verify(cfg.Key, scope, tok); err != nil {
+		t.Fatalf("token.Verify() on context token = %v, want nil", err)
+	}
+}
+
+// POST without any CSRF token should return a typed violation error (403).
 func TestMiddlewareUnsafeMethodWithoutTokenReturnsTypedError(t *testing.T) {
 	_, c := newContext(http.MethodPost, "/users")
 
@@ -74,10 +87,109 @@ func TestMiddlewareUnsafeMethodWithoutTokenReturnsTypedError(t *testing.T) {
 		return nil
 	})(c)
 
-	if err == nil {
-		t.Fatal("Middleware() on POST without token returned nil error")
-	}
+	assertViolation(t, err)
+}
 
+// POST with a valid token in the header should succeed.
+func TestMiddlewareValidHeaderTokenPasses(t *testing.T) {
+	cfg := testConfig()
+	tok, _ := token.Issue(cfg.Key, scope, time.Hour)
+
+	_, c := newContext(http.MethodPost, "/users")
+	c.Request().Header.Set(cfg.HeaderName, tok)
+
+	var called bool
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		called = true
+		return c.NoContent(http.StatusOK)
+	})(c)
+
+	if err != nil {
+		t.Fatalf("Middleware() with valid header token = %v, want nil", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called")
+	}
+}
+
+// POST with a valid token in the form field should succeed.
+func TestMiddlewareValidFormTokenPasses(t *testing.T) {
+	cfg := testConfig()
+	tok, _ := token.Issue(cfg.Key, scope, time.Hour)
+
+	body := url.Values{cfg.FormField: {tok}}.Encode()
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	e := echo.New()
+	c := e.NewContext(req, rec)
+
+	var called bool
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		called = true
+		return c.NoContent(http.StatusOK)
+	})(c)
+
+	if err != nil {
+		t.Fatalf("Middleware() with valid form token = %v, want nil", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called")
+	}
+}
+
+// POST with a tampered token should return a typed 403 violation.
+func TestMiddlewareTamperedTokenReturnsViolation(t *testing.T) {
+	_, c := newContext(http.MethodPost, "/users")
+	c.Request().Header.Set("X-CSRF-Token", "tampered-not-a-real-token")
+
+	err := Middleware(testConfig())(func(c *echo.Context) error {
+		t.Fatal("next handler must not be called for tampered token")
+		return nil
+	})(c)
+
+	assertViolation(t, err)
+}
+
+// POST with an expired token should return a typed 403 violation.
+func TestMiddlewareExpiredTokenReturnsViolation(t *testing.T) {
+	cfg := testConfig()
+	expired, _ := token.Issue(cfg.Key, scope, -time.Second)
+
+	_, c := newContext(http.MethodPost, "/users")
+	c.Request().Header.Set(cfg.HeaderName, expired)
+
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		t.Fatal("next handler must not be called for expired token")
+		return nil
+	})(c)
+
+	assertViolation(t, err)
+}
+
+// POST with a token signed by a different key should return a typed 403 violation.
+func TestMiddlewareWrongKeyReturnsViolation(t *testing.T) {
+	wrongKey := []byte("different-signing-key-32-bytes!!")
+	tok, _ := token.Issue(wrongKey, scope, time.Hour)
+
+	_, c := newContext(http.MethodPost, "/users")
+	c.Request().Header.Set("X-CSRF-Token", tok)
+
+	err := Middleware(testConfig())(func(c *echo.Context) error {
+		t.Fatal("next handler must not be called for wrong-key token")
+		return nil
+	})(c)
+
+	assertViolation(t, err)
+}
+
+// assertViolation checks that err is a non-nil *violation with StatusCode 403
+// and a non-empty PublicMessage.
+func assertViolation(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected a violation error, got nil")
+	}
 	type statusCoder interface{ StatusCode() int }
 	type publicMessager interface{ PublicMessage() string }
 
@@ -88,37 +200,11 @@ func TestMiddlewareUnsafeMethodWithoutTokenReturnsTypedError(t *testing.T) {
 	if sc.StatusCode() != http.StatusForbidden {
 		t.Fatalf("StatusCode() = %d, want %d", sc.StatusCode(), http.StatusForbidden)
 	}
-
 	pm, ok := err.(publicMessager)
 	if !ok {
 		t.Fatalf("error %T does not implement PublicMessage()", err)
 	}
 	if pm.PublicMessage() == "" {
 		t.Fatal("PublicMessage() must not be empty")
-	}
-}
-
-// Cross-site request (Sec-Fetch-Site: cross-site) on a POST should also
-// return a typed 403 violation (not a raw *echo.HTTPError).
-func TestMiddlewareCrossSiteRequestReturnsTypedError(t *testing.T) {
-	_, c := newContext(http.MethodPost, "/users")
-	c.Request().Header.Set("Sec-Fetch-Site", "cross-site")
-
-	err := Middleware(testConfig())(func(c *echo.Context) error {
-		t.Fatal("next handler must not be called for cross-site POST")
-		return nil
-	})(c)
-
-	if err == nil {
-		t.Fatal("Middleware() on cross-site POST returned nil error")
-	}
-
-	type statusCoder interface{ StatusCode() int }
-	sc, ok := err.(statusCoder)
-	if !ok {
-		t.Fatalf("error %T does not implement StatusCode()", err)
-	}
-	if sc.StatusCode() != http.StatusForbidden {
-		t.Fatalf("StatusCode() = %d, want %d", sc.StatusCode(), http.StatusForbidden)
 	}
 }

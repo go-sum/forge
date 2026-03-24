@@ -144,55 +144,51 @@ func writeHealthConfig(t *testing.T, dsn string) string {
 		"config.yaml": `app:
   env: development
   name: starter
-database:
-  url: ` + dsn + `
-log:
-  level: info
-server:
-  host: 0.0.0.0
-  port: 8080
-  graceful_timeout: 10
-security:
-  external_origin: http://localhost:3000
-  origin:
-    enabled: true
-    require_header: true
-    allowed_origins: []
-  fetch_metadata:
-    enabled: true
-    allowed_sites: [same-origin, same-site]
-    allowed_modes: [cors, navigate, same-origin]
-    allowed_destinations: []
-    fallback_when_missing: true
-    reject_cross_site_navigate: true
-  headers:
-    xss_protection: "0"
-    content_type_nosniff: true
-    frame_options: DENY
-    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
-    hsts:
-      enabled: false
-      max_age: 31536000
-      include_subdomains: true
-      preload: false
-  csrf:
-    cookie_name: _csrf
-    form_field: _csrf
-    header_name: X-CSRF-Token
-csp_hashes:
-  always: []
-  dev_only: []
-auth:
-  jwt:
-    secret: "12345678901234567890123456789012"
-    issuer: starter
-    token_duration: 86400
-  session:
-    name: _session
-    auth_key: "12345678901234567890123456789012"
-    encrypt_key: "12345678901234567890123456789012"
-    max_age: 86400
-    secure: false
+  database:
+    url: ` + dsn + `
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
 `,
 		"site.yaml": `site:
   title: starter

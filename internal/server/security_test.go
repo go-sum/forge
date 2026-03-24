@@ -13,29 +13,31 @@ import (
 
 func testSecurityConfig() *config.Config {
 	return &config.Config{
-		Security: config.SecurityConfig{
-			ExternalOrigin: "https://example.com",
-			Origin: config.OriginConfig{
-				Enabled:       true,
-				RequireHeader: true,
-			},
-			FetchMetadata: config.FetchMetadataConfig{
-				Enabled:                 true,
-				AllowedSites:            []string{"same-origin", "same-site"},
-				AllowedModes:            []string{"cors", "navigate", "same-origin"},
-				FallbackWhenMissing:     true,
-				RejectCrossSiteNavigate: true,
-			},
-			Headers: config.HeadersConfig{
-				XSSProtection:         "0",
-				ContentTypeNosniff:    true,
-				FrameOptions:          "DENY",
-				ContentSecurityPolicy: "default-src 'self'",
-				HSTS: config.HSTSConfig{
-					Enabled:           true,
-					MaxAge:            31536000,
-					IncludeSubDomains: true,
-					Preload:           true,
+		App: config.AppConfig{
+			Security: config.SecurityConfig{
+				ExternalOrigin: "https://example.com",
+				Origin: config.OriginConfig{
+					Enabled:       true,
+					RequireHeader: true,
+				},
+				FetchMetadata: config.FetchMetadataConfig{
+					Enabled:                 true,
+					AllowedSites:            []string{"same-origin", "same-site"},
+					AllowedModes:            []string{"cors", "navigate", "same-origin"},
+					FallbackWhenMissing:     true,
+					RejectCrossSiteNavigate: true,
+				},
+				Headers: config.HeadersConfig{
+					XSSProtection:         "0",
+					ContentTypeNosniff:    true,
+					FrameOptions:          "DENY",
+					ContentSecurityPolicy: "default-src 'self'",
+					HSTS: config.HSTSConfig{
+						Enabled:           true,
+						MaxAge:            31536000,
+						IncludeSubDomains: true,
+						Preload:           true,
+					},
 				},
 			},
 		},

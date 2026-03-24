@@ -19,9 +19,9 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	e := c.Web
 
 	authKeys := authadapter.ContextKeys{
-		UserID:      c.Config.Keys.UserID,
-		UserRole:    c.Config.Keys.UserRole,
-		DisplayName: c.Config.Keys.DisplayName,
+		UserID:      c.Config.App.Keys.UserID,
+		UserRole:    c.Config.App.Keys.UserRole,
+		DisplayName: c.Config.App.Keys.DisplayName,
 	}
 	e.Use(authadapter.LoadSession(c.Sessions, authKeys))
 

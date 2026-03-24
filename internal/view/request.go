@@ -40,8 +40,8 @@ type Request struct {
 func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	req := Request{
 		CurrentPath:    c.Request().URL.Path,
-		CSRFFieldName:  cfg.Security.CSRF.FormField,
-		CSRFHeaderName: cfg.Security.CSRF.HeaderName,
+		CSRFFieldName:  cfg.App.Security.CSRF.FormField,
+		CSRFHeaderName: cfg.App.Security.CSRF.HeaderName,
 		FaviconPath:    cfg.Site.FaviconPath,
 		NavConfig:      cfg.Nav,
 		CopyrightYear:  cfg.Site.CopyrightYear,
@@ -49,17 +49,17 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 		Routes:         c.Echo().Router().Routes(),
 	}
 
-	if userID, ok := c.Get(cfg.Keys.UserID).(string); ok && userID != "" {
+	if userID, ok := c.Get(cfg.App.Keys.UserID).(string); ok && userID != "" {
 		req.UserID = userID
 		req.IsAuthenticated = true
 	}
-	if userRole, ok := c.Get(cfg.Keys.UserRole).(string); ok && userRole != "" {
+	if userRole, ok := c.Get(cfg.App.Keys.UserRole).(string); ok && userRole != "" {
 		req.UserRole = userRole
 	}
-	if name, ok := c.Get(cfg.Keys.DisplayName).(string); ok && name != "" {
+	if name, ok := c.Get(cfg.App.Keys.DisplayName).(string); ok && name != "" {
 		req.UserName = name
 	}
-	if csrf, ok := c.Get(cfg.Keys.CSRF).(string); ok && csrf != "" {
+	if csrf, ok := c.Get(cfg.App.Keys.CSRF).(string); ok && csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {

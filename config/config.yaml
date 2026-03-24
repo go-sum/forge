@@ -1,68 +1,68 @@
 app:
-  env: production
+  env: ${APP_ENV:-production}
   name: starter
 
-database:
-  url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  auth:
+    session:
+      name: _session
+      auth_key: ${AUTH_SESSION_AUTH_KEY}
+      encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}
+      max_age: 86400
+      secure: true
 
-log:
-  level: info
+  csp_hashes:
+    always: []
+    dev_only: []
 
-server:
-  host: 0.0.0.0
-  port: 8080
-  graceful_timeout: 10
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
 
-security:
-  external_origin: https://example.com
-  origin:
-    enabled: true
-    require_header: true
-    allowed_origins: []
-  fetch_metadata:
-    enabled: true
-    allowed_sites:
-      - same-origin
-      - same-site
-    allowed_modes:
-      - cors
-      - navigate
-      - same-origin
-    allowed_destinations: []
-    fallback_when_missing: true
-    reject_cross_site_navigate: true
-  headers:
-    xss_protection: "0"
-    content_type_nosniff: true
-    frame_options: DENY
-    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
-    hsts:
+  keys:
+    user_id: user_id
+    user_role: user_role
+    display_name: user_display_name
+    csrf: csrf
+
+  log:
+    level: info
+
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+
+  security:
+    external_origin: https://example.com
+    origin:
       enabled: true
-      max_age: 31536000
-      include_subdomains: true
-      preload: true
-  csrf:
-    cookie_name: _csrf
-    form_field: _csrf
-    header_name: X-CSRF-Token
-  rate_limits:
-    server: { rate: 50, burst: 100 }  # server-wide guard
-    auth:   { rate: 2, burst: 5 }  # 5 rapid attempts, then 2/s
-
-csp_hashes:
-  always: []
-  dev_only: []
-
-keys:
-  user_id: user_id
-  user_role: user_role
-  display_name: user_display_name
-  csrf: csrf
-
-auth:
-  session:
-    name: _session
-    auth_key: ""
-    encrypt_key: ""
-    max_age: 86400
-    secure: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites:
+        - same-origin
+        - same-site
+      allowed_modes:
+        - cors
+        - navigate
+        - same-origin
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+      hsts:
+        enabled: true
+        max_age: 31536000
+        include_subdomains: true
+        preload: true
+    csrf:
+      key: ${SECURITY_CSRF_KEY}
+      form_field: _csrf
+      header_name: X-CSRF-Token
+    rate_limits:
+      server: { rate: 50, burst: 100 }  # server-wide guard
+      auth:   { rate: 2, burst: 5 }     # 5 rapid attempts, then 2/s

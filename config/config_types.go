@@ -1,31 +1,25 @@
 package config
 
 // Config is the root application configuration struct.
+// App holds everything loaded from config/config.yaml.
+// Site and Nav are loaded from their own optional files.
 type Config struct {
-	App       AppConfig         `koanf:"app"`
+	App  AppConfig  `koanf:"app"`
+	Site SiteConfig `koanf:"site"`
+	Nav  NavConfig  `koanf:"nav"`
+}
+
+// AppConfig holds the full application configuration from config/config.yaml.
+type AppConfig struct {
+	Env       string            `koanf:"env"      validate:"required,oneof=development production test"`
+	Name      string            `koanf:"name"     validate:"required"`
 	Server    ServerConfig      `koanf:"server"`
 	Security  SecurityConfig    `koanf:"security"`
 	Database  DatabaseConfig    `koanf:"database"`
 	Auth      AuthConfig        `koanf:"auth"`
 	Log       LogConfig         `koanf:"log"`
-	Site      SiteConfig        `koanf:"site"`
-	Nav       NavConfig         `koanf:"nav"`
 	CSPHashes CSPHashesConfig   `koanf:"csp_hashes"`
 	Keys      ContextKeysConfig `koanf:"keys"`
-}
-
-// IsDevelopment reports whether the application is running in development mode.
-func (c *Config) IsDevelopment() bool { return c.App.Env == "development" }
-
-// IsProduction reports whether the application is running in production mode.
-func (c *Config) IsProduction() bool { return c.App.Env == "production" }
-
-// DSN is an alias for Database.URL.
-func (c *Config) DSN() string { return c.Database.URL }
-
-type AppConfig struct {
-	Env  string `koanf:"env"  validate:"required,oneof=development production test"`
-	Name string `koanf:"name" validate:"required"`
 }
 
 type ServerConfig struct {
@@ -35,12 +29,12 @@ type ServerConfig struct {
 }
 
 type SecurityConfig struct {
-	ExternalOrigin string              `koanf:"external_origin" validate:"required,url"`
-	Origin         OriginConfig        `koanf:"origin"`
-	FetchMetadata  FetchMetadataConfig `koanf:"fetch_metadata"`
-	Headers        HeadersConfig       `koanf:"headers"`
-	CSRF           CSRFConfig          `koanf:"csrf"`
-	RateLimits     map[string]RateLimitConfig `koanf:"rate_limits"` // named per-route policies
+	ExternalOrigin string                    `koanf:"external_origin" validate:"required,url"`
+	Origin         OriginConfig              `koanf:"origin"`
+	FetchMetadata  FetchMetadataConfig       `koanf:"fetch_metadata"`
+	Headers        HeadersConfig             `koanf:"headers"`
+	CSRF           CSRFConfig                `koanf:"csrf"`
+	RateLimits     map[string]RateLimitConfig `koanf:"rate_limits"`
 }
 
 // RateLimitConfig configures the IP-based rate limiter applied to high-risk
@@ -82,8 +76,8 @@ type HSTSConfig struct {
 }
 
 type CSRFConfig struct {
-	CookieName string `koanf:"cookie_name" validate:"required"`
-	FormField  string `koanf:"form_field" validate:"required"`
+	Key        string `koanf:"key"         validate:"required,min=32"`
+	FormField  string `koanf:"form_field"  validate:"required"`
 	HeaderName string `koanf:"header_name" validate:"required"`
 }
 
@@ -105,16 +99,6 @@ type SessionConfig struct {
 
 type LogConfig struct {
 	Level string `koanf:"level" validate:"required,oneof=debug info warn error"`
-}
-
-type SiteConfig struct {
-	Title         string   `koanf:"title"          validate:"required"`
-	Description   string   `koanf:"description"`
-	LogoPath      string   `koanf:"logo_path"`
-	FaviconPath   string   `koanf:"favicon_path"`
-	MetaKeywords  []string `koanf:"meta_keywords"`
-	OGImage       string   `koanf:"og_image"`
-	CopyrightYear int      `koanf:"copyright_year"`
 }
 
 type CSPHashesConfig struct {

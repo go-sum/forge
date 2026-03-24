@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/security/csrf"
 	"github.com/go-sum/security/fetchmeta"
@@ -14,41 +16,41 @@ import (
 // ProtectBrowserMutation applies origin and Fetch Metadata checks to unsafe requests.
 func ProtectBrowserMutation(cfg *config.Config) echo.MiddlewareFunc {
 	originPolicy := origin.Policy{
-		Enabled:         cfg.Security.Origin.Enabled,
-		CanonicalOrigin: cfg.Security.ExternalOrigin,
-		RequireHeader:   cfg.Security.Origin.RequireHeader,
-		AllowedOrigins:  cfg.Security.Origin.AllowedOrigins,
+		Enabled:         cfg.App.Security.Origin.Enabled,
+		CanonicalOrigin: cfg.App.Security.ExternalOrigin,
+		RequireHeader:   cfg.App.Security.Origin.RequireHeader,
+		AllowedOrigins:  cfg.App.Security.Origin.AllowedOrigins,
 	}
 	fetchPolicy := fetchmeta.Policy{
-		Enabled:                 cfg.Security.FetchMetadata.Enabled,
-		AllowedSites:            cfg.Security.FetchMetadata.AllowedSites,
-		AllowedModes:            cfg.Security.FetchMetadata.AllowedModes,
-		AllowedDestinations:     cfg.Security.FetchMetadata.AllowedDestinations,
-		FallbackWhenMissing:     cfg.Security.FetchMetadata.FallbackWhenMissing,
-		RejectCrossSiteNavigate: cfg.Security.FetchMetadata.RejectCrossSiteNavigate,
+		Enabled:                 cfg.App.Security.FetchMetadata.Enabled,
+		AllowedSites:            cfg.App.Security.FetchMetadata.AllowedSites,
+		AllowedModes:            cfg.App.Security.FetchMetadata.AllowedModes,
+		AllowedDestinations:     cfg.App.Security.FetchMetadata.AllowedDestinations,
+		FallbackWhenMissing:     cfg.App.Security.FetchMetadata.FallbackWhenMissing,
+		RejectCrossSiteNavigate: cfg.App.Security.FetchMetadata.RejectCrossSiteNavigate,
 	}
 
 	return secmw.ProtectBrowserMutation(originPolicy, fetchPolicy)
 }
 
-// CSRFMiddleware applies Echo's double-submit cookie CSRF protection with typed
+// CSRFMiddleware applies HMAC-signed, time-limited CSRF protection with typed
 // errors so that token failures are rendered as 403 Forbidden by the app's
 // error handler rather than falling through to a 500 Internal Server Error.
 func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
-	c := cfg.Security.CSRF
+	c := cfg.App.Security.CSRF
 	return csrf.Middleware(csrf.Config{
-		ContextKey:   cfg.Keys.CSRF,
-		HeaderName:   c.HeaderName,
-		FormField:    c.FormField,
-		CookieName:   c.CookieName,
-		CookieSecure: cfg.Auth.Session.Secure,
+		Key:        []byte(c.Key),
+		TokenTTL:   time.Hour,
+		ContextKey: cfg.App.Keys.CSRF,
+		HeaderName: c.HeaderName,
+		FormField:  c.FormField,
 	})
 }
 
 // secureMiddleware applies HTTP security headers via Echo's built-in Secure
 // middleware. HSTS is TLS-conditional (not written on plain HTTP in dev).
 func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFunc {
-	h := cfg.Security.Headers
+	h := cfg.App.Security.Headers
 	nosniff := ""
 	if h.ContentTypeNosniff {
 		nosniff = "nosniff"
@@ -69,7 +71,7 @@ func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFu
 }
 
 // RateLimitMiddleware applies IP-based rate limiting for the named policy from
-// cfg.Security.RateLimits. When the policy is absent or Rate is 0, it returns a
+// cfg.App.Security.RateLimits. When the policy is absent or Rate is 0, it returns a
 // no-op passthrough so it can be composed inline without nil guards:
 //
 //	e.Group("", appserver.RateLimitMiddleware(c.Config, "server"))
@@ -78,7 +80,7 @@ func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFu
 // Each call creates an independent in-memory store, so different policy names
 // maintain completely separate per-IP bucket maps.
 func RateLimitMiddleware(cfg *config.Config, name string) echo.MiddlewareFunc {
-	rl, ok := cfg.Security.RateLimits[name]
+	rl, ok := cfg.App.Security.RateLimits[name]
 	if !ok || rl.Rate == 0 {
 		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	}

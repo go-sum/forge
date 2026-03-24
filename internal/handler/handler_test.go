@@ -93,7 +93,7 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 		},
 		validator:   validate.New(),
 		checkHealth: checkHealth,
-		cfg:         &config.Config{Keys: testKeys},
+		cfg:         &config.Config{App: config.AppConfig{Keys: testKeys}},
 	}
 }
 
