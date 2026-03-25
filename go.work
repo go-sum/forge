@@ -6,4 +6,5 @@ use (
 	./pkg/server
 	./pkg/auth
 	./pkg/security
+	./pkg/site
 )

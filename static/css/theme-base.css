@@ -1,3 +1,6 @@
+/* To use a web font, import the tailwindcss defaults: */
+/*@import "./theme-v4.css";*/
+
 /* Bridge semantic CSS custom properties to Tailwind color utilities.
    @theme inline defers resolution to runtime via CSS var(), so toggling
    .dark on <html> re-maps every bg-*, text-*, border-* utility instantly
@@ -48,4 +51,14 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Font family tokens — resolved at runtime via CSS var() so swapping to a
+     web font requires only overriding --theme-font-sans, --theme-font-mono etc.
+     in :root (e.g. by loading Google Fonts and updating the var)
+  */
+  /* To use a web font, prepend it: */
+  /*
+  --font-sans: var(--theme-font-sans);
+  --font-mono: var(--theme-font-mono);
+  */
 }

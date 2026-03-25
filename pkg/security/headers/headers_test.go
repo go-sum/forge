@@ -2,17 +2,44 @@ package headers
 
 import "testing"
 
-func TestInjectScriptHashes(t *testing.T) {
-	got := InjectScriptHashes("default-src 'self'; script-src 'self'; style-src 'self'", []string{"'sha256-a'", "", " 'sha256-b' "})
-	want := "default-src 'self'; script-src 'sha256-a' 'sha256-b' 'self'; style-src 'self'"
+func TestInjectDirectiveSourcesStyleSrc(t *testing.T) {
+	csp := "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'"
+	got := InjectDirectiveSources(csp, "style-src", []string{"https://fonts.googleapis.com", "'sha256-abc'"})
+	want := "default-src 'self'; script-src 'self'; style-src https://fonts.googleapis.com 'sha256-abc' 'self'; font-src 'self'"
 	if got != want {
-		t.Fatalf("InjectScriptHashes() = %q, want %q", got, want)
+		t.Fatalf("InjectDirectiveSources(style-src) = %q, want %q", got, want)
 	}
 }
 
-func TestInjectScriptHashesLeavesUntouchedWhenNoHashes(t *testing.T) {
+func TestInjectDirectiveSourcesFontSrc(t *testing.T) {
+	csp := "default-src 'self'; style-src 'self'; font-src 'self'"
+	got := InjectDirectiveSources(csp, "font-src", []string{"https://fonts.gstatic.com"})
+	want := "default-src 'self'; style-src 'self'; font-src https://fonts.gstatic.com 'self'"
+	if got != want {
+		t.Fatalf("InjectDirectiveSources(font-src) = %q, want %q", got, want)
+	}
+}
+
+func TestInjectDirectiveSourcesStripsBlankSources(t *testing.T) {
+	csp := "style-src 'self'"
+	got := InjectDirectiveSources(csp, "style-src", []string{"", "  ", "https://example.com"})
+	want := "style-src https://example.com 'self'"
+	if got != want {
+		t.Fatalf("InjectDirectiveSources() = %q, want %q", got, want)
+	}
+}
+
+func TestInjectDirectiveSourcesLeavesUntouchedWhenNoSources(t *testing.T) {
+	csp := "default-src 'self'; style-src 'self'"
+	if got := InjectDirectiveSources(csp, "style-src", nil); got != csp {
+		t.Fatalf("InjectDirectiveSources() = %q, want %q", got, csp)
+	}
+}
+
+func TestInjectDirectiveSourcesLeavesUntouchedWhenDirectiveMissing(t *testing.T) {
 	csp := "default-src 'self'; script-src 'self'"
-	if got := InjectScriptHashes(csp, nil); got != csp {
-		t.Fatalf("InjectScriptHashes() = %q, want %q", got, csp)
+	got := InjectDirectiveSources(csp, "style-src", []string{"https://example.com"})
+	if got != csp {
+		t.Fatalf("InjectDirectiveSources() modified csp when directive absent: %q", got)
 	}
 }

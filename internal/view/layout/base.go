@@ -5,6 +5,7 @@ import (
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/componentry/patterns/flash"
+	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/componentry/patterns/head"
 	uilayout "github.com/go-sum/componentry/ui/layout"
 	"github.com/go-sum/forge/config"
@@ -18,6 +19,9 @@ import (
 type Props struct {
 	Title           string
 	FaviconPath     string
+	Description     string
+	MetaKeywords    []string
+	OGImage         string
 	CSRFFieldName   string
 	CSRFHeaderName  string
 	CurrentPath     string
@@ -26,6 +30,7 @@ type Props struct {
 	UserName        string
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
+	FontConfig      font.Config
 	CopyrightYear   int
 	Children        []g.Node
 }
@@ -40,19 +45,14 @@ func Page(p Props) g.Node {
 				Meta: head.MetaProps{
 					Title:       p.Title,
 					FaviconHref: p.FaviconPath,
+					Description: p.Description,
+					Keywords:    p.MetaKeywords,
+					OGImage:     p.OGImage,
 				},
 				Stylesheets: []head.Stylesheet{{
 					Href: assets.Path("css/app.css"),
 				}},
-				Extra: []g.Node{
-					// Disable htmx inline style injection to satisfy Content-Security-Policy: style-src 'self'.
-					h.Meta(h.Name("htmx-config"), h.Content(`{"includeIndicatorStyles":false}`)),
-					// Prevents flash of light-mode content on dark-preference loads.
-					// Must run synchronously before body paint — no defer, no src.
-					interactive.ThemeScript(),
-					// CSRF meta tag for non-HTMX fetch calls.
-					h.Meta(h.Name("csrf-token"), h.Content(p.CSRFToken)),
-				},
+				Extra: buildHeadExtras(p),
 				Scripts: []head.Script{
 					{Src: assets.Path("js/app.js"), Defer: true},
 					{Src: assets.Path("js/htmx.min.js"), Defer: true},
@@ -83,6 +83,22 @@ func Page(p Props) g.Node {
 			),
 		),
 	)
+}
+
+// buildHeadExtras assembles all <head> extra nodes: CSP/HTMX config, theme
+// script, CSRF meta tag, and any font provider nodes derived from FontConfig.
+func buildHeadExtras(p Props) []g.Node {
+	extras := []g.Node{
+		// Disable htmx inline style injection to satisfy Content-Security-Policy: style-src 'self'.
+		h.Meta(h.Name("htmx-config"), h.Content(`{"includeIndicatorStyles":false}`)),
+		// Prevents flash of light-mode content on dark-preference loads.
+		// Must run synchronously before body paint — no defer, no src.
+		interactive.ThemeScript(),
+		// CSRF meta tag for non-HTMX fetch calls.
+		h.Meta(h.Name("csrf-token"), h.Content(p.CSRFToken)),
+	}
+	extras = append(extras, font.Nodes(font.BuildProviders(p.FontConfig, assets.Path)...)...)
+	return extras
 }
 
 func pageNavSlots(p Props) uilayout.NavSlots {

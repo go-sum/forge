@@ -13,8 +13,8 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 )
 
-// ProtectBrowserMutation applies origin and Fetch Metadata checks to unsafe requests.
-func ProtectBrowserMutation(cfg *config.Config) echo.MiddlewareFunc {
+// CrossOriginGuard applies origin and Fetch Metadata checks to unsafe requests.
+func CrossOriginGuard(cfg *config.Config) echo.MiddlewareFunc {
 	originPolicy := origin.Policy{
 		Enabled:         cfg.App.Security.Origin.Enabled,
 		CanonicalOrigin: cfg.App.Security.ExternalOrigin,
@@ -30,7 +30,7 @@ func ProtectBrowserMutation(cfg *config.Config) echo.MiddlewareFunc {
 		RejectCrossSiteNavigate: cfg.App.Security.FetchMetadata.RejectCrossSiteNavigate,
 	}
 
-	return secmw.ProtectBrowserMutation(originPolicy, fetchPolicy)
+	return secmw.CrossOriginGuard(originPolicy, fetchPolicy)
 }
 
 // CSRFMiddleware applies HMAC-signed, time-limited CSRF protection with typed
@@ -73,9 +73,6 @@ func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFu
 // RateLimitMiddleware applies IP-based rate limiting for the named policy from
 // cfg.App.Security.RateLimits. When the policy is absent or Rate is 0, it returns a
 // no-op passthrough so it can be composed inline without nil guards:
-//
-//	e.Group("", appserver.RateLimitMiddleware(c.Config, "server"))
-//	publicMutations.Use(appserver.ProtectBrowserMutation(c.Config), appserver.RateLimitMiddleware(c.Config, "auth"))
 //
 // Each call creates an independent in-memory store, so different policy names
 // maintain completely separate per-IP bucket maps.

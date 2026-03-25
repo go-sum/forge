@@ -17,6 +17,7 @@ func TestHeadRendersSegmentedMetadataAssetsAndExtras(t *testing.T) {
 			Description: "Manage users.",
 			Keywords:    []string{"go", "echo"},
 			FaviconHref: "/public/favicon.png",
+			OGImage:     "https://example.com/og.png",
 		},
 		Stylesheets: []Stylesheet{{Href: "/public/css/app.css"}},
 		Extra: []g.Node{
@@ -38,6 +39,10 @@ func TestHeadRendersSegmentedMetadataAssetsAndExtras(t *testing.T) {
 		`name="csrf-token" content="csrf-token"`,
 		`src="/public/js/app.js" defer`,
 		`src="/public/js/htmx.min.js" defer`,
+		`property="og:title" content="Users"`,
+		`property="og:type" content="website"`,
+		`property="og:description" content="Manage users."`,
+		`property="og:image" content="https://example.com/og.png"`,
 	}
 	for _, want := range wantSnippets {
 		if !strings.Contains(got, want) {

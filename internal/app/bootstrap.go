@@ -15,6 +15,7 @@ import (
 	icons "github.com/go-sum/componentry/icons"
 	install "github.com/go-sum/componentry/install"
 	"github.com/go-sum/componentry/interactive"
+	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters"
 	"github.com/go-sum/forge/internal/health"
@@ -107,12 +108,20 @@ func (c *Container) initDatabase() {
 
 func (c *Container) initWeb() {
 	cfg := c.Config
-	hashes := []string{interactive.ScriptCSPHash}
-	hashes = append(hashes, cfg.App.CSPHashes.Always...)
+	scriptHashes := []string{interactive.ScriptCSPHash}
+	scriptHashes = append(scriptHashes, cfg.App.CSPHashes.Always...)
 	if cfg.IsDevelopment() {
-		hashes = append(hashes, cfg.App.CSPHashes.DevOnly...)
+		scriptHashes = append(scriptHashes, cfg.App.CSPHashes.DevOnly...)
 	}
-	processedCSP := secheaders.InjectScriptHashes(cfg.App.Security.Headers.ContentSecurityPolicy, hashes)
+
+	// Inject font CSP sources derived from site config.
+	// assets.Path is safe here because initAssets() always runs before initWeb().
+	fontCSP := font.CollectCSPSources(font.BuildProviders(cfg.Site.Fonts, assets.Path))
+	styleSrcs := append(fontCSP.StyleSources, fontCSP.StyleInlineHashes...)
+	processedCSP := secheaders.InjectDirectiveSources(cfg.App.Security.Headers.ContentSecurityPolicy, "script-src", scriptHashes)
+	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "style-src", styleSrcs)
+	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "font-src", fontCSP.FontSources)
+
 	publicPrefix := c.AssetPaths.URLPrefix()
 	c.ServerConfig = server.Config{
 		Host:            cfg.App.Server.Host,
@@ -122,6 +131,7 @@ func (c *Container) initWeb() {
 	c.Web = server.New()
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }
+
 
 func (c *Container) initAuth() {
 	sm, err := session.NewSessionStore(session.SessionConfig{

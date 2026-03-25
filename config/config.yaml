@@ -53,7 +53,7 @@ app:
       xss_protection: "0"
       content_type_nosniff: true
       frame_options: DENY
-      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
       hsts:
         enabled: true
         max_age: 31536000

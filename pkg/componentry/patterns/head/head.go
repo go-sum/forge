@@ -16,6 +16,9 @@ type MetaProps struct {
 	Description string
 	Keywords    []string
 	FaviconHref string
+	// OGImage is the absolute URL of the Open Graph image.
+	// When set, og:title, og:type, og:description, and og:image tags are emitted.
+	OGImage string
 }
 
 // Stylesheet configures a single <link rel="stylesheet"> tag.
@@ -66,6 +69,19 @@ func Metatags(p MetaProps) g.Node {
 	}
 	if len(p.Keywords) > 0 {
 		nodes = append(nodes, h.Meta(h.Name("keywords"), h.Content(strings.Join(p.Keywords, ", "))))
+	}
+	// Open Graph tags — emitted when OGImage or Description is set.
+	if p.OGImage != "" || p.Description != "" {
+		if p.Title != "" {
+			nodes = append(nodes, h.Meta(g.Attr("property", "og:title"), h.Content(p.Title)))
+		}
+		nodes = append(nodes, h.Meta(g.Attr("property", "og:type"), h.Content("website")))
+		if p.Description != "" {
+			nodes = append(nodes, h.Meta(g.Attr("property", "og:description"), h.Content(p.Description)))
+		}
+		if p.OGImage != "" {
+			nodes = append(nodes, h.Meta(g.Attr("property", "og:image"), h.Content(p.OGImage)))
+		}
 	}
 	return g.Group(nodes)
 }

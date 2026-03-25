@@ -18,6 +18,21 @@ css:
     input: css/tailwind.css
     output: css/app.css
 
+# Self-hosted font files to download into public/fonts/.
+# Once downloaded, files are automatically content-hashed by the assets manifest.
+# Use assets.Path("fonts/<name>") in font.Face.URL to get the versioned URL.
+# Delete the target file to force a re-download on the next asset build.
+fonts:
+  downloads: []
+  # Example: uncomment and adjust to self-host Inter from the jsDelivr CDN.
+  # downloads:
+  #   - name: inter-regular
+  #     url: "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-400-normal.woff2"
+  #     target: fonts/inter-latin-400-normal.woff2
+  #   - name: inter-semibold
+  #     url: "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-600-normal.woff2"
+  #     target: fonts/inter-latin-600-normal.woff2
+
 sprites:
   lucide-icons:
     enabled: true

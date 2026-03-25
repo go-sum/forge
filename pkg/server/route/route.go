@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 )
@@ -38,4 +39,19 @@ func ReverseWithQuery(routes echo.Routes, name string, query url.Values, pathVal
 		return path
 	}
 	return path + "?" + encoded
+}
+
+// SafeReverse resolves a named route to its path without panicking.
+// Returns ("", false) if the route name is unknown or the resolved path
+// still contains ":" — indicating an unfilled path parameter (e.g.
+// /users/:id/edit). Such routes produce invalid sitemap URLs and are skipped.
+func SafeReverse(routes echo.Routes, name string) (string, bool) {
+	path, err := routes.Reverse(name)
+	if err != nil {
+		return "", false
+	}
+	if strings.Contains(path, ":") {
+		return "", false
+	}
+	return path, true
 }

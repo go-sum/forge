@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-func TestProtectBrowserMutationAllowsVerifiedRequest(t *testing.T) {
+func TestCrossOriginGuardAllowsVerifiedRequest(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/users", nil)
 	req.Header.Set("Origin", "https://example.com")
@@ -19,7 +19,7 @@ func TestProtectBrowserMutationAllowsVerifiedRequest(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := ProtectBrowserMutation(
+	err := CrossOriginGuard(
 		origin.Policy{
 			Enabled:         true,
 			CanonicalOrigin: "https://example.com",
@@ -36,20 +36,20 @@ func TestProtectBrowserMutationAllowsVerifiedRequest(t *testing.T) {
 		return c.NoContent(http.StatusNoContent)
 	})(c)
 	if err != nil {
-		t.Fatalf("ProtectBrowserMutation() error = %v", err)
+		t.Fatalf("CrossOriginGuard() error = %v", err)
 	}
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }
 
-func TestProtectBrowserMutationReturnsTypedError(t *testing.T) {
+func TestCrossOriginGuardReturnsTypedError(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := ProtectBrowserMutation(
+	err := CrossOriginGuard(
 		origin.Policy{
 			Enabled:         true,
 			CanonicalOrigin: "https://example.com",
@@ -63,7 +63,7 @@ func TestProtectBrowserMutationReturnsTypedError(t *testing.T) {
 		return c.NoContent(http.StatusNoContent)
 	})(c)
 	if err == nil {
-		t.Fatal("ProtectBrowserMutation() error = nil")
+		t.Fatal("CrossOriginGuard() error = nil")
 	}
 
 	mwErr, ok := err.(*Error)

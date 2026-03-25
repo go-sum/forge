@@ -9,8 +9,8 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// ProtectBrowserMutation applies origin and Fetch Metadata checks to unsafe requests.
-func ProtectBrowserMutation(originPolicy origin.Policy, fetchPolicy fetchmeta.Policy) echo.MiddlewareFunc {
+// CrossOriginGuard applies origin and Fetch Metadata checks to unsafe requests.
+func CrossOriginGuard(originPolicy origin.Policy, fetchPolicy fetchmeta.Policy) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			req := c.Request()

@@ -44,7 +44,7 @@ func testSecurityConfig() *config.Config {
 	}
 }
 
-func TestProtectBrowserMutationAllowsVerifiedUnsafeRequest(t *testing.T) {
+func TestCrossOriginGuardAllowsVerifiedUnsafeRequest(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/users", nil)
 	req.Header.Set("Origin", "https://example.com")
@@ -53,21 +53,21 @@ func TestProtectBrowserMutationAllowsVerifiedUnsafeRequest(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := ProtectBrowserMutation(testSecurityConfig())(func(c *echo.Context) error {
+	err := CrossOriginGuard(testSecurityConfig())(func(c *echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	})(c)
 	if err != nil {
-		t.Fatalf("ProtectBrowserMutation() error = %v", err)
+		t.Fatalf("CrossOriginGuard() error = %v", err)
 	}
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }
 
-func TestProtectBrowserMutationWritesProblemJSON(t *testing.T) {
+func TestCrossOriginGuardWritesProblemJSON(t *testing.T) {
 	e := echo.New()
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{})
-	e.Use(ProtectBrowserMutation(testSecurityConfig()))
+	e.Use(CrossOriginGuard(testSecurityConfig()))
 	e.POST("/signin", func(c *echo.Context) error { return c.NoContent(http.StatusNoContent) })
 
 	req := httptest.NewRequest(http.MethodPost, "/signin", nil)
@@ -95,10 +95,10 @@ func TestProtectBrowserMutationWritesProblemJSON(t *testing.T) {
 	}
 }
 
-func TestProtectBrowserMutationWritesHTMXToast(t *testing.T) {
+func TestCrossOriginGuardWritesHTMXToast(t *testing.T) {
 	e := echo.New()
 	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{})
-	e.Use(ProtectBrowserMutation(testSecurityConfig()))
+	e.Use(CrossOriginGuard(testSecurityConfig()))
 	e.POST("/signin", func(c *echo.Context) error { return c.NoContent(http.StatusNoContent) })
 
 	req := httptest.NewRequest(http.MethodPost, "/signin", nil)

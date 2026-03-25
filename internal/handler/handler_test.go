@@ -87,6 +87,8 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 	if checkHealth == nil {
 		checkHealth = func(context.Context) error { return nil }
 	}
+	e := echo.New()
+	registerTestRoutes(e)
 	return &Handler{
 		services: handlerServices{
 			User: userSvc,
@@ -94,6 +96,7 @@ func newTestHandler(userSvc userService, checkHealth func(context.Context) error
 		validator:   validate.New(),
 		checkHealth: checkHealth,
 		cfg:         &config.Config{App: config.AppConfig{Keys: testKeys}},
+		routes:      func() echo.Routes { return e.Router().Routes() },
 	}
 }
 
@@ -145,6 +148,8 @@ func registerTestRoutes(e *echo.Echo) {
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "components.list", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: noOp})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/robots.txt", Name: "robots.show", Handler: noOp})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/sitemap.xml", Name: "sitemap.show", Handler: noOp})
 
 	users := e.Group("/users")
 	route.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})

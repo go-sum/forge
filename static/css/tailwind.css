@@ -3,7 +3,7 @@
 @import "./theme-slate.css";
 
 @source "../../internal/view/**/*.go";
-@source "../../pkg/components/**/*.go";
+@source "../../pkg/componentry/**/*.go";
 @source "../../static/**/*.js";
 
 /* Class-based dark mode: utilities prefixed with dark: activate when .dark

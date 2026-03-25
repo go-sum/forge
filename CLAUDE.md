@@ -13,6 +13,20 @@
 
 ---
 
+## Behavioral Rules (Always Enforced)
+- ONLY do what's been asked 
+- ALWAYS make recommendations and obtain approval for any additions or deviations first 
+- NEVER proactively create documentation files (*.md) or README files unless explicitly requested
+- NEVER hardcode API keys, secrets, or credentials in source files
+- NEVER commit secrets, credentials, or .env files
+- ALWAYS validate user input at system boundaries
+- ALWAYS sanitize file paths to prevent directory traversal
+- ALWAYS ensure any implementation leverages and comply with pkg/security packages
+- ALWAYS run tests after making code changes
+- ALWAYS trace ALL callers and update references when refactoring Go config structs or YAML mappings
+- ALWAYS account for HTML-encoded entities when writing test assertions for HTML
+- ALWAYS enforce exact-match test assertions over substring matching to avoid false positives.
+
 ## Project Purpose
 
 **starter** is optimized for building modern Go web applications that keep most
@@ -27,6 +41,31 @@ of the work on the server:
 This repository is not a generic UI playground or a client-heavy frontend
 starter. It is a performance-oriented web application foundation with reusable
 supporting packages and strict application boundaries.
+
+### `internal/` is a thin wiring layer
+
+`internal/` is intentionally **minimal**. It exists to connect, configure, and
+wire up the focused, reusable packages in `pkg/`. It is not the home for
+general-purpose logic.
+
+> **The package extraction test:** before adding any non-trivial logic to
+> `internal/`, ask: *"Could this live in a `pkg/` package and be deployed
+> cleanly in a new project?"* If yes, build it there first. `internal/` should
+> contain only the application-specific glue that cannot be generalized —
+> handler routing, request/response plumbing, DI wiring, and config loading.
+
+Symptoms that logic belongs in `pkg/` instead of `internal/`:
+- It converts between two types that both already live in `pkg/`
+- It duplicates behavior that exists (or should exist) in a `pkg/` package
+- It has no dependency on `internal/model`, Echo contexts, or the DB pool
+
+### `pkg/` strict leaf-node rule
+
+Each `pkg/` **infrastructure package** is a **leaf node** in the dependency graph:
+- **MUST NOT** import from `internal/`
+- **MUST NOT** import from other `pkg/` packages
+- **MAY** import only from the standard library and external modules
+- **COULD** be extracted into a standalone Go module without changes
 
 ---
 
@@ -87,18 +126,6 @@ Handlers never import repository. Services never import handlers. Each layer com
 
 ---
 
-## `pkg/` vs `internal/` Boundary Rules
-
-### `pkg/` — Two Sub-Regions with Different Rules
-
-#### Infrastructure packages — strict leaf-node rule
-
-Each `pkg/` **infrastructure package** is a **leaf node** in the dependency graph:
-- **MUST NOT** import from `internal/`
-- **MUST NOT** import from other `pkg/` packages
-- **MAY** import only from the standard library and external modules
-- **COULD** be extracted into a standalone Go module without changes
-
 #### Component library — tiered DAG model (`pkg/components/` subtree)
 
 `pkg/components/` packages may import each other, but only **downward** through the tier hierarchy. No lateral imports within a tier. No upward imports. No `internal/` imports.
@@ -120,10 +147,6 @@ Tier 3 — Examples:     pkg/components/examples
 ```
 
 `pkg/components/patterns/form/submission.go` accepts `*validator.Validate` directly (not `*validate.Validator`) to avoid importing `pkg/validate` (an infrastructure package, outside this tree).
-
-### `internal/` — Application Code
-
-Go's `internal/` visibility rule enforces that these packages cannot be imported by external modules. This is where application-specific logic lives.
 
 ### `db/` — Database Package (Root Level)
 
@@ -231,23 +254,17 @@ production image build itself.
 
 ### Config files
 
-| File | Purpose |
-|------|---------|
-| `config/config.yaml` | Required base config (committed, no secrets) |
-| `config/config.development.yaml` | Dev overrides (Docker hostnames, debug logging) |
-| `config/site.yaml` | Optional site content overrides |
-| `config/nav.yaml` | Optional navigation configuration |
+| File | Purpose | Required? |
+|------|---------|-----------|
+| `config/config.yaml` | Base config (committed, no secrets) | **Required** |
+| `config/config.development.yaml` | Dev overrides (Docker hostnames, debug logging) | Optional |
+| `config/site.yaml` | Site metadata: title, description, keywords, OG image, fonts, robots, sitemap | **Required** |
+| `config/nav.yaml` | Navigation structure | Optional |
 
-`config/config.yaml` must exist. Environment overlays such as
-`config/config.development.yaml` and content files such as `site.yaml` /
-`nav.yaml` are optional and are silently skipped when absent.
+Only `config/config.yaml` and `config/site.yaml` is required. All other files are silently skipped when absent.
 
-All env vars use the `CTX_` prefix. The loader strips the prefix, lowercases the
-name, and resolves underscores using the existing schema so nested keys and
-field names with underscores are both handled correctly:
-
-- `CTX_SERVER_PORT` → `server.port`
-- `CTX_AUTH_SESSION_AUTH_KEY` → `auth.session.auth_key`
+Env vars can be used to inject into the existing schema:
+  encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}
 
 ### Secrets
 

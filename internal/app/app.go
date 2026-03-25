@@ -28,6 +28,7 @@ func New() *App {
 		c.Validator,
 		func(ctx context.Context) error { return database.CheckHealth(ctx, c.DB) },
 		c.Config,
+		func() echo.Routes { return c.Web.Router().Routes() },
 	)
 
 	authH := authadapter.New(

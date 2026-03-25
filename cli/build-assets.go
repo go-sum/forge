@@ -100,6 +100,9 @@ func buildAssets(opts assetBuildOptions) error {
 			return err
 		}
 	}
+	if err := buildFonts(cfg.Fonts); err != nil {
+		return err
+	}
 	if opts.BuildSprites {
 		if err := buildSVGSprites([]string{"--config", opts.ConfigPath}); err != nil {
 			return err
@@ -110,6 +113,55 @@ func buildAssets(opts assetBuildOptions) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// buildFonts downloads self-hosted font files declared in .assets.yaml.
+// Each download is skipped when the target file already exists, matching the
+// JS download convention. Delete the target to force a re-download.
+// Downloaded files land in public_dir/fonts/ and are automatically included
+// in the content-hash manifest by assets.Assets on next server start.
+func buildFonts(cfg assetconfig.FontConfig) error {
+	for _, dl := range cfg.Downloads {
+		if err := downloadFont(dl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func downloadFont(dl assetconfig.FontDownload) error {
+	if _, err := os.Stat(dl.Target); err == nil {
+		fmt.Printf("  ↷ font %s: target exists, skipping (delete to force re-download)\n", dl.Name)
+		return nil
+	}
+
+	version := resolveVersion(dl.Name, dl.Version)
+	url := strings.ReplaceAll(dl.URL, "{version}", version)
+
+	if err := os.MkdirAll(filepath.Dir(dl.Target), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dl.Target), err)
+	}
+
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
+	}
+
+	out, err := os.Create(dl.Target)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", dl.Target, err)
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return fmt.Errorf("write %s: %w", dl.Target, err)
+	}
+	fmt.Printf("  ✓ downloaded font %s -> %s\n", dl.Name, dl.Target)
 	return nil
 }
 

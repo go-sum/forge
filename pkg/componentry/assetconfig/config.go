@@ -22,6 +22,7 @@ type Config struct {
 	JS      JSConfig                `yaml:"js"`
 	CSS     []CSSConfig             `yaml:"css"`
 	Sprites map[string]SpriteConfig `yaml:"sprites"`
+	Fonts   FontConfig              `yaml:"fonts"`
 }
 
 // Paths defines the raw asset source tree plus the built public output.
@@ -57,6 +58,24 @@ type CSSConfig struct {
 	Tool   string `yaml:"tool"`
 	Input  string `yaml:"input"`
 	Output string `yaml:"output"`
+}
+
+// FontConfig configures self-hosted font file acquisition.
+// Downloads lists font files to fetch from remote URLs, using the same
+// skip-if-exists logic as JS downloads. Once downloaded to public_dir, font
+// files are automatically included in the content-hash manifest by assets.Assets.
+type FontConfig struct {
+	Downloads []FontDownload `yaml:"downloads"`
+}
+
+// FontDownload describes a single font file to fetch from a remote URL.
+// {version} in URL is replaced at runtime with the resolved version (checked
+// against the {NAME}_VERSION environment variable, then falling back to Version).
+type FontDownload struct {
+	Name    string `yaml:"name"`
+	Version string `yaml:"version"`
+	URL     string `yaml:"url"`
+	Target  string `yaml:"target"`
 }
 
 type SpriteConfig struct {
@@ -133,6 +152,10 @@ func (p Paths) withDefaults() Paths {
 func (c *Config) normalize() {
 	for i := range c.JS.Downloads {
 		c.JS.Downloads[i].Target = resolvePublicPath(c.Paths, c.JS.Downloads[i].Target)
+	}
+
+	for i := range c.Fonts.Downloads {
+		c.Fonts.Downloads[i].Target = resolvePublicPath(c.Paths, c.Fonts.Downloads[i].Target)
 	}
 
 	for i := range c.JS.Bundles {

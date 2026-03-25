@@ -33,16 +33,20 @@ type Handler struct {
 	validator   *validate.Validator
 	checkHealth func(context.Context) error
 	cfg         *config.Config
+	routes      func() echo.Routes // lazy accessor; evaluated at request time
 }
 
 // New constructs a Handler with all required dependencies.
 // checkHealth is a closure over the DB pool — the handler never holds raw
 // infrastructure references directly.
+// routes is a lazy accessor for the registered Echo routes, used by handlers
+// that need to resolve named routes to URLs (e.g. sitemap generation).
 func New(
 	services *service.Services,
 	validator *validate.Validator,
 	checkHealth func(context.Context) error,
 	cfg *config.Config,
+	routes func() echo.Routes,
 ) *Handler {
 	return &Handler{
 		services: handlerServices{
@@ -51,6 +55,7 @@ func New(
 		validator:   validator,
 		checkHealth: checkHealth,
 		cfg:         cfg,
+		routes:      routes,
 	}
 }
 

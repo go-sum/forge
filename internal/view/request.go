@@ -7,6 +7,7 @@ import (
 	"github.com/go-sum/componentry/patterns/flash"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	render "github.com/go-sum/componentry/render/echo"
+	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/componentry/ui/feedback"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/view/layout"
@@ -25,12 +26,16 @@ type Request struct {
 	CSRFFieldName   string
 	CSRFHeaderName  string
 	FaviconPath     string
+	Description     string
+	MetaKeywords    []string
+	OGImage         string
 	IsAuthenticated bool
 	UserID          string
 	UserRole        string
 	UserName        string
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
+	FontConfig      font.Config
 	CopyrightYear   int
 	HTMX            htmx.Request
 	Routes          echo.Routes
@@ -43,7 +48,11 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 		CSRFFieldName:  cfg.App.Security.CSRF.FormField,
 		CSRFHeaderName: cfg.App.Security.CSRF.HeaderName,
 		FaviconPath:    cfg.Site.FaviconPath,
+		Description:    cfg.Site.Description,
+		MetaKeywords:   cfg.Site.MetaKeywords,
+		OGImage:        cfg.Site.OGImage,
 		NavConfig:      cfg.Nav,
+		FontConfig:     cfg.Site.Fonts,
 		CopyrightYear:  cfg.Site.CopyrightYear,
 		HTMX:           htmx.NewRequest(c.Request()),
 		Routes:         c.Echo().Router().Routes(),
@@ -105,6 +114,9 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 	return layout.Props{
 		Title:           title,
 		FaviconPath:     r.FaviconPath,
+		Description:     r.Description,
+		MetaKeywords:    r.MetaKeywords,
+		OGImage:         r.OGImage,
 		CSRFFieldName:   r.CSRFFieldName,
 		CSRFHeaderName:  r.CSRFHeaderName,
 		CurrentPath:     r.CurrentPath,
@@ -113,6 +125,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		UserName:        r.UserName,
 		Flash:           r.Flash,
 		NavConfig:       r.NavConfig,
+		FontConfig:      r.FontConfig,
 		CopyrightYear:   r.CopyrightYear,
 		Children:        children,
 	}
