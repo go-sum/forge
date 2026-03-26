@@ -1,5 +1,6 @@
 .claude
 .codex
+.mcp.json
 .env
 
 bin/

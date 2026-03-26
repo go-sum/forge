@@ -217,22 +217,27 @@ downstream task numbers.
 
 ### Phase 06: Email Delivery and Templating
 
-- [ ] **T0601** — Introduce a reusable `pkg/email` package
+- [ ] **T0601** — Introduce a reusable `pkg/send` package
   Cover: define provider-agnostic message types, sender interfaces, and a small
   service layer that can be reused across starter applications.
 
 - [ ] **T0602** — Ship development-safe and production-ready providers
-  Cover: implement `noop`, `log`, and `smtp` providers first; reserve HTTP API
-  providers such as Resend for follow-up once the package surface is stable.
+  Cover: implement `noop`, `test`, and HTTP API providers 
+  for [`Resend`](https://resend.com/) and [`Mailchannels`](https://www.mailchannels.com/).
 
 - [ ] **T0603** — Add Gomponents-based email templates
-  Cover: provide reusable HTML email layout components and a plain-text render
+  Cover: leverage @pkg/componentry to enable reusable HTML email layout components and a plain-text render
   path so email composition stays server-side and type-safe.
 
 - [ ] **T0604** — Demonstrate the package with one real workflow
-  Cover: wire the first app-owned email use case into the starter; default
-  choice is password reset because it is broadly useful and fits the existing
-  auth-oriented package layout.
+  Cover: create a contact-us page, where a user can enter their name, email address and a message
+  use case into the starter; create a @config/service.yaml and @config/service_types.go
+  with a key for send
+  create app-owned config for send adapters, send_from email address per adapter, active adapter,  
+  send_to email address (for contact form / app admin notifications etc.)
+  on completion of the form;
+  - send a message to the app send_to from the active adapter send_from email address 
+  - send a message to the user enail address on the contact form, from the active adapter send_from email address 
 
 - [ ] **T0605** — Add mail testing and development inspection support
   Cover: make email behavior testable without third-party services and easy to

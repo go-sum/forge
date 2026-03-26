@@ -1,0 +1,72 @@
+name: Package Release
+
+on:
+  push:
+    tags:
+      - 'auth/v*'
+      - 'componentry/v*'
+      - 'security/v*'
+      - 'server/v*'
+      - 'site/v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package name
+        required: true
+        type: choice
+        options:
+          - auth
+          - componentry
+          - security
+          - server
+          - site
+      version:
+        description: Plain semver tag to create in the package repo, e.g. v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "forge-release-bot"
+          git config user.email "actions@github.com"
+
+      - name: Parse release target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            package="${{ github.event.inputs.package }}"
+            version="${{ github.event.inputs.version }}"
+          else
+            raw="${GITHUB_REF_NAME}"
+            package="${raw%%/*}"
+            version="${raw#*/}"
+          fi
+          echo "package=${package}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+
+      - name: Release ${{ steps.target.outputs.package }} ${{ steps.target.outputs.version }}
+        env:
+          PACKAGE_SYNC_TOKEN: ${{ secrets.PACKAGE_SYNC_TOKEN }}
+          PACKAGE_REPO_OWNER: go-sum
+          GH_TOKEN: ${{ secrets.PACKAGE_SYNC_TOKEN }}
+        run: ./scripts/package-release.sh "${{ steps.target.outputs.package }}" "${{ steps.target.outputs.version }}"

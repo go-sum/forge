@@ -2,6 +2,8 @@ PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
 DATABASE_URL    ?= postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
 COVERAGE_FILE   ?= coverage.out
+PACKAGE         ?=
+VERSION         ?=
 
 APP_NETWORK  := $(PROJECT_NAME)_app_network
 TEST_NETWORK := $(PROJECT_NAME)_test_network
@@ -20,6 +22,7 @@ endef
         build clean lint hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets health \
+        package-sync package-release \
         dev ddev docker-build docker-dev docker-down docker-logs docker-up \
         _ensure-available
 
@@ -73,6 +76,17 @@ db-dump: _ensure-available ## Dump current live database schema to stdout for pr
 
 assets: _ensure-available ## Build all generated frontend assets
 	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(APP_NAME) go run ./cli build-assets --minify
+
+# ── Package Sync & Release ────────────────────────────────────────────────────
+
+package-sync: _ensure-available ## Sync a package subtree to its mirror repo (PACKAGE=auth)
+	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-sync PACKAGE=auth" >&2; exit 1; }
+	$(D_RUN) $(APP_NAME) ./scripts/package-sync.sh "$(PACKAGE)"
+
+package-release: _ensure-available ## Release a versioned package to its mirror repo (PACKAGE=auth VERSION=v0.1.0)
+	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth VERSION=v0.1.0" >&2; exit 1; }
+	@test -n "$(VERSION)" || { echo "error: VERSION is required  e.g. make package-release PACKAGE=auth VERSION=v0.1.0" >&2; exit 1; }
+	$(D_RUN) $(APP_NAME) ./scripts/package-release.sh "$(PACKAGE)" "$(VERSION)"
 
 # ── Docker & Dev ──────────────────────────────────────────────────────────────
 

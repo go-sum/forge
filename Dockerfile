@@ -19,10 +19,13 @@ ARG PGSCHEMA_VERSION
 ARG TAILWIND_VERSION
 ARG GOLANGCI_LINT_VERSION
 
-RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl
+RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git
 
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
+RUN go install github.com/splitsh/lite@v2.0.0 && \
+    ln -sf "$(go env GOPATH)/bin/lite" /usr/local/bin/splitsh-lite
+RUN git config --global --add safe.directory /app
 RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
     curl -fsSLo /usr/local/bin/pgschema \
       "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${ARCH}" && \
@@ -59,7 +62,9 @@ WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
 COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
+COPY pkg/security/go.mod pkg/security/go.sum /app/pkg/security/
 COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
+COPY pkg/site/go.mod pkg/server/go.sum /app/pkg/site/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server
