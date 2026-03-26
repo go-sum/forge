@@ -1,7 +1,7 @@
 package config
 
 // Config is the root application configuration struct.
-// App holds everything loaded from config/config.yaml.
+// App holds everything loaded from config/app.yaml.
 // Site, Nav, and Service are loaded from their own optional files.
 type Config struct {
 	App     AppConfig     `koanf:"app"`
@@ -10,10 +10,10 @@ type Config struct {
 	Service ServiceConfig `koanf:"service"`
 }
 
-// AppConfig holds the full application configuration from config/config.yaml.
+// AppConfig holds the full application configuration from config/app.yaml.
 type AppConfig struct {
-	Env       string            `koanf:"env"      validate:"required,oneof=development production test"`
-	Name      string            `koanf:"name"     validate:"required"`
+	Env       string            `koanf:"env" validate:"required,oneof=development production test"`
+	Name      string            `koanf:"name" validate:"required"`
 	Server    ServerConfig      `koanf:"server"`
 	Security  SecurityConfig    `koanf:"security"`
 	Database  DatabaseConfig    `koanf:"database"`
@@ -30,11 +30,11 @@ type ServerConfig struct {
 }
 
 type SecurityConfig struct {
-	ExternalOrigin string                    `koanf:"external_origin" validate:"required,url"`
-	Origin         OriginConfig              `koanf:"origin"`
-	FetchMetadata  FetchMetadataConfig       `koanf:"fetch_metadata"`
-	Headers        HeadersConfig             `koanf:"headers"`
-	CSRF           CSRFConfig                `koanf:"csrf"`
+	ExternalOrigin string                     `koanf:"external_origin" validate:"required,url"`
+	Origin         OriginConfig               `koanf:"origin"`
+	FetchMetadata  FetchMetadataConfig        `koanf:"fetch_metadata"`
+	Headers        HeadersConfig              `koanf:"headers"`
+	CSRF           CSRFConfig                 `koanf:"csrf"`
 	RateLimits     map[string]RateLimitConfig `koanf:"rate_limits"`
 }
 
@@ -108,7 +108,7 @@ type CSPHashesConfig struct {
 }
 
 // ContextKeysConfig defines the Echo context key names written by auth middleware
-// and read by the view layer. Override in config.yaml under the keys: node.
+// and read by the view layer. Override in config/app.yaml under app.keys.
 type ContextKeysConfig struct {
 	UserID      string `koanf:"user_id"`
 	UserRole    string `koanf:"user_role"`

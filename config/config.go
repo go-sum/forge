@@ -1,5 +1,5 @@
 // Package config defines the application's configuration schema.
-// Types are split by their YAML source: config_types.go, site_types.go, nav_types.go.
+// Types are split by their YAML source: app.go, site.go, nav.go, service.go.
 // Configuration is loaded at startup by internal/app.
 package config
 
@@ -44,7 +44,7 @@ func LoadFrom(dir, appEnv string) (*Config, error) {
 		return cfgs.Options{
 			EnvKey: appEnv,
 			Files: []cfgs.ConfigFile{
-				{Filepath: dir + "/config.yaml", Target: &cfg.App},
+				{Filepath: dir + "/app.yaml", Target: &cfg.App},
 				{Filepath: dir + "/site.yaml", Target: &cfg.Site},
 				{Filepath: dir + "/nav.yaml", Target: &cfg.Nav, Validator: RegisterNavValidations},
 				{Filepath: dir + "/service.yaml", Target: &cfg.Service},

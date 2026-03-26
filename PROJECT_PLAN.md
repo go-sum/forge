@@ -231,7 +231,7 @@ downstream task numbers.
 
 - [ ] **T0604** — Demonstrate the package with one real workflow
   Cover: create a contact-us page, where a user can enter their name, email address and a message
-  use case into the starter; create a @config/service.yaml and @config/service_types.go
+  use case into the starter; create a @config/service.yaml and @config/service.go
   with a key for send
   create app-owned config for send adapters, send_from email address per adapter, active adapter,  
   send_to email address (for contact form / app admin notifications etc.)

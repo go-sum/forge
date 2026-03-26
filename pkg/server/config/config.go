@@ -20,7 +20,7 @@ import (
 // ConfigFile is a configuration file entry with an optional per-file validation scope.
 // The first entry in Options.Files is the required base config; all others are optional.
 type ConfigFile struct {
-	// Filepath is the path to the YAML file (e.g. "config/config.yaml").
+	// Filepath is the path to the YAML file (e.g. "config/app.yaml").
 	// The first file in Options.Files is required; all others are silently skipped when absent.
 	Filepath string
 	// Target is a pointer into the already-unmarshalled root struct (e.g. &cfg.Site).

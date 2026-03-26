@@ -23,7 +23,7 @@ type loaderTestConfig struct {
 
 func TestLoadMergesOverlayEnvAndContentFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeLoaderFile(t, dir, "config.yaml", `
+	writeLoaderFile(t, dir, "app.yaml", `
 app:
   env: ${APP_ENV:-production}
 auth:
@@ -33,7 +33,7 @@ site:
   title: base-title
 `)
 	// Overlay sets app.env so cfg.App.Env reflects the active environment.
-	writeLoaderFile(t, dir, "config.development.yaml", `
+	writeLoaderFile(t, dir, "app.development.yaml", `
 app:
   env: development
 `)
@@ -50,7 +50,7 @@ site:
 	err := loadConfig(&cfg, Options{
 		EnvKey: os.Getenv("APP_ENV"),
 		Files: []ConfigFile{
-			{Filepath: filepath.Join(dir, "config.yaml")},
+			{Filepath: filepath.Join(dir, "app.yaml")},
 			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
 		},
 	})
@@ -70,7 +70,7 @@ site:
 
 func TestLoadReportsInvalidContentFile(t *testing.T) {
 	dir := t.TempDir()
-	writeLoaderFile(t, dir, "config.yaml", `
+	writeLoaderFile(t, dir, "app.yaml", `
 app:
   env: production
 auth:
@@ -87,7 +87,7 @@ site:
 	var cfg loaderTestConfig
 	err := loadConfig(&cfg, Options{
 		Files: []ConfigFile{
-			{Filepath: filepath.Join(dir, "config.yaml")},
+			{Filepath: filepath.Join(dir, "app.yaml")},
 			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
 		},
 	})
@@ -98,7 +98,7 @@ site:
 
 func TestEnvVarExpansionInYAML(t *testing.T) {
 	dir := t.TempDir()
-	writeLoaderFile(t, dir, "config.yaml", `
+	writeLoaderFile(t, dir, "app.yaml", `
 app:
   env: production
 auth:
@@ -111,7 +111,7 @@ site:
 	t.Setenv("TEST_EXPAND_KEY", "injected-value")
 
 	var cfg loaderTestConfig
-	err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}})
+	err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "app.yaml")}}})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
@@ -119,7 +119,7 @@ site:
 		t.Fatalf("AuthKey = %q, want injected-value", cfg.Auth.Session.AuthKey)
 	}
 	// Unset variable expands to empty string, not the literal placeholder.
-	writeLoaderFile(t, dir, "config.yaml", `
+	writeLoaderFile(t, dir, "app.yaml", `
 app:
   env: production
 auth:
@@ -129,7 +129,7 @@ site:
   title: fixed-title
 `)
 	var cfg2 loaderTestConfig
-	_ = loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}) // will fail validation (required), that's fine
+	_ = loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "app.yaml")}}}) // will fail validation (required), that's fine
 	if cfg2.Auth.Session.AuthKey != "" {
 		t.Fatalf("unset AuthKey = %q, want empty string", cfg2.Auth.Session.AuthKey)
 	}
@@ -137,7 +137,7 @@ site:
 
 func TestEnvVarDefaultExpansionInYAML(t *testing.T) {
 	dir := t.TempDir()
-	writeLoaderFile(t, dir, "config.yaml", `
+	writeLoaderFile(t, dir, "app.yaml", `
 app:
   env: ${TEST_ENV_VAR:-production}
 auth:
@@ -152,7 +152,7 @@ site:
 	t.Setenv("TEST_KEY", "real-key")
 
 	var cfg loaderTestConfig
-	if err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}); err != nil {
+	if err := loadConfig(&cfg, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "app.yaml")}}}); err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
 	if cfg.App.Env != "development" {
@@ -167,7 +167,7 @@ site:
 	t.Setenv("TEST_KEY", "")
 
 	var cfg2 loaderTestConfig
-	if err := loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "config.yaml")}}}); err != nil {
+	if err := loadConfig(&cfg2, Options{Files: []ConfigFile{{Filepath: filepath.Join(dir, "app.yaml")}}}); err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
 	if cfg2.App.Env != "production" {

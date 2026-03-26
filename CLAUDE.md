@@ -100,8 +100,8 @@ No migration files — pgschema computes diffs declaratively. Extensions (`pgcry
 
 | File | Purpose | Required |
 |------|---------|----------|
-| `config/config.yaml` | Base config — no secrets | **Yes** |
-| `config/config.development.yaml` | Dev overrides (Docker hostnames, debug log) | No |
+| `config/app.yaml` | Base config — no secrets | **Yes** |
+| `config/app.development.yaml` | Dev overrides (Docker hostnames, debug log) | No |
 | `config/site.yaml` | Site metadata, fonts, robots, sitemap | **Yes** |
 | `config/nav.yaml` | Navigation structure | No |
 

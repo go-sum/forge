@@ -41,7 +41,7 @@ func runHashAirCSP() {
 
 	fmt.Printf("air %s → %s\n", ver, hash)
 
-	const cfgPath = "config/config.development.yaml"
+	const cfgPath = "config/app.development.yaml"
 	updated, err := updateConfig(cfgPath, hash)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "failed to update config:", err)

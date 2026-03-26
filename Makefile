@@ -37,7 +37,7 @@ build: _ensure-available ## Build production binary
 clean: ## Remove build artifacts
 	rm -rf ./bin/server ./tmp ./public/css/app.css
 
-hash-air-csp: _ensure-available ## Recompute CSP hash for air's proxy script and update config/config.development.yaml
+hash-air-csp: _ensure-available ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
 	$(D_RUN) $(APP_NAME) go run ./cli hash-air-csp
 
 health: _ensure-available ## Run health checks (use ARGS='--verbose' or '--json')

@@ -18,7 +18,7 @@ func TestInitLoadsNavContentFile(t *testing.T) {
 	dir := t.TempDir()
 
 	files := map[string]string{
-		"config.yaml": `app:
+		"app.yaml": `app:
   env: development
   name: starter
   database:
@@ -159,7 +159,7 @@ func TestInitRejectsInvalidNavContentFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			files := map[string]string{
-				"config.yaml": `app:
+				"app.yaml": `app:
   env: development
   name: starter
   database:

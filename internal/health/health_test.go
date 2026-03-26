@@ -141,7 +141,7 @@ func writeHealthConfig(t *testing.T, dsn string) string {
 
 	dir := t.TempDir()
 	files := map[string]string{
-		"config.yaml": `app:
+		"app.yaml": `app:
   env: development
   name: starter
   database:
