@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/go-sum/componentry/email"
-	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/send"
 
@@ -16,11 +15,17 @@ import (
 // ContactService handles the contact form submission workflow.
 type ContactService struct {
 	sender send.Sender
-	cfg    *config.SendConfig
+	cfg    ContactConfig
+}
+
+// ContactConfig contains the delivery addresses the contact workflow needs.
+type ContactConfig struct {
+	SendTo   string
+	SendFrom string
 }
 
 // NewContactService constructs a ContactService.
-func NewContactService(sender send.Sender, cfg *config.SendConfig) *ContactService {
+func NewContactService(sender send.Sender, cfg ContactConfig) *ContactService {
 	return &ContactService{sender: sender, cfg: cfg}
 }
 

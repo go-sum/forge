@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/send"
@@ -14,8 +13,7 @@ import (
 
 func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 	sender := memory.New()
-	cfg := &config.SendConfig{
-		Adapter:  "noop",
+	cfg := service.ContactConfig{
 		SendTo:   "admin@example.com",
 		SendFrom: "no-reply@example.com",
 	}
@@ -56,9 +54,8 @@ func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 func TestContactService_Submit_propagatesSenderError(t *testing.T) {
 	wantErr := errors.New("send failed")
 	sender := &failSender{err: wantErr}
-	cfg := &config.SendConfig{
-		Adapter: "noop",
-		SendTo:  "admin@example.com",
+	cfg := service.ContactConfig{
+		SendTo: "admin@example.com",
 	}
 	svc := service.NewContactService(sender, cfg)
 

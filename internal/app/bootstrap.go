@@ -26,6 +26,7 @@ import (
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
+	"github.com/go-sum/server/logging"
 	"github.com/go-sum/server/validate"
 )
 
@@ -33,6 +34,7 @@ const assetConfigPath = assetconfig.DefaultConfigPath
 
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
+// Config bootstrap.
 func (c *Container) initConfig() {
 	cfg, err := config.Load(os.Getenv("APP_ENV"))
 	if err != nil {
@@ -42,37 +44,16 @@ func (c *Container) initConfig() {
 	c.Config = cfg
 }
 
-// initLogger configures the global slog logger. Handler type is environment-driven
-// (text/stderr in development, JSON/stdout in production); level comes from
-// config.App.Log.Level ("debug", "info", "warn", "error").
+// Logging bootstrap.
 func (c *Container) initLogger() {
-	dev := c.Config.IsDevelopment()
-	level := parseLogLevel(c.Config.App.Log.Level)
-	opts := &slog.HandlerOptions{Level: level}
-	var h slog.Handler
-	if dev {
-		h = slog.NewTextHandler(os.Stderr, opts)
-	} else {
-		h = slog.NewJSONHandler(os.Stdout, opts)
-	}
-	slog.SetDefault(slog.New(h))
-	slog.Info("logger initialized", "level", level, "env", c.Config.App.Env)
+	logging.Init(logging.Config{
+		Development: c.Config.IsDevelopment(),
+		Level:       c.Config.App.Log.Level,
+	})
+	slog.Info("logger initialized", "level", c.Config.App.Log.Level, "env", c.Config.App.Env)
 }
 
-// parseLogLevel maps a config log level string to slog.Level.
-func parseLogLevel(s string) slog.Level {
-	switch s {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
-}
-
+// Sender bootstrap.
 func (c *Container) initSender() {
 	sender, err := send.InitSender(send.Config{
 		Adapter:  c.Config.Service.Send.Adapter,
@@ -85,6 +66,7 @@ func (c *Container) initSender() {
 	c.Sender = sender
 }
 
+// Assets bootstrap.
 func (c *Container) initAssets() {
 	assetCfg, err := assetconfig.Load(assetConfigPath)
 	if err != nil {
@@ -107,6 +89,7 @@ func (c *Container) initAssets() {
 	c.PublicDir = publicDir
 }
 
+// Database bootstrap.
 func (c *Container) initDatabase() {
 	pool, err := database.Connect(context.Background(), c.Config.DSN())
 	if err != nil {
@@ -119,6 +102,7 @@ func (c *Container) initDatabase() {
 	c.DB = pool
 }
 
+// Web bootstrap.
 func (c *Container) initWeb() {
 	cfg := c.Config
 	scriptHashes := []string{interactive.ScriptCSPHash}
@@ -127,8 +111,6 @@ func (c *Container) initWeb() {
 		scriptHashes = append(scriptHashes, cfg.App.CSPHashes.DevOnly...)
 	}
 
-	// Inject font CSP sources derived from site config.
-	// assets.Path is safe here because initAssets() always runs before initWeb().
 	fontCSP := font.CollectCSPSources(font.BuildProviders(cfg.Site.Fonts, assets.Path))
 	styleSrcs := append(fontCSP.StyleSources, fontCSP.StyleInlineHashes...)
 	processedCSP := secheaders.InjectDirectiveSources(cfg.App.Security.Headers.ContentSecurityPolicy, "script-src", scriptHashes)
@@ -145,6 +127,7 @@ func (c *Container) initWeb() {
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }
 
+// Session/auth bootstrap.
 func (c *Container) initAuth() {
 	sm, err := session.NewSessionStore(session.SessionConfig{
 		Name:       c.Config.App.Auth.Session.Name,
@@ -159,18 +142,23 @@ func (c *Container) initAuth() {
 	c.Sessions = sm
 }
 
+// Validation bootstrap.
 func (c *Container) initValidator() {
 	c.Validator = validate.New()
 }
 
+// Repository bootstrap.
 func (c *Container) initRepos() {
 	c.Repos = repository.NewRepositories(c.DB)
 }
 
+// Domain services bootstrap.
 func (c *Container) initServices() {
-	c.Services = service.NewServices(c.Repos, c.Sender, &c.Config.Service.Send)
+	c.Services = service.NewServices(c.Repos, c.Sender, service.ContactConfig{
+		SendTo:   c.Config.Service.Send.SendTo,
+		SendFrom: c.Config.Service.Send.SendFrom,
+	})
 
-	// Instantiate the auth service from the auth module, wired with adapted repositories.
 	authFactory := adapters.NewAuthTxFactory(c.DB)
 	c.AuthService = authsvc.NewAuthService(
 		adapters.NewAuthUserReader(c.Repos.User),

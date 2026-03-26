@@ -24,8 +24,8 @@ func TestSafeReverse(t *testing.T) {
 		wantOK   bool
 	}{
 		{"home.show", "/", true},
-		{"user.show", "", false},    // parameterized — skipped
-		{"no.such.route", "", false}, // unknown — skipped
+		{"user.show", "", false},
+		{"no.such.route", "", false},
 	}
 
 	for _, tc := range tests {
