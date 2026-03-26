@@ -24,6 +24,7 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 		DisplayName: c.Config.App.Keys.DisplayName,
 	}
 	c.Web.Use(authadapter.LoadSession(c.Sessions, authKeys))
+	c.Web.Use(authadapter.LoadUserContext(users, authKeys))
 
 	siteH := sitehandlers.New(sitehandlers.Config{
 		Origin:  c.Config.App.Security.ExternalOrigin,
@@ -42,7 +43,6 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 		authadapter.RequireAuthPath(func() string {
 			return route.Reverse(c.Web.Router().Routes(), "signin.get")
 		}, authKeys),
-		authadapter.LoadUserContext(users, authKeys),
 	)
 
 	authGuardedPost := authGuarded.Group("")

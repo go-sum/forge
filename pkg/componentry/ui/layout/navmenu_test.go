@@ -71,6 +71,48 @@ func TestNavMenuRendersAuthenticatedMenuWithSlots(t *testing.T) {
 	}
 }
 
+func TestNavMenuRendersGroupedSlotsWithConsistentMenuRows(t *testing.T) {
+	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
+		ID:              "app",
+		IsAuthenticated: true,
+		Config: NavConfig{
+			Brand: NavbarBrand{Label: "Starter", Href: "/"},
+			Sections: []NavSection{{
+				Align: AlignEnd,
+				Items: []NavItem{{
+					Label: "Account",
+					Items: []NavItem{
+						{Slot: "user_name", Visibility: VisibilityUser},
+						{Slot: "signout", Visibility: VisibilityUser},
+					},
+				}},
+			}},
+		},
+		Slots: NavSlots{
+			"user_name": TextSlot("Ada"),
+			"signout": FormSlot(FormSlotProps{
+				Label:  "Signout",
+				Action: "/signout",
+				HiddenFields: []NavHiddenField{{
+					Name:  "_csrf",
+					Value: "csrf-token",
+				}},
+			}),
+		},
+	}))
+
+	checks := []string{
+		`<span class="block w-full px-4 py-3 text-sm font-medium text-foreground"><span>Ada</span></span>`,
+		`<button type="submit" class="block px-4 py-3 text-sm font-medium w-full text-left outline-none transition-colors hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"><span>Signout</span></button>`,
+		`<input type="hidden" name="_csrf" value="csrf-token">`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(got, check) {
+			t.Fatalf("NavMenu() grouped slot output missing %q in %s", check, got)
+		}
+	}
+}
+
 func TestNavMenuOmitsMissingSlots(t *testing.T) {
 	got := testutil.RenderNode(t, NavMenu(NavMenuProps{
 		ID:     "app",

@@ -6,26 +6,38 @@ nav:
     - items:
         - label: Home
           href: /
-        - label: Explore
+        - label: Packages
           visibility: user
           items:
-            - label: Components
-              href: /_components
-            - label: Admin
+            - label: Componentry
+              items:
+                - label: Componnets
+                  href: /_components
+            - label: Auth
               items:
                 - label: Users
                   href: /users
+            - label: Site
+              items:
+                - label: Robots
+                  href: /robots.txt
+                - label: Sitemap
+                  href: /sitemap.xml
     - align: end
       items:
-        - label: Sign In
-          href: /signin
-          visibility: guest
-        - label: Sign Up
-          href: /signup
-          visibility: guest
-        - slot: user_name
-          visibility: user
-        - slot: signout
-          label: Signout
-          visibility: user
+        - label: Contact us
+          href: /contact
+        - label: Account
+          items:
+            - label: Sign In
+              href: /signin
+              visibility: guest
+            - label: Sign Up
+              href: /signup
+              visibility: guest
+            - slot: user_name
+              visibility: user
+            - slot: signout
+              label: Signout
+              visibility: user
         - slot: theme_toggle

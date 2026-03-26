@@ -42,6 +42,7 @@ type NavItem struct {
 type NavSlot struct {
 	Desktop g.Node
 	Mobile  g.Node
+	render  func(navbarItemContext) g.Node
 }
 
 // NavSlots indexes named config slots such as theme toggles or auth controls.
@@ -82,8 +83,9 @@ func TextSlot(text string) NavSlot {
 		return NavSlot{}
 	}
 	return NavSlot{
-		Desktop: h.Span(h.Class("text-sm text-muted-foreground"), g.Text(text)),
-		Mobile:  h.Span(h.Class("block px-4 py-4 text-sm font-medium text-foreground"), g.Text(text)),
+		render: func(ctx navbarItemContext) g.Node {
+			return NavText{Text: text}.render(ctx)
+		},
 	}
 }
 
@@ -112,8 +114,9 @@ func FormSlot(p FormSlotProps) NavSlot {
 		HiddenFields: p.HiddenFields,
 	}
 	return NavSlot{
-		Desktop: form.render(navbarItemContext{viewport: viewportDesktop}),
-		Mobile:  form.render(navbarItemContext{viewport: viewportMobile}),
+		render: func(ctx navbarItemContext) g.Node {
+			return form.render(ctx)
+		},
 	}
 }
 
@@ -150,7 +153,12 @@ func buildItem(item NavItem, slots NavSlots) NavbarItem {
 		if !ok {
 			return nil
 		}
-		return NavNode{Visibility: item.Visibility, Desktop: slot.Desktop, Mobile: slot.Mobile}
+		return NavNode{
+			Visibility: item.Visibility,
+			Desktop:    slot.Desktop,
+			Mobile:     slot.Mobile,
+			renderNode: slot.render,
+		}
 	}
 
 	icon := icons.Key(item.Icon)

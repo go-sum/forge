@@ -187,10 +187,7 @@ func (i NavText) render(ctx navbarItemContext) g.Node {
 		return nil
 	}
 
-	cls := "text-sm text-muted-foreground"
-	if ctx.viewport == viewportMobile {
-		cls = "block px-4 py-4 text-sm font-medium text-foreground"
-	}
+	cls := navTextClass(ctx.viewport, ctx.depth)
 	nodes := []g.Node{h.Class(cls)}
 	nodes = append(nodes, navItemContent(i.Icon, i.Text)...)
 	return h.Span(nodes...)
@@ -201,6 +198,7 @@ type NavNode struct {
 	Visibility NavbarVisibility
 	Desktop    g.Node
 	Mobile     g.Node
+	renderNode func(navbarItemContext) g.Node
 }
 
 func (NavNode) navbarItem() {}
@@ -210,6 +208,9 @@ func (i NavNode) visible(ctx NavbarContext) bool {
 }
 
 func (i NavNode) render(ctx navbarItemContext) g.Node {
+	if i.renderNode != nil {
+		return i.renderNode(ctx)
+	}
 	if ctx.viewport == viewportDesktop {
 		return i.Desktop
 	}
@@ -249,14 +250,6 @@ func (i NavForm) render(ctx navbarItemContext) g.Node {
 		method = "post"
 	}
 
-	button := core.Button(core.ButtonProps{
-		Variant:   core.VariantGhost,
-		Size:      core.SizeSm,
-		Type:      "submit",
-		FullWidth: ctx.viewport == viewportMobile,
-		Children:  buttonChildren(i.Icon, label),
-	})
-
 	nodes := []g.Node{
 		h.Method(method),
 		h.Action(i.Action),
@@ -267,7 +260,25 @@ func (i NavForm) render(ctx navbarItemContext) g.Node {
 		}
 		nodes = append(nodes, h.Input(h.Type("hidden"), h.Name(field.Name), h.Value(field.Value)))
 	}
-	nodes = append(nodes, button)
+
+	if ctx.viewport == viewportDesktop && ctx.depth == 0 {
+		button := core.Button(core.ButtonProps{
+			Variant:   core.VariantGhost,
+			Size:      core.SizeSm,
+			Type:      "submit",
+			FullWidth: false,
+			Children:  buttonChildren(i.Icon, label),
+		})
+		nodes = append(nodes, button)
+		return h.Form(nodes...)
+	}
+
+	buttonNodes := []g.Node{
+		h.Type("submit"),
+		h.Class(navActionClass(ctx.viewport, ctx.depth)),
+	}
+	buttonNodes = append(buttonNodes, navItemContent(i.Icon, label)...)
+	nodes = append(nodes, h.Button(buttonNodes...))
 	return h.Form(nodes...)
 }
 
@@ -489,6 +500,24 @@ func navLinkClass(viewport navbarViewport, depth int, current bool) string {
 		return "block w-full px-4 py-3 text-sm font-medium " + base
 	}
 	return "block w-full px-4 py-4 text-sm font-medium " + base
+}
+
+func navTextClass(viewport navbarViewport, depth int) string {
+	if viewport == viewportDesktop && depth == 0 {
+		return "text-sm text-muted-foreground"
+	}
+	if viewport == viewportDesktop {
+		return "block w-full px-4 py-3 text-sm font-medium text-foreground"
+	}
+	return "block px-4 py-4 text-sm font-medium text-foreground"
+}
+
+func navActionClass(viewport navbarViewport, depth int) string {
+	base := "w-full text-left outline-none transition-colors hover:bg-accent/60 hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+	if viewport == viewportDesktop && depth > 0 {
+		return "block px-4 py-3 text-sm font-medium " + base
+	}
+	return "block px-4 py-4 text-sm font-medium " + base
 }
 
 func groupSummary(label string, icon icons.Key, ctx navbarItemContext) g.Node {
