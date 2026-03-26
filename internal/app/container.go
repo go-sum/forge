@@ -14,6 +14,7 @@ import (
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
 	"github.com/go-sum/forge/internal/service"
+	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
@@ -37,6 +38,7 @@ type Container struct {
 	Repos        *repository.Repositories
 	Services     *service.Services
 	AuthService  *authsvc.AuthService
+	Sender       send.Sender
 }
 
 // NewContainer initialises all services in dependency order.
@@ -45,6 +47,7 @@ func NewContainer() *Container {
 	c := &Container{}
 	c.initConfig()
 	c.initLogger()
+	c.initSender()
 	c.initAssets()
 	c.initDatabase()
 	c.initWeb()

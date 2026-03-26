@@ -7,4 +7,5 @@ use (
 	./pkg/auth
 	./pkg/security
 	./pkg/site
+	./pkg/send
 )

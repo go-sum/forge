@@ -47,6 +47,7 @@ func LoadFrom(dir, appEnv string) (*Config, error) {
 				{Filepath: dir + "/config.yaml", Target: &cfg.App},
 				{Filepath: dir + "/site.yaml", Target: &cfg.Site},
 				{Filepath: dir + "/nav.yaml", Target: &cfg.Nav, Validator: RegisterNavValidations},
+				{Filepath: dir + "/service.yaml", Target: &cfg.Service},
 			},
 		}
 	})

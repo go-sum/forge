@@ -23,6 +23,7 @@ import (
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	secheaders "github.com/go-sum/security/headers"
+	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
@@ -70,6 +71,18 @@ func parseLogLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func (c *Container) initSender() {
+	sender, err := send.InitSender(send.Config{
+		Adapter:  c.Config.Service.Send.Adapter,
+		SendFrom: c.Config.Service.Send.SendFrom,
+		APIKey:   c.Config.Service.Send.APIKey,
+	})
+	if err != nil {
+		panic(fmt.Sprintf("app: sender: %v", err))
+	}
+	c.Sender = sender
 }
 
 func (c *Container) initAssets() {
@@ -132,7 +145,6 @@ func (c *Container) initWeb() {
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }
 
-
 func (c *Container) initAuth() {
 	sm, err := session.NewSessionStore(session.SessionConfig{
 		Name:       c.Config.App.Auth.Session.Name,
@@ -156,7 +168,7 @@ func (c *Container) initRepos() {
 }
 
 func (c *Container) initServices() {
-	c.Services = service.NewServices(c.Repos)
+	c.Services = service.NewServices(c.Repos, c.Sender, &c.Config.Service.Send)
 
 	// Instantiate the auth service from the auth module, wired with adapted repositories.
 	authFactory := adapters.NewAuthTxFactory(c.DB)

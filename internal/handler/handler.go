@@ -23,8 +23,13 @@ type userService interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+type contactService interface {
+	Submit(ctx context.Context, input model.ContactInput) error
+}
+
 type handlerServices struct {
-	User userService
+	User    userService
+	Contact contactService
 }
 
 // Handler holds the transport layer's dependencies.
@@ -50,7 +55,8 @@ func New(
 ) *Handler {
 	return &Handler{
 		services: handlerServices{
-			User: services.User,
+			User:    services.User,
+			Contact: services.Contact,
 		},
 		validator:   validator,
 		checkHealth: checkHealth,

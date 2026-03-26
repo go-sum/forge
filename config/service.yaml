@@ -1,0 +1,6 @@
+service:
+  send:
+    adapter: mailchannels
+    send_to: y-core@outlook.com
+    send_from: admin@nutxport.com
+    api_key: ${EMAIL_API_KEY}

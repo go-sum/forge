@@ -49,6 +49,8 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	authGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
 
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: h.Home})
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/contact", Name: "contact.show", Handler: h.ContactForm})
+	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/contact", Name: "contact.submit", Handler: h.ContactSubmit})
 	// auth
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: authH.SigninPage})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: authH.SignupPage})

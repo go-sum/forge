@@ -6,6 +6,7 @@ replace (
 	github.com/go-sum/auth => ./pkg/auth
 	github.com/go-sum/componentry => ./pkg/componentry
 	github.com/go-sum/security => ./pkg/security
+	github.com/go-sum/send => ./pkg/send
 	github.com/go-sum/server => ./pkg/server
 	github.com/go-sum/site => ./pkg/site
 )
@@ -16,6 +17,7 @@ require (
 	github.com/go-sum/auth v0.0.0
 	github.com/go-sum/componentry v0.0.0
 	github.com/go-sum/security v0.0.0
+	github.com/go-sum/send v0.0.0
 	github.com/go-sum/server v0.0.0
 	github.com/go-sum/site v0.0.0
 	github.com/google/uuid v1.6.0

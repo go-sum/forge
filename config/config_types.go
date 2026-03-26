@@ -2,11 +2,12 @@ package config
 
 // Config is the root application configuration struct.
 // App holds everything loaded from config/config.yaml.
-// Site and Nav are loaded from their own optional files.
+// Site, Nav, and Service are loaded from their own optional files.
 type Config struct {
-	App  AppConfig  `koanf:"app"`
-	Site SiteConfig `koanf:"site"`
-	Nav  NavConfig  `koanf:"nav"`
+	App     AppConfig     `koanf:"app"`
+	Site    SiteConfig    `koanf:"site"`
+	Nav     NavConfig     `koanf:"nav"`
+	Service ServiceConfig `koanf:"service"`
 }
 
 // AppConfig holds the full application configuration from config/config.yaml.
