@@ -51,7 +51,7 @@ site:
 		EnvKey: os.Getenv("APP_ENV"),
 		Files: []ConfigFile{
 			{Filepath: filepath.Join(dir, "app.yaml")},
-			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
+			{Filepath: filepath.Join(dir, "site.yaml")},
 		},
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ site:
 	}
 }
 
-func TestLoadReportsInvalidContentFile(t *testing.T) {
+func TestLoadReportsInvalidMergedConfig(t *testing.T) {
 	dir := t.TempDir()
 	writeLoaderFile(t, dir, "app.yaml", `
 app:
@@ -88,11 +88,14 @@ site:
 	err := loadConfig(&cfg, Options{
 		Files: []ConfigFile{
 			{Filepath: filepath.Join(dir, "app.yaml")},
-			{Filepath: filepath.Join(dir, "site.yaml"), Target: &cfg.Site},
+			{Filepath: filepath.Join(dir, "site.yaml")},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "site.yaml") {
-		t.Fatalf("err = %v", err)
+	if err == nil {
+		t.Fatal("loadConfig() error = nil, want validation error")
+	}
+	if !strings.Contains(err.Error(), "config: validation:") {
+		t.Fatalf("err = %v, want root validation error", err)
 	}
 }
 

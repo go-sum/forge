@@ -17,18 +17,12 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-// ConfigFile is a configuration file entry with an optional per-file validation scope.
+// ConfigFile is a configuration file entry.
 // The first entry in Options.Files is the required base config; all others are optional.
 type ConfigFile struct {
 	// Filepath is the path to the YAML file (e.g. "config/app.yaml").
 	// The first file in Options.Files is required; all others are silently skipped when absent.
 	Filepath string
-	// Target is a pointer into the already-unmarshalled root struct (e.g. &cfg.Site).
-	// When non-nil, Validator (if set) runs after unmarshal and errors name this file.
-	Target any
-	// Validator registers custom validations applied when validating this file's Target
-	// and also when running the final global struct validation pass.
-	Validator func(v *validator.Validate)
 }
 
 // Options configures how Load discovers and merges configuration sources.
@@ -53,10 +47,7 @@ type Options struct {
 //  2. {dir}/{stem}.{EnvKey}.yaml                  — optional overlay; silently skipped
 //  3. Files[1:][*].Filepath                       — optional; silently skipped when absent
 //  4. Unmarshal into target
-//  5. Per-file validation: for each ConfigFile with non-nil Target, v.Struct(Target)
-//     with the filepath named in any error
-//  6. Validate target using go-playground/validator struct tags, with all per-file
-//     Validators registered
+//  5. Validate target using go-playground/validator struct tags
 func loadConfig(target any, opts Options) error {
 	if len(opts.Files) == 0 {
 		return fmt.Errorf("config: no files specified")
@@ -95,29 +86,8 @@ func loadConfig(target any, opts Options) error {
 		return fmt.Errorf("config: unmarshal: %w", err)
 	}
 
-	// 5. Per-file validation: each ConfigFile with a non-nil Target gets its
-	// own validation pass so errors are attributed to the specific file.
-	for _, cf := range opts.Files {
-		if cf.Target == nil {
-			continue
-		}
-		v := validator.New()
-		if cf.Validator != nil {
-			cf.Validator(v)
-		}
-		if err := v.Struct(cf.Target); err != nil {
-			return fmt.Errorf("config: %s: %w", cf.Filepath, err)
-		}
-	}
-
-	// 6. Validate the whole config. Register all per-file Validators so that
-	// custom tags (e.g. nav struct rules) are available for the global pass.
+	// 5. Validate the whole config against its tagged structural schema.
 	v := validator.New()
-	for _, cf := range opts.Files {
-		if cf.Validator != nil {
-			cf.Validator(v)
-		}
-	}
 	if err := v.Struct(target); err != nil {
 		return fmt.Errorf("config: validation: %w", err)
 	}
@@ -125,9 +95,8 @@ func loadConfig(target any, opts Options) error {
 	return nil
 }
 
-// Load allocates a fresh *T, calls opts(cfg) to build the Options (which
-// allows ContentFile.Target to hold addresses of fields within the freshly
-// allocated struct), then delegates to loadConfig.
+// Load allocates a fresh *T, calls opts(cfg) to build the Options, then
+// delegates to loadConfig.
 func Load[T any](opts func(*T) Options) (*T, error) {
 	cfg := new(T)
 	if err := loadConfig(cfg, opts(cfg)); err != nil {

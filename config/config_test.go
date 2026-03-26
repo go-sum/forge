@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -117,7 +116,7 @@ func TestInitLoadsNavContentFile(t *testing.T) {
 	}
 }
 
-func TestInitRejectsInvalidNavContentFile(t *testing.T) {
+func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
 	prev := App
 	t.Cleanup(func() { App = prev })
 
@@ -219,10 +218,12 @@ func TestInitRejectsInvalidNavContentFile(t *testing.T) {
 				}
 			}
 
-			if _, err := loadTestConfig(dir); err == nil {
-				t.Fatal("loadTestConfig() error = nil, want validation error")
-			} else if !strings.Contains(err.Error(), "nav.yaml") {
-				t.Fatalf("loadTestConfig() error = %v, want nav.yaml attribution", err)
+			cfg, err := loadTestConfig(dir)
+			if err != nil {
+				t.Fatalf("loadTestConfig() error = %v, want config to load without custom nav validation", err)
+			}
+			if cfg == nil {
+				t.Fatal("loadTestConfig() cfg = nil, want non-nil config")
 			}
 		})
 	}
