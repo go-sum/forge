@@ -32,21 +32,27 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 		Sitemap: c.Config.Site.Sitemap,
 	}, func() echo.Routes { return c.Web.Router().Routes() })
 
-	publicPost := c.Web.Group("")
+	publicPost := c.Web.Group("") // (cross-origin-guarded public POST)
 	publicPost.Use(
 		appserver.CrossOriginGuard(c.Config),
 		appserver.RateLimitMiddleware(c.Config, "auth"),
 	)
 
-	authGuarded := c.Web.Group("")
+	authGuarded := c.Web.Group("") // (requires session)
 	authGuarded.Use(
 		authadapter.RequireAuthPath(func() string {
 			return route.Reverse(c.Web.Router().Routes(), "signin.get")
 		}, authKeys),
 	)
 
-	authGuardedPost := authGuarded.Group("")
+	authGuardedPost := authGuarded.Group("") // (session + cross-origin-guarded POST)
 	authGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
+
+	adminGuarded := authGuarded.Group("") // (admin + requires session)
+	adminGuarded.Use(authadapter.RequireAdmin(authKeys))
+
+	adminGuardedPost := adminGuarded.Group("") // (admin + session + cross-origin-guarded POST)
+	adminGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
 
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: h.Home})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/contact", Name: "contact.show", Handler: h.ContactForm})
@@ -57,9 +63,9 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/signin", Name: "signin.post", Handler: authH.Signin})
 	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/signup", Name: "signup.post", Handler: authH.Signup})
 	route.Add(authGuardedPost, echo.Route{Method: http.MethodPost, Path: "/signout", Name: "signout.post", Handler: authH.Signout})
-	// users
-	usersGroup := authGuarded.Group("/users")
-	usersPost := authGuardedPost.Group("/users")
+	// users (admin only)
+	usersGroup := adminGuarded.Group("/users")
+	usersPost := adminGuardedPost.Group("/users")
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: h.UserList})
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "user.edit", Handler: h.UserEditForm})
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: h.UserRow})
