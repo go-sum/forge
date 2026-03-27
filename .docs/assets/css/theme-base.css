@@ -1,8 +1,8 @@
 html {
   color-scheme: light;
-  --docs-font-mono: var(--font-mono);
-  --docs-font-sans: var(--font-sans);
-  --docs-font-serif: var(--font-serif);
+  --docs-font-sans:  ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --docs-font-mono:  ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --docs-font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --docs-hero-start: color-mix(in srgb, var(--accent) 76%, white);
   --docs-hero-surface: var(--background);
   --docs-hero-depth: color-mix(in srgb, white 86%, var(--accent));

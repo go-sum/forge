@@ -14,7 +14,7 @@ body {
     radial-gradient(circle at top right, rgb(236 72 153 / 0.12) 0%, transparent 22rem),
     linear-gradient(180deg, var(--docs-hero-start) 0%, var(--docs-hero-surface) 42%, var(--docs-hero-depth) 100%);
   color: var(--foreground);
-  font-family: var(--docs-font-sans);
+  font-family: var(--font-sans, var(--docs-font-sans));
   line-height: 1.65;
   text-rendering: optimizeLegibility;
 }
@@ -30,7 +30,7 @@ a:hover {
 
 code,
 pre {
-  font-family: var(--docs-font-mono);
+  font-family: var(--font-mono, var(--docs-font-mono));
 }
 
 pre {
