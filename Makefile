@@ -24,6 +24,7 @@ endef
         assets health \
         package-sync package-release \
         dev ddev docker-build docker-dev docker-down docker-logs docker-up \
+        deploy \
         _ensure-available
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
@@ -95,6 +96,9 @@ dev: ## Start all services with hot-reload
 
 docker-build: ## Build production Docker image
 	docker build --target production -t starter:latest .
+
+deploy: _ensure-available ## Build, push, and migrate production (requires DATABASE_URL, REGISTRY; see scripts/deploy.sh)
+	./scripts/deploy.sh
 
 docker-dev: ## Build dev Docker image
 	docker build --target dev -t $(APP_NAME) .
