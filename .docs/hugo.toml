@@ -1,0 +1,28 @@
+baseURL = "/docs/"
+title = "Forge Documentation"
+disableKinds = ["taxonomy", "term", "RSS", "sitemap", "robotsTXT"]
+
+[params]
+  description = "Architecture guides and package documentation for Forge."
+
+[markup]
+  [markup.goldmark.renderer]
+    unsafe = false
+  [markup.highlight]
+    codeFences = true
+    noClasses = false
+
+[module]
+  [[module.mounts]]
+    source = "content"
+    target = "content"
+  [[module.mounts]]
+    source = "layouts"
+    target = "layouts"
+  [[module.mounts]]
+    source = "assets"
+    target = "assets"
+  [[module.mounts]]
+    source = "../.decisions"
+    target = "content/architecture"
+    includeFiles = ["API_RULES.md", "DESIGN_GUIDE.md", "UI_GUIDE.md"]

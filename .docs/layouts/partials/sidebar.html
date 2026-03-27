@@ -1,0 +1,34 @@
+<nav aria-label="Documentation navigation">
+  <ul class="docs-nav">
+    <li>
+      <a class="{{ if .IsHome }}is-active{{ end }}" href="{{ .Site.Home.RelPermalink }}">Overview</a>
+    </li>
+    {{ range .Site.Sections.ByWeight }}
+    {{ $section := . }}
+    <li>
+      <a class="{{ if or (eq $.RelPermalink .RelPermalink) (hasPrefix $.RelPermalink .RelPermalink) }}is-active{{ end }}"
+        href="{{ .RelPermalink }}">{{ .LinkTitle | default .Title }}</a>
+      {{ if .Pages }}
+      <ul>
+        {{ range .Pages.ByWeight }}
+        <li>
+          <a class="{{ if eq $.RelPermalink .RelPermalink }}is-active{{ end }}" href="{{ .RelPermalink }}">{{ .LinkTitle
+            | default .Title }}</a>
+        </li>
+        {{ end }}
+      </ul>
+      {{ end }}
+      {{ if $section.Sections }}
+      <ul>
+        {{ range $section.Sections.ByWeight }}
+        <li>
+          <a class="{{ if or (eq $.RelPermalink .RelPermalink) (hasPrefix $.RelPermalink .RelPermalink) }}is-active{{ end }}"
+            href="{{ .RelPermalink }}">{{ .LinkTitle | default .Title }}</a>
+        </li>
+        {{ end }}
+      </ul>
+      {{ end }}
+    </li>
+    {{ end }}
+  </ul>
+</nav>

@@ -1,3 +1,9 @@
+---
+title: UI Design Guide
+description: Visual design and composition guidance for the Forge starter UI.
+weight: 30
+---
+
 # UI_GUIDE.md — UI Design Guide
 
 > This guide defines how UI should be designed and composed in the starter.

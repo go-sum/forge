@@ -11,17 +11,18 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"syscall"
 
 	"github.com/evanw/esbuild/pkg/api"
+	"github.com/go-sum/componentry/assetconfig"
 )
 
 type assetBuildOptions struct {
 	ConfigPath   string
 	Minify       bool
 	BuildCSS     bool
+	BuildDocs    bool
 	BuildJS      bool
 	BuildSprites bool
 }
@@ -43,6 +44,7 @@ func runBuildAssets() {
 		ConfigPath:   *configPath,
 		Minify:       *minify,
 		BuildCSS:     true,
+		BuildDocs:    true,
 		BuildJS:      true,
 		BuildSprites: true,
 	}
@@ -59,6 +61,7 @@ func runBuildAssets() {
 	}
 	if selected == 1 {
 		opts.BuildCSS = *cssOnly
+		opts.BuildDocs = false
 		opts.BuildJS = *jsOnly
 		opts.BuildSprites = *spritesOnly
 	}
@@ -110,6 +113,11 @@ func buildAssets(opts assetBuildOptions) error {
 	}
 	if opts.BuildCSS {
 		if err := buildCSSAll(cfg.CSS, opts.Minify); err != nil {
+			return err
+		}
+	}
+	if opts.BuildDocs {
+		if err := buildDocs(cfg.Paths); err != nil {
 			return err
 		}
 	}
@@ -320,6 +328,32 @@ func buildCSS(cfg assetconfig.CSSConfig, minify bool) error {
 	}
 	if err := command(cfg.Tool, args...).Run(); err != nil {
 		return fmt.Errorf("%s: %w", cfg.Tool, err)
+	}
+	return nil
+}
+
+func buildDocs(paths assetconfig.Paths) error {
+	const docsSourceDir = ".docs"
+
+	publicRoot, err := filepath.Abs(paths.PublicRoot())
+	if err != nil {
+		return fmt.Errorf("resolve public root %s: %w", paths.PublicRoot(), err)
+	}
+	outputDir := filepath.Join(publicRoot, "doc")
+	if err := os.RemoveAll(outputDir); err != nil {
+		return fmt.Errorf("remove %s: %w", outputDir, err)
+	}
+	if err := os.MkdirAll(publicRoot, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", publicRoot, err)
+	}
+
+	args := []string{
+		"--source", docsSourceDir,
+		"--destination", outputDir,
+		"--quiet",
+	}
+	if err := command("hugo", args...).Run(); err != nil {
+		return fmt.Errorf("hugo: %w", err)
 	}
 	return nil
 }

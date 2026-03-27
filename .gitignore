@@ -9,8 +9,9 @@ tmp/
 
 # Generated / downloaded assets — rebuild with `make css` and `make js`
 public/css/
-public/js/htmx.min.js
-public/js/alpine.min.js
+public/doc/
+public/img/
+public/js/
 
 *.test
 *.out

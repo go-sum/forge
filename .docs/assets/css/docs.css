@@ -1,0 +1,362 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 16%, transparent) 0%, transparent 24rem),
+    radial-gradient(circle at top right, rgb(236 72 153 / 0.12) 0%, transparent 22rem),
+    linear-gradient(180deg, var(--docs-hero-start) 0%, var(--docs-hero-surface) 42%, var(--docs-hero-depth) 100%);
+  color: var(--foreground);
+  font-family: var(--docs-font-sans);
+  line-height: 1.65;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--primary);
+  transition: color 120ms ease, opacity 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+
+a:hover {
+  color: color-mix(in srgb, var(--primary) 82%, black);
+}
+
+code,
+pre {
+  font-family: var(--docs-font-mono);
+}
+
+pre {
+  overflow-x: auto;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+code {
+  background: color-mix(in srgb, var(--secondary) 92%, transparent);
+  color: color-mix(in srgb, var(--primary) 84%, var(--foreground));
+  padding: 0.15rem 0.38rem;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 7px;
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 0;
+}
+
+.docs-shell {
+  max-width: 1280px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2rem;
+}
+
+.docs-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.15rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--docs-panel-bg);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--docs-panel-shadow);
+}
+
+.docs-brand {
+  color: var(--foreground);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.docs-tagline {
+  margin: 0.35rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.98rem;
+}
+
+.docs-home-link {
+  align-self: center;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docs-home-link:hover {
+  color: var(--accent-foreground);
+}
+
+.docs-body {
+  display: grid;
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  min-height: calc(100vh - 7.5rem);
+}
+
+.docs-sidebar,
+.docs-main {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--docs-panel-bg);
+  box-shadow: var(--docs-panel-shadow);
+}
+
+.docs-sidebar {
+  padding: 1rem 0.95rem;
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+
+.docs-main {
+  padding: 2rem 2.1rem;
+}
+
+.docs-nav,
+.docs-nav ul,
+.docs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-nav > li + li,
+.docs-nav ul li + li,
+.docs-list li + li {
+  margin-top: 0.35rem;
+}
+
+.docs-nav a {
+  display: block;
+  padding: 0.58rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.docs-nav ul {
+  margin-top: 0.3rem;
+  margin-left: 0.85rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
+}
+
+.docs-nav a:hover {
+  background: color-mix(in srgb, var(--accent) 74%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--border));
+  color: var(--accent-foreground);
+}
+
+.docs-nav a.is-active {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 700;
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+}
+
+.docs-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.docs-page-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.docs-page-header p {
+  margin: 0.75rem 0 0;
+  max-width: 58rem;
+  color: var(--muted-foreground);
+  font-size: 1.05rem;
+}
+
+.docs-content > :first-child {
+  margin-top: 0;
+}
+
+.docs-content > :last-child {
+  margin-bottom: 0;
+}
+
+.docs-content p,
+.docs-content ul,
+.docs-content ol,
+.docs-content table,
+.docs-content blockquote,
+.docs-content pre {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.docs-content p,
+.docs-content li {
+  color: color-mix(in srgb, var(--foreground) 92%, var(--muted-foreground));
+}
+
+.docs-content h2,
+.docs-content h3,
+.docs-content h4 {
+  scroll-margin-top: 1.5rem;
+  color: var(--foreground);
+  letter-spacing: -0.03em;
+}
+
+.docs-content h2 {
+  margin-top: 2rem;
+  margin-bottom: 0.8rem;
+  font-size: 1.7rem;
+}
+
+.docs-content h3 {
+  margin-top: 1.6rem;
+  margin-bottom: 0.7rem;
+  font-size: 1.3rem;
+}
+
+.docs-content h4 {
+  margin-top: 1.35rem;
+  margin-bottom: 0.55rem;
+  font-size: 1.05rem;
+}
+
+.docs-content ul,
+.docs-content ol {
+  padding-left: 1.5rem;
+}
+
+.docs-content li + li {
+  margin-top: 0.32rem;
+}
+
+.docs-content strong {
+  color: var(--foreground);
+}
+
+.docs-content hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.docs-list {
+  margin-top: 1.5rem;
+}
+
+.docs-list li {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--docs-card-bg);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.2);
+}
+
+.docs-list a {
+  display: inline-block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.docs-list a:hover {
+  color: color-mix(in srgb, var(--primary) 86%, black);
+}
+
+.docs-list span {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted-foreground);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+th,
+td {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+td {
+  color: color-mix(in srgb, var(--foreground) 94%, var(--muted-foreground));
+}
+
+blockquote {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border-left: 4px solid var(--primary);
+  border-radius: 0 16px 16px 0;
+  background: color-mix(in srgb, var(--accent) 76%, transparent);
+  color: color-mix(in srgb, var(--accent-foreground) 88%, var(--foreground));
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 16px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+@media (max-width: 900px) {
+  body {
+    background:
+      radial-gradient(circle at top, color-mix(in srgb, var(--primary) 14%, transparent) 0%, transparent 18rem),
+      linear-gradient(180deg, var(--docs-hero-start) 0%, var(--docs-hero-surface) 45%, var(--docs-hero-depth) 100%);
+  }
+
+  .docs-shell {
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  .docs-header,
+  .docs-body {
+    display: block;
+  }
+
+  .docs-sidebar {
+    position: static;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .docs-main {
+    padding: 1.5rem;
+  }
+}

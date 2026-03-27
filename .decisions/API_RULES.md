@@ -1,3 +1,9 @@
+---
+title: Echo v5 Critical API Rules
+description: Echo v5 handler signatures, imports, binding rules, and migration notes used by Forge.
+weight: 10
+---
+
 # Echo v5 Critical API Rules
 
 ### Handler Signatures — BREAKING CHANGE from v4

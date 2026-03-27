@@ -72,6 +72,9 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	route.Add(usersPost, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "user.update", Handler: h.UserUpdate})
 	route.Add(usersPost, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "user.delete", Handler: h.UserDelete})
 	// site
+	docsH := docsHandler(c.PublicDir)
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/docs", Name: "docs.index", Handler: docsH})
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/docs/*", Name: "docs.show", Handler: docsH})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/robots.txt", Name: "robots.show", Handler: siteH.RobotsTxt})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/sitemap.xml", Name: "sitemap.show", Handler: siteH.SitemapXML})
 	// extras

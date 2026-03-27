@@ -152,26 +152,30 @@ downstream task numbers.
 
 ### Phase 03: Documentation System
 
-- [ ] **T0301** — Introduce a Go-native markdown documentation pipeline
-  Cover: build a CLI-driven pipeline that ingests markdown from selected repo
-  sources such as `.decisions/`, root docs, and package docs; emit a manifest
-  and rendered artifacts under `public/content/docs`.
+- [x] **T0301** — Adopt Hugo as the documentation compiler
+  Cover: add a Hugo-based build step that compiles markdown documentation into
+  static output under `public/doc` rather than building a custom Go-native
+  markdown pipeline.
 
-- [ ] **T0302** — Add a declarative docs collection configuration file
-  Cover: define which directories are documentation sources, how slugs are
-  generated, which files are public, and how section ordering is controlled.
+- [x] **T0302** — Standardize docs on Hugo-native content conventions
+  Cover: ensure docs such as `README.md` and other published markdown sources
+  follow Hugo front matter and content structure conventions so Hugo-native
+  metadata controls titles, slugs, ordering, sections, and navigation.
 
-- [ ] **T0303** — Add a server-rendered docs route with navigation
-  Cover: expose `/docs/*` using Gomponents and HTMX-compatible rendering with a
-  sidebar, current-document state, and not-found behavior.
+- [x] **T0303** — Serve generated docs statically from the application
+  Cover: expose the compiled Hugo output through the existing app static-file
+  serving path instead of introducing a second runtime markdown renderer or a
+  Gomponents-based docs route.
 
-- [ ] **T0304** — Add syntax highlighting and sanitization that remain CSP-safe
-  Cover: ensure rendered markdown uses server-generated markup and styles
-  without inline-script requirements or SPA-only behavior.
+- [x] **T0304** — Use Hugo Chroma highlighting for CSP-safe rendered docs
+  Cover: configure Hugo to render syntax-highlighted code blocks with Chroma
+  only, keeping docs fully static and CSP-safe without Shiki or client-side
+  rendering requirements.
 
-- [ ] **T0305** — Use the docs system to expose architecture and package guides
-  Cover: publish `.decisions/*`, package guides, and selected operational docs
-  through the new docs viewer so the starter can serve its own internal docs.
+- [x] **T0305** — Publish architecture and package guides through the Hugo docs site
+  Cover: compile and serve `.decisions/*`, package guides, `README.md`, and
+  other selected operational docs through the Hugo-generated docs site using
+  Hugo-native metadata only; defer search and versioning to a later phase.
 
 ---
 

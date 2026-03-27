@@ -25,6 +25,10 @@ nav:
                   href: /sitemap.xml
     - align: end
       items:
+        - label: Features
+          items:
+            - label: Documents
+              href: /docs
         - label: Contact us
           href: /contact
         - label: Account

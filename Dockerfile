@@ -5,6 +5,7 @@ ARG ALPINE_VERSION=3.20
 ARG PGSCHEMA_VERSION=1.7.4
 ARG TAILWIND_VERSION=4.1.3
 ARG HTMX_VERSION=2.0.4
+ARG HUGO_VERSION=0.159.1
 # Dev-only tools. Pin to a semver (e.g. v1.61.7) to improve reproducibility.
 ARG AIR_VERSION=latest
 ARG SQLC_VERSION=latest
@@ -17,6 +18,7 @@ ARG AIR_VERSION
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
 ARG TAILWIND_VERSION
+ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
 
 RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git
@@ -34,6 +36,18 @@ RUN ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
     curl -fsSLo /usr/local/bin/tailwindcss \
       "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${ARCH}-musl" && \
     chmod +x /usr/local/bin/tailwindcss
+RUN ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64) HUGO_ARCH="Linux-64bit" ;; \
+      aarch64) HUGO_ARCH="linux-arm64" ;; \
+      *) echo "unsupported architecture: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSLo /tmp/hugo.tar.gz \
+      "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_${HUGO_ARCH}.tar.gz" && \
+    tar -xzf /tmp/hugo.tar.gz -C /tmp hugo && \
+    mv /tmp/hugo /usr/local/bin/hugo && \
+    chmod +x /usr/local/bin/hugo && \
+    rm -f /tmp/hugo.tar.gz
 
 WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./

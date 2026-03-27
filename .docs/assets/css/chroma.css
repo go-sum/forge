@@ -1,0 +1,119 @@
+.chroma {
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--secondary) 94%, transparent);
+  color: var(--secondary-foreground);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.chroma .k,
+.chroma .kd,
+.chroma .kn,
+.chroma .kp,
+.chroma .kr,
+.chroma .kt,
+.chroma .ow {
+  color: rgb(79 70 229);
+  font-weight: 700;
+}
+
+.chroma .s,
+.chroma .sa,
+.chroma .sb,
+.chroma .sc,
+.chroma .dl,
+.chroma .sd,
+.chroma .s2 {
+  color: rgb(67 56 202);
+}
+
+.chroma .m,
+.chroma .mb,
+.chroma .mf,
+.chroma .mi,
+.chroma .mo {
+  color: rgb(236 72 153);
+}
+
+.chroma .c,
+.chroma .c1,
+.chroma .cm,
+.chroma .cs,
+.chroma .ch {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.chroma .na,
+.chroma .nb,
+.chroma .nc,
+.chroma .nd,
+.chroma .nf,
+.chroma .nl,
+.chroma .nt,
+.chroma .nx,
+.chroma .py,
+.chroma .vg,
+.chroma .vi {
+  color: color-mix(in srgb, var(--foreground) 92%, var(--primary));
+}
+
+.chroma .err {
+  color: rgb(190 24 93);
+}
+
+.chroma .hl {
+  background-color: color-mix(in srgb, var(--accent) 88%, transparent);
+}
+
+.dark .chroma {
+  border-color: color-mix(in srgb, var(--primary) 12%, var(--border));
+  background: color-mix(in srgb, var(--secondary) 98%, black 2%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
+}
+
+.dark .chroma .k,
+.dark .chroma .kd,
+.dark .chroma .kn,
+.dark .chroma .kp,
+.dark .chroma .kr,
+.dark .chroma .kt,
+.dark .chroma .ow {
+  color: rgb(165 180 252);
+}
+
+.dark .chroma .s,
+.dark .chroma .sa,
+.dark .chroma .sb,
+.dark .chroma .sc,
+.dark .chroma .dl,
+.dark .chroma .sd,
+.dark .chroma .s2 {
+  color: rgb(129 140 248);
+}
+
+.dark .chroma .m,
+.dark .chroma .mb,
+.dark .chroma .mf,
+.dark .chroma .mi,
+.dark .chroma .mo {
+  color: rgb(244 114 182);
+}
+
+.dark .chroma .na,
+.dark .chroma .nb,
+.dark .chroma .nc,
+.dark .chroma .nd,
+.dark .chroma .nf,
+.dark .chroma .nl,
+.dark .chroma .nt,
+.dark .chroma .nx,
+.dark .chroma .py,
+.dark .chroma .vg,
+.dark .chroma .vi {
+  color: rgb(226 232 240);
+}
+
+.dark .chroma .err {
+  color: rgb(249 168 212);
+}
