@@ -25,16 +25,18 @@ func toUserModel(u db.User) model.User {
 		Email:       u.Email,
 		DisplayName: u.DisplayName,
 		Role:        u.Role,
+		Verified:    u.Verified,
 		CreatedAt:   u.CreatedAt,
 		UpdatedAt:   u.UpdatedAt,
 	}
 }
 
-func (r *userRepository) Create(ctx context.Context, email, displayName, role string) (model.User, error) {
+func (r *userRepository) Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error) {
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		Email:       email,
 		DisplayName: displayName,
 		Role:        role,
+		Verified:    verified,
 	})
 	if err != nil {
 		return model.User{}, mapUserErr(err)
@@ -82,6 +84,20 @@ func (r *userRepository) Update(ctx context.Context, id uuid.UUID, email, displa
 		Email:       email,
 		DisplayName: displayName,
 		Role:        role,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.User{}, model.ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, mapUserErr(err)
+	}
+	return toUserModel(u), nil
+}
+
+func (r *userRepository) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error) {
+	u, err := r.q.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
+		ID:    id,
+		Email: email,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound

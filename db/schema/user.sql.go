@@ -24,15 +24,16 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 
 const createUser = `-- name: CreateUser :one
 
-INSERT INTO users (email, display_name, role)
-VALUES ($1, $2, $3)
-RETURNING id, email, display_name, role, created_at, updated_at
+INSERT INTO users (email, display_name, role, verified)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, display_name, role, verified, created_at, updated_at
 `
 
 type CreateUserParams struct {
 	Email       string `json:"email"`
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
+	Verified    bool   `json:"verified"`
 }
 
 // User queries
@@ -42,13 +43,19 @@ type CreateUserParams struct {
 //	:many → returns []struct
 //	:exec → returns error only
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.DisplayName, arg.Role)
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.DisplayName,
+		arg.Role,
+		arg.Verified,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.DisplayName,
 		&i.Role,
+		&i.Verified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -66,7 +73,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, display_name, role, created_at, updated_at FROM users
+SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
 WHERE email = $1
 `
 
@@ -79,6 +86,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.DisplayName,
 		&i.Role,
+		&i.Verified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -86,7 +94,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, display_name, role, created_at, updated_at FROM users
+SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -98,6 +106,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.DisplayName,
 		&i.Role,
+		&i.Verified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -105,7 +114,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, display_name, role, created_at, updated_at FROM users
+SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -129,6 +138,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Email,
 			&i.DisplayName,
 			&i.Role,
+			&i.Verified,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -149,7 +159,7 @@ SET
     display_name = COALESCE(NULLIF($2::text, ''), display_name),
     role         = COALESCE(NULLIF($3::text, ''), role)
 WHERE id = $4
-RETURNING id, email, display_name, role, created_at, updated_at
+RETURNING id, email, display_name, role, verified, created_at, updated_at
 `
 
 type UpdateUserParams struct {
@@ -174,6 +184,34 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.DisplayName,
 		&i.Role,
+		&i.Verified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserEmail = `-- name: UpdateUserEmail :one
+UPDATE users
+SET email = $2
+WHERE id = $1
+RETURNING id, email, display_name, role, verified, created_at, updated_at
+`
+
+type UpdateUserEmailParams struct {
+	ID    uuid.UUID `json:"id"`
+	Email string    `json:"email"`
+}
+
+func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserEmail, arg.ID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Role,
+		&i.Verified,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

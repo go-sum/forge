@@ -36,10 +36,16 @@ func New() *App {
 		c.Sessions,
 		c.Validator,
 		authadapter.Config{
-			CSRFField:    c.Config.App.Security.CSRF.FormField,
-			SigninPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
-			SignupPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
-			HomePathFn:   func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
+			CSRFField:          c.Config.App.Security.CSRF.FormField,
+			SigninPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
+			SignupPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
+			VerifyPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "verify.get") },
+			VerifyResendPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "verify.resend.post") },
+			VerifyURLFn: func() string {
+				return c.Config.App.Security.ExternalOrigin + route.Reverse(c.Web.Router().Routes(), "verify.get")
+			},
+			EmailChangeFn: func() string { return route.Reverse(c.Web.Router().Routes(), "account.email.get") },
+			HomePathFn:    func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
 			RequestFn: func(ec *echo.Context) authadapter.Request {
 				req := view.NewRequest(ec, c.Config)
 				return authadapter.Request{

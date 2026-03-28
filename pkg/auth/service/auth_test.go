@@ -7,296 +7,276 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-sum/auth"
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/auth/repository"
+	"github.com/go-sum/send"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var serviceTestUser = model.User{
 	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 	Email:       "ada@example.com",
 	DisplayName: "Ada Lovelace",
-	Role:        "admin",
+	Role:        model.RoleUser,
+	Verified:    true,
 	CreatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
 	UpdatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
 }
 
-type fakeAuthUserRepo struct {
-	createFn func(context.Context, string, string, string) (model.User, error)
-	getByID  func(context.Context, uuid.UUID) (model.User, error)
+type fakeUserStore struct {
+	getByEmailFn  func(context.Context, string) (model.User, error)
+	getByIDFn     func(context.Context, uuid.UUID) (model.User, error)
+	createFn      func(context.Context, string, string, string, bool) (model.User, error)
+	updateEmailFn func(context.Context, uuid.UUID, string) (model.User, error)
 }
 
-func (r fakeAuthUserRepo) Create(ctx context.Context, email, displayName, role string) (model.User, error) {
-	if r.createFn != nil {
-		return r.createFn(ctx, email, displayName, role)
+func (f fakeUserStore) GetByEmail(ctx context.Context, email string) (model.User, error) {
+	if f.getByEmailFn != nil {
+		return f.getByEmailFn(ctx, email)
 	}
-	return model.User{}, errors.New("unexpected Create call")
+	return model.User{}, errors.New("unexpected GetByEmail call")
 }
 
-func (r fakeAuthUserRepo) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
-	if r.getByID != nil {
-		return r.getByID(ctx, id)
+func (f fakeUserStore) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
+	if f.getByIDFn != nil {
+		return f.getByIDFn(ctx, id)
 	}
 	return model.User{}, errors.New("unexpected GetByID call")
 }
 
-func (fakeAuthUserRepo) GetByEmail(context.Context, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected GetByEmail call")
-}
-
-type fakeAuthPasswordRepo struct {
-	createFn          func(context.Context, uuid.UUID, string) (model.Password, error)
-	getCurrentByEmail func(context.Context, string) (model.Password, error)
-}
-
-func (r fakeAuthPasswordRepo) Create(ctx context.Context, userID uuid.UUID, hash string) (model.Password, error) {
-	if r.createFn != nil {
-		return r.createFn(ctx, userID, hash)
+func (f fakeUserStore) Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error) {
+	if f.createFn != nil {
+		return f.createFn(ctx, email, displayName, role, verified)
 	}
-	return model.Password{}, errors.New("unexpected Create call")
+	return model.User{}, errors.New("unexpected Create call")
 }
 
-func (fakeAuthPasswordRepo) GetCurrentByUserID(context.Context, uuid.UUID) (model.Password, error) {
-	return model.Password{}, errors.New("unexpected GetCurrentByUserID call")
-}
-
-func (r fakeAuthPasswordRepo) GetCurrentByEmail(ctx context.Context, email string) (model.Password, error) {
-	if r.getCurrentByEmail != nil {
-		return r.getCurrentByEmail(ctx, email)
+func (f fakeUserStore) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error) {
+	if f.updateEmailFn != nil {
+		return f.updateEmailFn(ctx, id, email)
 	}
-	return model.Password{}, errors.New("unexpected GetCurrentByEmail call")
+	return model.User{}, errors.New("unexpected UpdateEmail call")
 }
 
-type fakeTxFactory struct {
-	repos repository.TxRepos
+type capturingSender struct {
+	messages []send.Message
+	err      error
 }
 
-func (f fakeTxFactory) WithTx(pgx.Tx) repository.TxRepos { return f.repos }
-
-type fakePool struct {
-	tx  pgx.Tx
-	err error
-}
-
-func (p fakePool) Begin(context.Context) (pgx.Tx, error) {
-	if p.err != nil {
-		return nil, p.err
+func (s *capturingSender) Send(_ context.Context, msg send.Message) error {
+	if s.err != nil {
+		return s.err
 	}
-	return p.tx, nil
+	s.messages = append(s.messages, msg)
+	return nil
 }
 
-type fakeTx struct {
-	commitErr      error
-	rollbackErr    error
-	commitCalled   bool
-	rollbackCalled bool
+type fixedClock struct {
+	now time.Time
 }
 
-func (tx *fakeTx) Begin(context.Context) (pgx.Tx, error) { return tx, nil }
+func (c fixedClock) Now() time.Time { return c.now }
 
-func (tx *fakeTx) Commit(context.Context) error {
-	tx.commitCalled = true
-	return tx.commitErr
+func testService(t *testing.T, users fakeUserStore, sender send.Sender, now time.Time) *AuthService {
+	t.Helper()
+	return NewAuthService(users, sender, Config{
+		Method: auth.EmailTOTPMethodConfig{
+			Enabled:       true,
+			Issuer:        "Forge",
+			PeriodSeconds: 300,
+		},
+		SendFrom: "no-reply@example.com",
+		TokenCodec: NewEncryptedTokenCodec(
+			strings.Repeat("a", 32),
+			strings.Repeat("b", 32),
+		),
+		Clock: fixedClock{now: now},
+	})
 }
 
-func (tx *fakeTx) Rollback(context.Context) error {
-	tx.rollbackCalled = true
-	return tx.rollbackErr
-}
+func TestBeginSignupSendsVerificationEmail(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	sender := &capturingSender{}
+	svc := testService(t, fakeUserStore{
+		getByEmailFn: func(context.Context, string) (model.User, error) {
+			return model.User{}, model.ErrUserNotFound
+		},
+	}, sender, now)
 
-func (*fakeTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
-	return 0, errors.New("unexpected CopyFrom call")
-}
-
-func (*fakeTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults { return nil }
-func (*fakeTx) LargeObjects() pgx.LargeObjects                         { return pgx.LargeObjects{} }
-func (*fakeTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
-	return nil, errors.New("unexpected Prepare call")
-}
-func (*fakeTx) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, errors.New("unexpected Exec call")
-}
-func (*fakeTx) Query(context.Context, string, ...any) (pgx.Rows, error) {
-	return nil, errors.New("unexpected Query call")
-}
-func (*fakeTx) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
-func (*fakeTx) Conn() *pgx.Conn                                  { return nil }
-
-func TestAuthServiceRegisterCreatesUserAndPasswordInTransaction(t *testing.T) {
-	tx := &fakeTx{}
-	var createdHash string
-	service := NewAuthService(
-		nil,
-		nil,
-		fakeTxFactory{repos: repository.TxRepos{
-			User: fakeAuthUserRepo{
-				createFn: func(_ context.Context, email, displayName, role string) (model.User, error) {
-					if email != "ada@example.com" || displayName != "Ada" || role != "user" {
-						t.Fatalf("email=%q displayName=%q role=%q", email, displayName, role)
-					}
-					return serviceTestUser, nil
-				},
-			},
-			Password: fakeAuthPasswordRepo{
-				createFn: func(_ context.Context, userID uuid.UUID, hash string) (model.Password, error) {
-					if userID != serviceTestUser.ID {
-						t.Fatalf("userID = %s", userID)
-					}
-					createdHash = hash
-					return model.Password{UserID: userID, Hash: hash}, nil
-				},
-			},
-		}},
-		fakePool{tx: tx},
-	)
-
-	user, err := service.Signup(context.Background(), model.SignupInput{
+	flow, err := svc.BeginSignup(context.Background(), model.BeginSignupInput{
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
-		Password:    "correct-password",
-	})
+	}, "https://example.com/verify")
 	if err != nil {
-		t.Fatalf("Signup() error = %v", err)
+		t.Fatalf("BeginSignup() error = %v", err)
 	}
-	if user != serviceTestUser {
-		t.Fatalf("user = %#v", user)
+	if flow.Purpose != model.FlowPurposeSignup || flow.Email != "ada@example.com" || flow.DisplayName != "Ada" {
+		t.Fatalf("flow = %#v", flow)
 	}
-	if createdHash == "" || createdHash == "correct-password" {
-		t.Fatalf("createdHash = %q", createdHash)
+	if len(sender.messages) != 1 {
+		t.Fatalf("messages = %#v", sender.messages)
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(createdHash), []byte("correct-password")); err != nil {
-		t.Fatalf("stored hash did not match password: %v", err)
+	code, err := svc.generateCode(flow.Secret, flow.IssuedAt)
+	if err != nil {
+		t.Fatalf("generateCode() error = %v", err)
 	}
-	if !tx.commitCalled {
-		t.Fatal("Commit was not called")
-	}
-	if !tx.rollbackCalled {
-		t.Fatal("Rollback defer was not called")
+	if !strings.Contains(sender.messages[0].Text, code) || !strings.Contains(sender.messages[0].Text, "token=") {
+		t.Fatalf("message = %#v", sender.messages[0])
 	}
 }
 
-func TestAuthServiceRegisterPropagatesEmailTaken(t *testing.T) {
-	tx := &fakeTx{}
-	service := NewAuthService(
-		nil,
-		nil,
-		fakeTxFactory{repos: repository.TxRepos{
-			User: fakeAuthUserRepo{
-				createFn: func(context.Context, string, string, string) (model.User, error) {
-					return model.User{}, model.ErrEmailTaken
-				},
-			},
-			Password: fakeAuthPasswordRepo{},
-		}},
-		fakePool{tx: tx},
-	)
+func TestBeginSignupRejectsDuplicateEmail(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	svc := testService(t, fakeUserStore{
+		getByEmailFn: func(context.Context, string) (model.User, error) {
+			return serviceTestUser, nil
+		},
+	}, &capturingSender{}, now)
 
-	_, err := service.Signup(context.Background(), model.SignupInput{
-		Email:       "ada@example.com",
+	_, err := svc.BeginSignup(context.Background(), model.BeginSignupInput{
+		Email:       serviceTestUser.Email,
 		DisplayName: "Ada",
-		Password:    "correct-password",
-	})
+	}, "https://example.com/verify")
 	if !errors.Is(err, model.ErrEmailTaken) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestAuthServiceSignupHandlesBeginAndCommitFailures(t *testing.T) {
-	beginSvc := NewAuthService(nil, nil, fakeTxFactory{}, fakePool{err: errors.New("begin failed")})
-	_, err := beginSvc.Signup(context.Background(), model.SignupInput{
-		Email:       "ada@example.com",
-		DisplayName: "Ada",
-		Password:    "correct-password",
+func TestBeginSigninSuppressesDeliveryForUnknownEmail(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	sender := &capturingSender{}
+	svc := testService(t, fakeUserStore{
+		getByEmailFn: func(context.Context, string) (model.User, error) {
+			return model.User{}, model.ErrUserNotFound
+		},
+	}, sender, now)
+
+	flow, err := svc.BeginSignin(context.Background(), model.BeginSigninInput{
+		Email: "missing@example.com",
+	}, "https://example.com/verify")
+	if err != nil {
+		t.Fatalf("BeginSignin() error = %v", err)
+	}
+	if flow.Purpose != model.FlowPurposeSignin || flow.Email != "missing@example.com" {
+		t.Fatalf("flow = %#v", flow)
+	}
+	if len(sender.messages) != 0 {
+		t.Fatalf("messages = %#v", sender.messages)
+	}
+}
+
+func TestVerifyPendingFlowCreatesVerifiedUserOnSignup(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	var createdVerified bool
+	svc := testService(t, fakeUserStore{
+		createFn: func(_ context.Context, email, displayName, role string, verified bool) (model.User, error) {
+			createdVerified = verified
+			if email != "ada@example.com" || displayName != "Ada" || role != model.RoleUser {
+				t.Fatalf("email=%q displayName=%q role=%q", email, displayName, role)
+			}
+			return serviceTestUser, nil
+		},
+	}, &capturingSender{}, now)
+
+	flow, code, err := svc.newPendingFlow(model.FlowPurposeSignup, "ada@example.com", "Ada", model.RoleUser, uuid.Nil)
+	if err != nil {
+		t.Fatalf("newPendingFlow() error = %v", err)
+	}
+	result, err := svc.VerifyPendingFlow(context.Background(), flow, model.VerifyInput{Code: code})
+	if err != nil {
+		t.Fatalf("VerifyPendingFlow() error = %v", err)
+	}
+	if result.User != serviceTestUser || !createdVerified {
+		t.Fatalf("result=%#v createdVerified=%v", result, createdVerified)
+	}
+}
+
+func TestVerifyTokenPrefillsAndCompletesEmailChange(t *testing.T) {
+	now := time.Date(2099, 3, 28, 12, 0, 0, 0, time.UTC)
+	targetEmail := "new@example.com"
+	svc := testService(t, fakeUserStore{
+		getByIDFn: func(context.Context, uuid.UUID) (model.User, error) {
+			return serviceTestUser, nil
+		},
+		updateEmailFn: func(_ context.Context, id uuid.UUID, email string) (model.User, error) {
+			if id != serviceTestUser.ID || email != targetEmail {
+				t.Fatalf("id=%s email=%q", id, email)
+			}
+			updated := serviceTestUser
+			updated.Email = targetEmail
+			return updated, nil
+		},
+	}, &capturingSender{}, now)
+
+	flow, code, err := svc.newPendingFlow(model.FlowPurposeEmailChange, targetEmail, "", "", serviceTestUser.ID)
+	if err != nil {
+		t.Fatalf("newPendingFlow() error = %v", err)
+	}
+	token, err := svc.tokenCodec.Encode(model.VerificationToken{
+		Purpose:   flow.Purpose,
+		Email:     flow.Email,
+		UserID:    flow.UserID,
+		Secret:    flow.Secret,
+		IssuedAt:  flow.IssuedAt,
+		ExpiresAt: flow.ExpiresAt,
 	})
-	if err == nil || !strings.Contains(err.Error(), "begin tx") {
-		t.Fatalf("err = %v", err)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
 	}
 
-	tx := &fakeTx{commitErr: errors.New("commit failed")}
-	commitSvc := NewAuthService(
-		nil,
-		nil,
-		fakeTxFactory{repos: repository.TxRepos{
-			User: fakeAuthUserRepo{
-				createFn: func(context.Context, string, string, string) (model.User, error) { return serviceTestUser, nil },
-			},
-			Password: fakeAuthPasswordRepo{
-				createFn: func(context.Context, uuid.UUID, string) (model.Password, error) { return model.Password{}, nil },
-			},
-		}},
-		fakePool{tx: tx},
-	)
-	_, err = commitSvc.Signup(context.Background(), model.SignupInput{
-		Email:       "ada@example.com",
-		DisplayName: "Ada",
-		Password:    "correct-password",
-	})
-	if err == nil || !strings.Contains(err.Error(), "commit tx") {
+	state, err := svc.VerifyPageState(token)
+	if err != nil {
+		t.Fatalf("VerifyPageState() error = %v", err)
+	}
+	if state.Code != code || state.Email != targetEmail || state.Purpose != model.FlowPurposeEmailChange {
+		t.Fatalf("state = %#v", state)
+	}
+
+	result, err := svc.VerifyToken(context.Background(), token, model.VerifyInput{Code: code})
+	if err != nil {
+		t.Fatalf("VerifyToken() error = %v", err)
+	}
+	if result.User.Email != targetEmail {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestVerifyPendingFlowRejectsExpiredCode(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	svc := testService(t, fakeUserStore{}, &capturingSender{}, now)
+	flow, code, err := svc.newPendingFlow(model.FlowPurposeSignin, "ada@example.com", "", "", uuid.Nil)
+	if err != nil {
+		t.Fatalf("newPendingFlow() error = %v", err)
+	}
+
+	svc.clock = fixedClock{now: flow.ExpiresAt.Add(time.Second)}
+	_, err = svc.VerifyPendingFlow(context.Background(), flow, model.VerifyInput{Code: code})
+	if !errors.Is(err, model.ErrVerificationExpired) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestAuthServiceSigninAuthenticatesAndNormalizesFailures(t *testing.T) {
-	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
+func TestResendPendingFlowStartsFreshCycle(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	sender := &capturingSender{}
+	svc := testService(t, fakeUserStore{
+		getByEmailFn: func(context.Context, string) (model.User, error) {
+			return serviceTestUser, nil
+		},
+	}, sender, now)
+
+	flow, _, err := svc.newPendingFlow(model.FlowPurposeSignin, serviceTestUser.Email, "", "", uuid.Nil)
 	if err != nil {
-		t.Fatalf("GenerateFromPassword() error = %v", err)
+		t.Fatalf("newPendingFlow() error = %v", err)
 	}
-
-	service := NewAuthService(
-		fakeAuthUserRepo{
-			getByID: func(context.Context, uuid.UUID) (model.User, error) {
-				return serviceTestUser, nil
-			},
-		},
-		fakeAuthPasswordRepo{
-			getCurrentByEmail: func(_ context.Context, email string) (model.Password, error) {
-				if email != serviceTestUser.Email {
-					t.Fatalf("email = %q", email)
-				}
-				return model.Password{UserID: serviceTestUser.ID, Hash: string(hash)}, nil
-			},
-		},
-		fakeTxFactory{},
-		fakePool{},
-	)
-
-	user, err := service.Signin(context.Background(), model.SigninInput{
-		Email:    serviceTestUser.Email,
-		Password: "correct-password",
-	})
+	next, err := svc.ResendPendingFlow(context.Background(), flow, "https://example.com/verify")
 	if err != nil {
-		t.Fatalf("Signin() error = %v", err)
+		t.Fatalf("ResendPendingFlow() error = %v", err)
 	}
-	if user != serviceTestUser {
-		t.Fatalf("user = %#v", user)
+	if next.Purpose != model.FlowPurposeSignin || next.Email != serviceTestUser.Email || next.Secret == flow.Secret {
+		t.Fatalf("next = %#v", next)
 	}
-
-	_, err = service.Signin(context.Background(), model.SigninInput{
-		Email:    serviceTestUser.Email,
-		Password: "wrong-password",
-	})
-	if !errors.Is(err, model.ErrInvalidCredentials) {
-		t.Fatalf("wrong password err = %v", err)
-	}
-
-	invalidSvc := NewAuthService(
-		fakeAuthUserRepo{},
-		fakeAuthPasswordRepo{
-			getCurrentByEmail: func(context.Context, string) (model.Password, error) {
-				return model.Password{}, model.ErrUserNotFound
-			},
-		},
-		fakeTxFactory{},
-		fakePool{},
-	)
-	_, err = invalidSvc.Signin(context.Background(), model.SigninInput{
-		Email:    "missing@example.com",
-		Password: "whatever",
-	})
-	if !errors.Is(err, model.ErrInvalidCredentials) {
-		t.Fatalf("missing user err = %v", err)
+	if len(sender.messages) != 1 {
+		t.Fatalf("messages = %#v", sender.messages)
 	}
 }

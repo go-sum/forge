@@ -1,18 +1,25 @@
 package session
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/go-sum/auth/model"
 	"github.com/gorilla/sessions"
 )
 
 // ErrNotAuthenticated is returned when the session contains no user ID.
 var ErrNotAuthenticated = errors.New("not authenticated")
 
+// ErrPendingFlowNotFound is returned when no pending verification flow is stored.
+var ErrPendingFlowNotFound = errors.New("pending auth flow not found")
+
 // sessionKeyUserID is the key used to store the authenticated user ID in the session.
 const sessionKeyUserID = "user_id"
+
+const sessionKeyPendingFlow = "pending_flow"
 
 // SessionConfig holds cookie store configuration.
 type SessionConfig struct {
@@ -88,7 +95,50 @@ func (m *SessionManager) GetUserID(r *http.Request) (string, error) {
 	return userID, nil
 }
 
+// SetPendingFlow stores the browser-bound verification flow in the session cookie.
+func (m *SessionManager) SetPendingFlow(w http.ResponseWriter, r *http.Request, flow model.PendingFlow) error {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(flow)
+	if err != nil {
+		return err
+	}
+	session.Values[sessionKeyPendingFlow] = string(encoded)
+	return session.Save(r, w)
+}
 
+// GetPendingFlow reads the pending verification flow from the session cookie.
+func (m *SessionManager) GetPendingFlow(r *http.Request) (model.PendingFlow, error) {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return model.PendingFlow{}, ErrPendingFlowNotFound
+	}
+	v, ok := session.Values[sessionKeyPendingFlow]
+	if !ok {
+		return model.PendingFlow{}, ErrPendingFlowNotFound
+	}
+	raw, ok := v.(string)
+	if !ok || raw == "" {
+		return model.PendingFlow{}, ErrPendingFlowNotFound
+	}
+	var flow model.PendingFlow
+	if err := json.Unmarshal([]byte(raw), &flow); err != nil {
+		return model.PendingFlow{}, ErrPendingFlowNotFound
+	}
+	return flow, nil
+}
+
+// ClearPendingFlow removes the pending verification flow from the session.
+func (m *SessionManager) ClearPendingFlow(w http.ResponseWriter, r *http.Request) error {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return err
+	}
+	delete(session.Values, sessionKeyPendingFlow)
+	return session.Save(r, w)
+}
 
 // Clear invalidates the session by setting MaxAge to -1.
 func (m *SessionManager) Clear(w http.ResponseWriter, r *http.Request) error {

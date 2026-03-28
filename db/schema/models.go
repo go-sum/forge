@@ -10,18 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type Password struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	Hash      string    `json:"hash"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type User struct {
 	ID          uuid.UUID `json:"id"`
 	Email       string    `json:"email"`
 	DisplayName string    `json:"display_name"`
 	Role        string    `json:"role"`
+	Verified    bool      `json:"verified"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

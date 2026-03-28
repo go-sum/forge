@@ -1,14 +1,18 @@
 package config
 
+import (
+	auth "github.com/go-sum/auth"
+	"github.com/go-sum/send"
+)
+
 // ServiceConfig holds service-level configuration loaded from config/service.yaml.
 type ServiceConfig struct {
-	Send SendConfig `koanf:"send"`
+	Send SendConfig  `koanf:"send"`
+	Auth auth.Config `koanf:"auth"`
 }
 
-// SendConfig controls which email adapter is active and how it is configured.
+// SendConfig holds app-specific email workflow config plus provider delivery config.
 type SendConfig struct {
-	Adapter  string `koanf:"adapter"`
-	SendTo   string `koanf:"send_to"`
-	SendFrom string `koanf:"send_from"`
-	APIKey   string `koanf:"api_key"`
+	SendTo   string      `koanf:"send_to"`
+	Delivery send.Config `koanf:"delivery"`
 }

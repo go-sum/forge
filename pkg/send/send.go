@@ -1,14 +1,11 @@
 // Package send provides provider-agnostic email delivery.
-//
-// Public API:
-//   - [Message] and [Sender] are the provider-agnostic email contract.
-//   - [InitSender] constructs a configured Sender via the adapter registry.
-//   - Built-in adapters live under [github.com/go-sum/send/adapters/...].
 package send
 
 import (
 	"fmt"
+	"sync"
 
+	"github.com/go-sum/send/adapters/log"
 	"github.com/go-sum/send/adapters/mailchannels"
 	"github.com/go-sum/send/adapters/memory"
 	"github.com/go-sum/send/adapters/noop"
@@ -22,65 +19,162 @@ type Message = core.Message
 // Sender delivers email messages.
 type Sender = core.Sender
 
-// SendAdapter names a sender backend.
-type SendAdapter string
+// ProviderName names a sender backend.
+type ProviderName string
 
 const (
-	SendAdapterNoop         SendAdapter = "noop"
-	SendAdapterMemory       SendAdapter = "memory"
-	SendAdapterResend       SendAdapter = "resend"
-	SendAdapterMailchannels SendAdapter = "mailchannels"
+	ProviderLog          ProviderName = "log"
+	ProviderNoop         ProviderName = "noop"
+	ProviderMemory       ProviderName = "memory"
+	ProviderResend       ProviderName = "resend"
+	ProviderMailchannels ProviderName = "mailchannels"
 )
 
-// AdapterConfig carries the credentials and defaults for a single adapter.
-type AdapterConfig struct {
-	APIKey   string
-	SendFrom string
+// HTTPProviderConfig carries the credentials and defaults for HTTP-backed providers.
+type HTTPProviderConfig struct {
+	APIKey   string `koanf:"api_key"`
+	SendFrom string `koanf:"send_from"`
 }
 
-// Config holds the selected adapter name and the credentials for the active adapter.
+// ProvidersConfig holds config for all built-in providers.
+type ProvidersConfig struct {
+	Log          struct{}           `koanf:"log"`
+	Noop         struct{}           `koanf:"noop"`
+	Memory       struct{}           `koanf:"memory"`
+	Resend       HTTPProviderConfig `koanf:"resend"`
+	Mailchannels HTTPProviderConfig `koanf:"mailchannels"`
+}
+
+// Config holds the selected provider and its configured provider blocks.
 type Config struct {
-	Adapter  string
-	SendFrom string
-	APIKey   string
+	Selected  ProviderName    `koanf:"selected"`
+	Providers ProvidersConfig `koanf:"providers"`
 }
 
-// SenderFactory constructs a Sender from an AdapterConfig.
-type SenderFactory func(cfg AdapterConfig) (Sender, error)
+// Factory constructs a Sender for the selected provider.
+type Factory func(Config) (Sender, error)
 
-// senderFactories is the registry of all known adapter constructors.
-var senderFactories = map[SendAdapter]SenderFactory{
-	SendAdapterNoop: func(_ AdapterConfig) (Sender, error) {
-		return noop.New(), nil
-	},
-	SendAdapterMemory: func(_ AdapterConfig) (Sender, error) {
-		return memory.New(), nil
-	},
-	SendAdapterResend: func(cfg AdapterConfig) (Sender, error) {
-		return resend.New(cfg.APIKey, cfg.SendFrom), nil
-	},
-	SendAdapterMailchannels: func(cfg AdapterConfig) (Sender, error) {
-		return mailchannels.New(cfg.APIKey, cfg.SendFrom), nil
-	},
+// SendFromResolver returns the provider-level default sender address.
+type SendFromResolver func(Config) string
+
+// Provider bundles the construction and config accessors for a provider.
+type Provider struct {
+	Factory  Factory
+	SendFrom SendFromResolver
 }
 
-// Register adds or replaces a factory for the given adapter name.
-// Intended for adapters not bundled with this package.
-func Register(adapter SendAdapter, factory SenderFactory) {
-	senderFactories[adapter] = factory
+// Registry stores provider factories by name.
+type Registry struct {
+	mu        sync.RWMutex
+	providers map[ProviderName]Provider
 }
 
-// InitSender looks up the registered factory for cfg.Adapter and returns a configured Sender.
-// An empty Adapter name defaults to noop.
-// Returns an error if the adapter name is not registered.
-func InitSender(cfg Config) (Sender, error) {
-	adapter := SendAdapter(cfg.Adapter)
-	if adapter == "" {
-		adapter = SendAdapterNoop
+// NewRegistry returns a registry preloaded with the built-in providers.
+func NewRegistry() *Registry {
+	r := &Registry{providers: make(map[ProviderName]Provider)}
+	r.Register(ProviderLog, Provider{
+		Factory: func(Config) (Sender, error) {
+			return log.New(), nil
+		},
+	})
+	r.Register(ProviderNoop, Provider{
+		Factory: func(Config) (Sender, error) {
+			return noop.New(), nil
+		},
+	})
+	r.Register(ProviderMemory, Provider{
+		Factory: func(Config) (Sender, error) {
+			return memory.New(), nil
+		},
+	})
+	r.Register(ProviderResend, Provider{
+		Factory: func(cfg Config) (Sender, error) {
+			if err := requireHTTPProvider(ProviderResend, cfg.Providers.Resend); err != nil {
+				return nil, err
+			}
+			return resend.New(cfg.Providers.Resend.APIKey, cfg.Providers.Resend.SendFrom), nil
+		},
+		SendFrom: func(cfg Config) string {
+			return cfg.Providers.Resend.SendFrom
+		},
+	})
+	r.Register(ProviderMailchannels, Provider{
+		Factory: func(cfg Config) (Sender, error) {
+			if err := requireHTTPProvider(ProviderMailchannels, cfg.Providers.Mailchannels); err != nil {
+				return nil, err
+			}
+			return mailchannels.New(cfg.Providers.Mailchannels.APIKey, cfg.Providers.Mailchannels.SendFrom), nil
+		},
+		SendFrom: func(cfg Config) string {
+			return cfg.Providers.Mailchannels.SendFrom
+		},
+	})
+	return r
+}
+
+// DefaultRegistry is the package-level registry used by New.
+var DefaultRegistry = NewRegistry()
+
+// SelectedProvider resolves the configured provider, defaulting to noop.
+func (c Config) SelectedProvider() ProviderName {
+	if c.Selected == "" {
+		return ProviderNoop
 	}
-	factory, ok := senderFactories[adapter]
+	return c.Selected
+}
+
+// Register adds or replaces a provider in the default registry.
+func Register(name ProviderName, provider Provider) {
+	DefaultRegistry.Register(name, provider)
+}
+
+// Register adds or replaces a provider in the registry.
+func (r *Registry) Register(name ProviderName, provider Provider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.providers[name] = provider
+}
+
+// New constructs a configured Sender using the registry.
+func (r *Registry) New(cfg Config) (Sender, error) {
+	providerName := cfg.SelectedProvider()
+
+	r.mu.RLock()
+	provider, ok := r.providers[providerName]
+	r.mu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("send: unknown adapter %q", cfg.Adapter)
+		return nil, fmt.Errorf("send: unknown provider %q", providerName)
 	}
-	return factory(AdapterConfig{APIKey: cfg.APIKey, SendFrom: cfg.SendFrom})
+	if provider.Factory == nil {
+		return nil, fmt.Errorf("send: provider %q has no factory", providerName)
+	}
+	return provider.Factory(cfg)
+}
+
+// SendFrom resolves the default sender address for the selected provider.
+func (r *Registry) SendFrom(cfg Config) string {
+	providerName := cfg.SelectedProvider()
+
+	r.mu.RLock()
+	provider, ok := r.providers[providerName]
+	r.mu.RUnlock()
+	if !ok || provider.SendFrom == nil {
+		return ""
+	}
+	return provider.SendFrom(cfg)
+}
+
+// New constructs a configured Sender from the selected built-in provider.
+func New(cfg Config) (Sender, error) {
+	return DefaultRegistry.New(cfg)
+}
+
+func requireHTTPProvider(provider ProviderName, cfg HTTPProviderConfig) error {
+	if cfg.APIKey == "" {
+		return fmt.Errorf("send: provider %q requires api_key", provider)
+	}
+	if cfg.SendFrom == "" {
+		return fmt.Errorf("send: provider %q requires send_from", provider)
+	}
+	return nil
 }

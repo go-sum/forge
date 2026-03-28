@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	auth "github.com/go-sum/auth"
 	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/componentry/assetconfig"
@@ -17,7 +18,6 @@ import (
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/adapters"
 	"github.com/go-sum/forge/internal/health"
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
@@ -55,11 +55,7 @@ func (c *Container) initLogger() {
 
 // Sender bootstrap.
 func (c *Container) initSender() {
-	sender, err := send.InitSender(send.Config{
-		Adapter:  c.Config.Service.Send.Adapter,
-		SendFrom: c.Config.Service.Send.SendFrom,
-		APIKey:   c.Config.Service.Send.APIKey,
-	})
+	sender, err := send.New(c.Config.Service.Send.Delivery)
 	if err != nil {
 		panic(fmt.Sprintf("app: sender: %v", err))
 	}
@@ -156,14 +152,22 @@ func (c *Container) initRepos() {
 func (c *Container) initServices() {
 	c.Services = service.NewServices(c.Repos, c.Sender, service.ContactConfig{
 		SendTo:   c.Config.Service.Send.SendTo,
-		SendFrom: c.Config.Service.Send.SendFrom,
+		SendFrom: send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery),
 	})
 
-	authFactory := adapters.NewAuthTxFactory(c.DB)
+	if err := auth.ValidateConfig(c.Config.Service.Auth); err != nil {
+		panic(fmt.Sprintf("app: auth: %v", err))
+	}
 	c.AuthService = authsvc.NewAuthService(
-		adapters.NewAuthUserReader(c.Repos.User),
-		adapters.NewAuthPasswordStore(c.Repos.Password),
-		authFactory,
-		c.DB,
+		c.Repos.User,
+		c.Sender,
+		authsvc.Config{
+			Method:   c.Config.Service.Auth.Methods.EmailTOTP,
+			SendFrom: send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery),
+			TokenCodec: authsvc.NewEncryptedTokenCodec(
+				c.Config.App.Auth.Session.AuthKey,
+				c.Config.App.Auth.Session.EncryptKey,
+			),
+		},
 	)
 }

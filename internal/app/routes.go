@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
-	"github.com/go-sum/forge/internal/adapters"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/server/route"
@@ -16,15 +15,13 @@ import (
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
 // This is the single source of truth for HTTP route registration.
 func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler) error {
-	users := adapters.NewAuthUserReader(c.Repos.User)
-
 	authKeys := authadapter.ContextKeys{
 		UserID:      c.Config.App.Keys.UserID,
 		UserRole:    c.Config.App.Keys.UserRole,
 		DisplayName: c.Config.App.Keys.DisplayName,
 	}
 	c.Web.Use(authadapter.LoadSession(c.Sessions, authKeys))
-	c.Web.Use(authadapter.LoadUserContext(users, authKeys))
+	c.Web.Use(authadapter.LoadUserContext(c.Repos.User, authKeys))
 
 	siteH := sitehandlers.New(sitehandlers.Config{
 		Origin:  c.Config.App.Security.ExternalOrigin,
@@ -60,9 +57,14 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	// auth
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: authH.SigninPage})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: authH.SignupPage})
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/verify", Name: "verify.get", Handler: authH.VerifyPage})
 	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/signin", Name: "signin.post", Handler: authH.Signin})
 	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/signup", Name: "signup.post", Handler: authH.Signup})
+	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/verify", Name: "verify.post", Handler: authH.Verify})
+	route.Add(publicPost, echo.Route{Method: http.MethodPost, Path: "/verify/resend", Name: "verify.resend.post", Handler: authH.ResendVerify})
 	route.Add(authGuardedPost, echo.Route{Method: http.MethodPost, Path: "/signout", Name: "signout.post", Handler: authH.Signout})
+	route.Add(authGuarded, echo.Route{Method: http.MethodGet, Path: "/account/email", Name: "account.email.get", Handler: authH.EmailChangePage})
+	route.Add(authGuardedPost, echo.Route{Method: http.MethodPost, Path: "/account/email", Name: "account.email.post", Handler: authH.BeginEmailChange})
 	// users (admin only)
 	usersGroup := adminGuarded.Group("/users")
 	usersPost := adminGuardedPost.Group("/users")

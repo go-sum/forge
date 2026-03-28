@@ -9,7 +9,6 @@ import (
 	"github.com/go-sum/componentry/patterns/head"
 	uilayout "github.com/go-sum/componentry/ui/layout"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/adapters"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -64,7 +63,7 @@ func Page(p Props) g.Node {
 				g.Attr("hx-headers", `{"`+p.CSRFHeaderName+`":"`+p.CSRFToken+`"}`),
 				uilayout.NavMenu(uilayout.NavMenuProps{
 					ID:              "app-navmenu",
-					Config:          adapters.ToComponentryNavConfig(p.NavConfig),
+					Config:          p.NavConfig,
 					CurrentPath:     p.CurrentPath,
 					IsAuthenticated: p.IsAuthenticated,
 					Slots:           pageNavSlots(p),

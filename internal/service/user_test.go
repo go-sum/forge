@@ -28,7 +28,7 @@ type fakeUserRepo struct {
 	countFn  func(context.Context) (int64, error)
 }
 
-func (fakeUserRepo) Create(context.Context, string, string, string) (model.User, error) {
+func (fakeUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
 	return model.User{}, errors.New("unexpected Create call")
 }
 
@@ -55,6 +55,10 @@ func (r fakeUserRepo) Update(ctx context.Context, id uuid.UUID, email, displayNa
 		return r.updateFn(ctx, id, email, displayName, role)
 	}
 	return model.User{}, errors.New("unexpected Update call")
+}
+
+func (fakeUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
+	return model.User{}, errors.New("unexpected UpdateEmail call")
 }
 
 func (r fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error {

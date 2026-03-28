@@ -90,15 +90,15 @@ func TestRunDatabaseFailureAndHTTPSuccessAreIndependent(t *testing.T) {
 }
 
 func TestVerifyRequiredRelations(t *testing.T) {
-	t.Run("passes when both relations exist", func(t *testing.T) {
-		db := fakeQuerier{row: fakeRow{values: []string{"users", "passwords"}}}
+	t.Run("passes when users relation exists", func(t *testing.T) {
+		db := fakeQuerier{row: fakeRow{values: []string{"users"}}}
 		if err := VerifyRequiredRelations(context.Background(), db); err != nil {
 			t.Fatalf("VerifyRequiredRelations() error = %v", err)
 		}
 	})
 
 	t.Run("reports missing relations", func(t *testing.T) {
-		db := fakeQuerier{row: fakeRow{values: []string{"", "passwords"}}}
+		db := fakeQuerier{row: fakeRow{values: []string{""}}}
 		err := VerifyRequiredRelations(context.Background(), db)
 		if err == nil {
 			t.Fatal("VerifyRequiredRelations() error = nil")

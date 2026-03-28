@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	repoTestUserID     = uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	repoTestPasswordID = uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	repoTestCreatedAt  = time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)
+	repoTestUserID    = uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	repoTestCreatedAt = time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)
 	repoTestUpdatedAt  = time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
 )
 
@@ -159,6 +158,7 @@ func TestUserRepositoryMethods(t *testing.T) {
 		Email:       "ada@example.com",
 		DisplayName: "Ada Lovelace",
 		Role:        "admin",
+		Verified:    true,
 		CreatedAt:   repoTestCreatedAt,
 		UpdatedAt:   repoTestUpdatedAt,
 	}
@@ -167,8 +167,8 @@ func TestUserRepositoryMethods(t *testing.T) {
 		repo := newUserRepository(stubDBTX{
 			queryRowFn: func(_ context.Context, _ string, args ...interface{}) pgx.Row {
 				switch len(args) {
-				case 3:
-					if args[0] != expected.Email || args[1] != expected.DisplayName || args[2] != expected.Role {
+				case 4:
+					if args[0] != expected.Email || args[1] != expected.DisplayName || args[2] != expected.Role || args[3] != true {
 						t.Fatalf("args = %#v", args)
 					}
 				case 1:
@@ -177,12 +177,12 @@ func TestUserRepositoryMethods(t *testing.T) {
 					}
 				}
 				return stubRow{values: []any{
-					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.CreatedAt, expected.UpdatedAt,
+					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.Verified, expected.CreatedAt, expected.UpdatedAt,
 				}}
 			},
 		})
 
-		created, err := repo.Create(ctx, expected.Email, expected.DisplayName, expected.Role)
+		created, err := repo.Create(ctx, expected.Email, expected.DisplayName, expected.Role, true)
 		if err != nil || created != expected {
 			t.Fatalf("Create() user=%#v err=%v", created, err)
 		}
@@ -217,13 +217,13 @@ func TestUserRepositoryMethods(t *testing.T) {
 					t.Fatalf("args = %#v", args)
 				}
 				rows := &stubRows{rows: [][]any{{
-					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.CreatedAt, expected.UpdatedAt,
+					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.Verified, expected.CreatedAt, expected.UpdatedAt,
 				}}}
 				return rows, nil
 			},
 			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row {
 				return stubRow{values: []any{
-					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.CreatedAt, expected.UpdatedAt,
+					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.Verified, expected.CreatedAt, expected.UpdatedAt,
 				}}
 			},
 			execFn: func(context.Context, string, ...interface{}) (pgconn.CommandTag, error) {
@@ -259,7 +259,7 @@ func TestUserRepositoryMethods(t *testing.T) {
 		createRepo := newUserRepository(stubDBTX{
 			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row { return stubRow{err: uniqueErr} },
 		})
-		if _, err := createRepo.Create(ctx, expected.Email, expected.DisplayName, expected.Role); !errors.Is(err, model.ErrEmailTaken) {
+		if _, err := createRepo.Create(ctx, expected.Email, expected.DisplayName, expected.Role, true); !errors.Is(err, model.ErrEmailTaken) {
 			t.Fatalf("Create() err = %v", err)
 		}
 
@@ -279,82 +279,9 @@ func TestUserRepositoryMethods(t *testing.T) {
 	})
 }
 
-func TestPasswordRepositoryMethods(t *testing.T) {
-	ctx := context.Background()
-	expected := model.Password{
-		ID:        repoTestPasswordID,
-		UserID:    repoTestUserID,
-		Hash:      "hashed",
-		CreatedAt: repoTestCreatedAt,
-	}
-
-	t.Run("create and list map db passwords", func(t *testing.T) {
-		repo := newPasswordRepository(stubDBTX{
-			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row {
-				return stubRow{values: []any{expected.ID, expected.UserID, expected.Hash, expected.CreatedAt}}
-			},
-			queryFn: func(context.Context, string, ...interface{}) (pgx.Rows, error) {
-				return &stubRows{rows: [][]any{{expected.ID, expected.UserID, expected.Hash, expected.CreatedAt}}}, nil
-			},
-		})
-
-		created, err := repo.Create(ctx, expected.UserID, expected.Hash)
-		if err != nil || created != expected {
-			t.Fatalf("Create() password=%#v err=%v", created, err)
-		}
-
-		passwords, err := repo.ListByUserID(ctx, expected.UserID)
-		if err != nil || len(passwords) != 1 || passwords[0] != expected {
-			t.Fatalf("ListByUserID() passwords=%#v err=%v", passwords, err)
-		}
-	})
-
-	t.Run("current password methods map no rows", func(t *testing.T) {
-		repo := newPasswordRepository(stubDBTX{
-			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row { return stubRow{err: pgx.ErrNoRows} },
-		})
-		if _, err := repo.GetCurrentByUserID(ctx, expected.UserID); !errors.Is(err, model.ErrUserNotFound) {
-			t.Fatalf("GetCurrentByUserID() err = %v", err)
-		}
-		if _, err := repo.GetCurrentByEmail(ctx, "ada@example.com"); !errors.Is(err, model.ErrInvalidCredentials) {
-			t.Fatalf("GetCurrentByEmail() err = %v", err)
-		}
-	})
-
-	t.Run("current password methods map db passwords", func(t *testing.T) {
-		repo := newPasswordRepository(stubDBTX{
-			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row {
-				return stubRow{values: []any{expected.ID, expected.UserID, expected.Hash, expected.CreatedAt}}
-			},
-		})
-		byUser, err := repo.GetCurrentByUserID(ctx, expected.UserID)
-		if err != nil || byUser != expected {
-			t.Fatalf("GetCurrentByUserID() password=%#v err=%v", byUser, err)
-		}
-		byEmail, err := repo.GetCurrentByEmail(ctx, "ada@example.com")
-		if err != nil || byEmail != expected {
-			t.Fatalf("GetCurrentByEmail() password=%#v err=%v", byEmail, err)
-		}
-	})
-}
-
 func TestRepositoriesConstructors(t *testing.T) {
 	repos := NewRepositories(nil)
-	if repos.User == nil || repos.Password == nil {
+	if repos.User == nil {
 		t.Fatalf("NewRepositories() = %#v", repos)
-	}
-
-	tx := stubTx{stubDBTX: stubDBTX{
-		queryRowFn: func(context.Context, string, ...interface{}) pgx.Row {
-			return stubRow{values: []any{repoTestPasswordID, repoTestUserID, "hashed", repoTestCreatedAt}}
-		},
-	}}
-	txRepos := (&Repositories{}).WithTx(tx)
-	if txRepos.User == nil || txRepos.Password == nil {
-		t.Fatalf("WithTx() = %#v", txRepos)
-	}
-	password, err := txRepos.Password.Create(context.Background(), repoTestUserID, "hashed")
-	if err != nil || password.UserID != repoTestUserID {
-		t.Fatalf("txRepos.Password.Create() password=%#v err=%v", password, err)
 	}
 }

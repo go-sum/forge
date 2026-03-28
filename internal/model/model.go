@@ -4,37 +4,15 @@
 package model
 
 import (
-	"time"
-
-	"github.com/google/uuid"
+	authmodel "github.com/go-sum/auth/model"
 )
 
-// Role constants for user access levels. Struct tag validate strings (e.g.
-// `validate:"oneof=user admin"`) cannot reference Go constants — those literals
-// are kept in sync with these values.
 const (
-	RoleUser  = "user"
-	RoleAdmin = "admin"
+	RoleUser  = authmodel.RoleUser
+	RoleAdmin = authmodel.RoleAdmin
 )
 
-// User is the domain representation of an application user.
-type User struct {
-	ID          uuid.UUID
-	Email       string
-	DisplayName string
-	Role        string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
-// Password is the domain representation of a stored password record.
-// Passwords are append-only; the current password is the most recent row.
-type Password struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Hash      string
-	CreatedAt time.Time
-}
+type User = authmodel.User
 
 // UpdateUserInput carries validated data for updating an existing user.
 // Empty strings are treated as "no change" by the COALESCE logic in the SQL query.

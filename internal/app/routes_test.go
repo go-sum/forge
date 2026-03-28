@@ -96,10 +96,13 @@ func TestRegisterRoutesLoadsUserContextForPublicPages(t *testing.T) {
 		return e.Router().Routes()
 	})
 	authH := authadapter.New(nil, sessions, container.Validator, authadapter.Config{
-		CSRFField:  cfg.App.Security.CSRF.FormField,
-		SigninPath: "/signin",
-		SignupPath: "/signup",
-		HomePath:   "/",
+		CSRFField:       cfg.App.Security.CSRF.FormField,
+		SigninPath:      "/signin",
+		SignupPath:      "/signup",
+		VerifyPath:      "/verify",
+		VerifyURL:       "http://localhost:3000/verify",
+		EmailChangePath: "/account/email",
+		HomePath:        "/",
 		RequestFn: func(ec *echo.Context) authadapter.Request {
 			req := view.NewRequest(ec, cfg)
 			return authadapter.Request{
@@ -138,7 +141,7 @@ type routesTestUserRepo struct {
 	users map[uuid.UUID]model.User
 }
 
-func (r routesTestUserRepo) Create(context.Context, string, string, string) (model.User, error) {
+func (r routesTestUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
 	return model.User{}, nil
 }
 
@@ -158,6 +161,10 @@ func (r routesTestUserRepo) List(context.Context, int32, int32) ([]model.User, e
 }
 
 func (r routesTestUserRepo) Update(context.Context, uuid.UUID, string, string, string) (model.User, error) {
+	return model.User{}, nil
+}
+
+func (r routesTestUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
 	return model.User{}, nil
 }
 
@@ -248,10 +255,13 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		func() echo.Routes { return e.Router().Routes() },
 	)
 	authH := authadapter.New(nil, sessions, container.Validator, authadapter.Config{
-		CSRFField:  cfg.App.Security.CSRF.FormField,
-		SigninPath: "/signin",
-		SignupPath: "/signup",
-		HomePath:   "/",
+		CSRFField:       cfg.App.Security.CSRF.FormField,
+		SigninPath:      "/signin",
+		SignupPath:      "/signup",
+		VerifyPath:      "/verify",
+		VerifyURL:       "http://localhost:3000/verify",
+		EmailChangePath: "/account/email",
+		HomePath:        "/",
 		RequestFn: func(ec *echo.Context) authadapter.Request {
 			req := view.NewRequest(ec, cfg)
 			return authadapter.Request{

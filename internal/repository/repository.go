@@ -11,54 +11,28 @@ import (
 	"github.com/go-sum/forge/internal/model"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // UserRepository defines data access operations for users.
 type UserRepository interface {
-	Create(ctx context.Context, email, displayName, role string) (model.User, error)
+	Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
 	GetByEmail(ctx context.Context, email string) (model.User, error)
 	List(ctx context.Context, limit, offset int32) ([]model.User, error)
 	Update(ctx context.Context, id uuid.UUID, email, displayName, role string) (model.User, error)
+	UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Count(ctx context.Context) (int64, error)
 }
 
-// PasswordRepository defines data access operations for password records.
-type PasswordRepository interface {
-	Create(ctx context.Context, userID uuid.UUID, hash string) (model.Password, error)
-	GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (model.Password, error)
-	GetCurrentByEmail(ctx context.Context, email string) (model.Password, error)
-	ListByUserID(ctx context.Context, userID uuid.UUID) ([]model.Password, error)
-}
-
 // Repositories is the composition root for all data access.
-// Use WithTx to obtain a transaction-scoped copy.
 type Repositories struct {
-	User     UserRepository
-	Password PasswordRepository
-	pool     *pgxpool.Pool
+	User UserRepository
 }
 
 // NewRepositories constructs Repositories backed by the given pool.
-func NewRepositories(pool *pgxpool.Pool) *Repositories {
+func NewRepositories(pool db.DBTX) *Repositories {
 	return &Repositories{
-		User:     newUserRepository(pool),
-		Password: newPasswordRepository(pool),
-		pool:     pool,
-	}
-}
-
-// WithTx returns a new Repositories where both repos share the given transaction.
-// Used by AuthService.Signup to atomically create a user and their password.
-// Calling Create on the returned repos executes within tx — no separate
-// transaction-variant methods are needed.
-func (r *Repositories) WithTx(tx pgx.Tx) *Repositories {
-	q := db.New(tx)
-	return &Repositories{
-		User:     &userRepository{q: q},
-		Password: &passwordRepository{q: q},
+		User: newUserRepository(pool),
 	}
 }

@@ -228,3 +228,118 @@ func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadFromLoadsNestedServiceProviderConfig(t *testing.T) {
+	dir := t.TempDir()
+
+	files := map[string]string{
+		"app.yaml": `app:
+  env: development
+  name: starter
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
+`,
+		"site.yaml": `site:
+  title: starter
+`,
+		"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: resend
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
+	}
+
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o644); err != nil {
+			t.Fatalf("WriteFile(%s) error = %v", name, err)
+		}
+	}
+
+	cfg, err := LoadFrom(dir, "")
+	if err != nil {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+
+	if got := cfg.Service.Send.SendTo; got != "admin@example.com" {
+		t.Fatalf("Service.Send.SendTo = %q, want %q", got, "admin@example.com")
+	}
+	if got := cfg.Service.Send.Delivery.SelectedProvider(); got != "resend" {
+		t.Fatalf("Service.Send.Delivery.SelectedProvider() = %q, want %q", got, "resend")
+	}
+	if got := cfg.Service.Send.Delivery.Providers.Resend.SendFrom; got != "no-reply@example.com" {
+		t.Fatalf("Service.Send.Delivery.Providers.Resend.SendFrom = %q, want %q", got, "no-reply@example.com")
+	}
+	if got := cfg.Service.Auth.SelectedMethod(); got != "email_totp" {
+		t.Fatalf("Service.Auth.SelectedMethod() = %q, want %q", got, "email_totp")
+	}
+	if !cfg.Service.Auth.Methods.EmailTOTP.Enabled {
+		t.Fatal("Service.Auth.Methods.EmailTOTP.Enabled = false, want true")
+	}
+	if got := cfg.Service.Auth.Methods.EmailTOTP.Issuer; got != "Forge" {
+		t.Fatalf("Service.Auth.Methods.EmailTOTP.Issuer = %q, want %q", got, "Forge")
+	}
+	if got := cfg.Service.Auth.Methods.EmailTOTP.PeriodSeconds; got != 300 {
+		t.Fatalf("Service.Auth.Methods.EmailTOTP.PeriodSeconds = %d, want %d", got, 300)
+	}
+}

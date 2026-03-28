@@ -6,7 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-sum/auth/model"
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 )
 
@@ -59,6 +62,49 @@ func TestSessionManagerDefaultsAndMissingUser(t *testing.T) {
 	}
 	if _, err := manager.GetUserID(httptest.NewRequest(http.MethodGet, "/", nil)); !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("GetUserID() err = %v", err)
+	}
+	if _, err := manager.GetPendingFlow(httptest.NewRequest(http.MethodGet, "/", nil)); !errors.Is(err, ErrPendingFlowNotFound) {
+		t.Fatalf("GetPendingFlow() err = %v", err)
+	}
+}
+
+func TestSessionManagerPendingFlowRoundTripAndClear(t *testing.T) {
+	manager, err := NewSessionStore(SessionConfig{
+		Name:       "test-session",
+		AuthKey:    strings.Repeat("a", 32),
+		EncryptKey: strings.Repeat("b", 32),
+		MaxAge:     3600,
+	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	flow := model.PendingFlow{
+		Purpose:   model.FlowPurposeEmailChange,
+		Email:     "new@example.com",
+		UserID:    uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		Secret:    "SECRET",
+		IssuedAt:  time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC),
+		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
+	}
+	if err := manager.SetPendingFlow(rec, req, flow); err != nil {
+		t.Fatalf("SetPendingFlow() error = %v", err)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	for _, cookie := range rec.Result().Cookies() {
+		req.AddCookie(cookie)
+	}
+	stored, err := manager.GetPendingFlow(req)
+	if err != nil || stored != flow {
+		t.Fatalf("GetPendingFlow() flow=%#v err=%v", stored, err)
+	}
+
+	rec = httptest.NewRecorder()
+	if err := manager.ClearPendingFlow(rec, req); err != nil {
+		t.Fatalf("ClearPendingFlow() error = %v", err)
 	}
 }
 

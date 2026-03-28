@@ -20,6 +20,7 @@ CREATE TABLE users (
     email         CITEXT       NOT NULL UNIQUE,
     display_name  VARCHAR(255) NOT NULL,
     role          VARCHAR(50)  NOT NULL DEFAULT 'user',
+    verified      BOOLEAN      NOT NULL DEFAULT false,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -30,19 +31,3 @@ CREATE TRIGGER users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
-
--- ─── Passwords ───────────────────────────────────────────────────────────────
--- Append-only credential history. Current password = ORDER BY created_at DESC LIMIT 1.
-CREATE TABLE passwords (
-    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    hash       VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
--- Simple index retained for FK integrity checks and joins
-CREATE INDEX idx_passwords_user_id ON passwords (user_id);
-
--- Composite index for "current password" queries: ORDER BY created_at DESC LIMIT 1
--- Eliminates the sort pass on the signin hot-path and GetCurrentPasswordByUserID.
-CREATE INDEX idx_passwords_user_id_created_at ON passwords (user_id, created_at DESC);

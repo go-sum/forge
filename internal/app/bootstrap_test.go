@@ -40,7 +40,7 @@ func (q fakeQuerier) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
 func TestVerifyRequiredRelations(t *testing.T) {
 	t.Run("accepts applied schema", func(t *testing.T) {
 		err := health.VerifyRequiredRelations(context.Background(), fakeQuerier{
-			row: fakeRow{values: []string{"users", "passwords"}},
+			row: fakeRow{values: []string{"users"}},
 		})
 		if err != nil {
 			t.Fatalf("VerifyRequiredRelations() error = %v", err)
@@ -49,13 +49,13 @@ func TestVerifyRequiredRelations(t *testing.T) {
 
 	t.Run("reports missing relations with remediation", func(t *testing.T) {
 		err := health.VerifyRequiredRelations(context.Background(), fakeQuerier{
-			row: fakeRow{values: []string{"users", ""}},
+			row: fakeRow{values: []string{""}},
 		})
 		if err == nil {
 			t.Fatal("VerifyRequiredRelations() error = nil, want missing relation error")
 		}
-		if !strings.Contains(err.Error(), "passwords") {
-			t.Fatalf("error %q did not mention missing passwords table", err)
+		if !strings.Contains(err.Error(), "users") {
+			t.Fatalf("error %q did not mention missing users table", err)
 		}
 		if !strings.Contains(err.Error(), "make db-apply") {
 			t.Fatalf("error %q did not mention remediation", err)

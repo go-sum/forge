@@ -1,10 +1,14 @@
 package model
 
-import "errors"
+import (
+	"errors"
+
+	authmodel "github.com/go-sum/auth/model"
+)
 
 var (
-	ErrUserNotFound       = errors.New("user not found")
-	ErrEmailTaken         = errors.New("email already in use")
-	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserNotFound       = authmodel.ErrUserNotFound
+	ErrEmailTaken         = authmodel.ErrEmailTaken
+	ErrInvalidCredentials = authmodel.ErrInvalidCredentials
 	ErrForbidden          = errors.New("forbidden")
 )

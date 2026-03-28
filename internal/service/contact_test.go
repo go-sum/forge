@@ -28,12 +28,13 @@ func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 		t.Fatalf("Submit returned unexpected error: %v", err)
 	}
 
-	if len(sender.Messages) != 2 {
-		t.Fatalf("expected 2 messages sent, got %d", len(sender.Messages))
+	sent := sender.Sent()
+	if len(sent) != 2 {
+		t.Fatalf("expected 2 messages sent, got %d", len(sent))
 	}
 
 	// First message: admin notification
-	notify := sender.Messages[0]
+	notify := sent[0]
 	if notify.To != "admin@example.com" {
 		t.Errorf("notification To: expected admin@example.com, got %q", notify.To)
 	}
@@ -42,7 +43,7 @@ func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 	}
 
 	// Second message: submitter confirmation
-	confirm := sender.Messages[1]
+	confirm := sent[1]
 	if confirm.To != "alice@example.com" {
 		t.Errorf("confirmation To: expected alice@example.com, got %q", confirm.To)
 	}

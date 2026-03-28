@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-sum/send/core"
 )
@@ -28,14 +30,14 @@ func New(apiKey, sendFrom string) *Sender {
 		apiKey:   apiKey,
 		sendFrom: sendFrom,
 		apiURL:   defaultAPIURL,
-		client:   &http.Client{},
+		client:   &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
 // NewWithURL constructs a Sender with a custom API endpoint. Use in tests to
 // point the sender at a local httptest.Server instead of the live MailChannels API.
 func NewWithURL(apiKey, sendFrom, url string) *Sender {
-	return &Sender{apiKey: apiKey, sendFrom: sendFrom, apiURL: url, client: &http.Client{}}
+	return &Sender{apiKey: apiKey, sendFrom: sendFrom, apiURL: url, client: &http.Client{Timeout: 10 * time.Second}}
 }
 
 type mcAddress struct {
@@ -100,7 +102,8 @@ func (s *Sender) Send(ctx context.Context, msg core.Message) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("mailchannels: unexpected status %d", resp.StatusCode)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("mailchannels: status %d: %s", resp.StatusCode, bytes.TrimSpace(errBody))
 	}
 	return nil
 }

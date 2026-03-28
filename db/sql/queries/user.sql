@@ -5,8 +5,8 @@
 --   :exec → returns error only
 
 -- name: CreateUser :one
-INSERT INTO users (email, display_name, role)
-VALUES ($1, $2, $3)
+INSERT INTO users (email, display_name, role, verified)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetUserByID :one
@@ -32,6 +32,12 @@ SET
     display_name = COALESCE(NULLIF(sqlc.arg(display_name)::text, ''), display_name),
     role         = COALESCE(NULLIF(sqlc.arg(role)::text, ''), role)
 WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: UpdateUserEmail :one
+UPDATE users
+SET email = $2
+WHERE id = $1
 RETURNING *;
 
 -- name: DeleteUser :exec

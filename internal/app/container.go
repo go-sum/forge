@@ -7,7 +7,7 @@ package app
 import (
 	"log/slog"
 
-	authsvc "github.com/go-sum/auth/service"
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
@@ -37,7 +37,7 @@ type Container struct {
 	Validator    *validate.Validator
 	Repos        *repository.Repositories
 	Services     *service.Services
-	AuthService  *authsvc.AuthService
+	AuthService  auth.Service
 	Sender       send.Sender
 }
 

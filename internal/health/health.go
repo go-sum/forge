@@ -97,24 +97,20 @@ func (r Report) HasFailures() bool {
 	return false
 }
 
-// VerifyRequiredRelations checks that the users and passwords tables exist.
+// VerifyRequiredRelations checks that the required auth relations exist.
 func VerifyRequiredRelations(ctx context.Context, db DBQuerier) error {
-	var usersTable, passwordsTable string
+	var usersTable string
 	err := db.QueryRow(ctx, `
 SELECT
-    COALESCE(to_regclass('public.users')::text, ''),
-    COALESCE(to_regclass('public.passwords')::text, '')
-`).Scan(&usersTable, &passwordsTable)
+    COALESCE(to_regclass('public.users')::text, '')
+`).Scan(&usersTable)
 	if err != nil {
 		return fmt.Errorf("verify schema: %w", err)
 	}
 
-	missing := make([]string, 0, 2)
+	missing := make([]string, 0, 1)
 	if usersTable == "" {
 		missing = append(missing, "users")
-	}
-	if passwordsTable == "" {
-		missing = append(missing, "passwords")
 	}
 	if len(missing) == 0 {
 		return nil
