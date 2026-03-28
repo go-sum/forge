@@ -23,47 +23,85 @@ type assetBuildOptions struct {
 	Minify       bool
 	BuildCSS     bool
 	BuildDocs    bool
+	BuildFonts   bool
 	BuildJS      bool
 	BuildSprites bool
 }
 
-func runBuildAssets() {
+type assetBuildFlags struct {
+	ConfigPath  string
+	Minify      bool
+	CSSOnly     bool
+	DocsOnly    bool
+	JSOnly      bool
+	SpritesOnly bool
+}
+
+func parseAssetBuildFlags(args []string) (assetBuildFlags, error) {
 	fs := flag.NewFlagSet("build-assets", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
 	configPath := fs.String("config", assetconfig.DefaultConfigPath, "path to assets config file")
 	minify := fs.Bool("minify", false, "minify compiled CSS and JS")
 	cssOnly := fs.Bool("css-only", false, "build only CSS")
+	docsOnly := fs.Bool("docs-only", false, "build only docs")
 	jsOnly := fs.Bool("js-only", false, "build only JS assets")
 	spritesOnly := fs.Bool("sprites-only", false, "build only SVG sprites")
-	if err := fs.Parse(os.Args[2:]); err != nil {
-		os.Exit(1)
+	if err := fs.Parse(args); err != nil {
+		return assetBuildFlags{}, err
 	}
 
+	return assetBuildFlags{
+		ConfigPath:  *configPath,
+		Minify:      *minify,
+		CSSOnly:     *cssOnly,
+		DocsOnly:    *docsOnly,
+		JSOnly:      *jsOnly,
+		SpritesOnly: *spritesOnly,
+	}, nil
+}
+
+func resolveAssetBuildOptions(flags assetBuildFlags) (assetBuildOptions, error) {
 	opts := assetBuildOptions{
-		ConfigPath:   *configPath,
-		Minify:       *minify,
+		ConfigPath:   flags.ConfigPath,
+		Minify:       flags.Minify,
 		BuildCSS:     true,
 		BuildDocs:    true,
+		BuildFonts:   true,
 		BuildJS:      true,
 		BuildSprites: true,
 	}
 
 	selected := 0
-	for _, only := range []bool{*cssOnly, *jsOnly, *spritesOnly} {
+	for _, only := range []bool{flags.CSSOnly, flags.DocsOnly, flags.JSOnly, flags.SpritesOnly} {
 		if only {
 			selected++
 		}
 	}
 	if selected > 1 {
-		fmt.Fprintln(os.Stderr, "error: choose at most one of --css-only, --js-only, --sprites-only")
-		os.Exit(1)
+		return assetBuildOptions{}, errors.New("choose at most one of --css-only, --docs-only, --js-only, --sprites-only")
 	}
 	if selected == 1 {
-		opts.BuildCSS = *cssOnly
-		opts.BuildDocs = false
-		opts.BuildJS = *jsOnly
-		opts.BuildSprites = *spritesOnly
+		opts.BuildCSS = flags.CSSOnly
+		opts.BuildDocs = flags.DocsOnly
+		opts.BuildFonts = false
+		opts.BuildJS = flags.JSOnly
+		opts.BuildSprites = flags.SpritesOnly
+	}
+
+	return opts, nil
+}
+
+func runBuildAssets() {
+	flags, err := parseAssetBuildFlags(os.Args[2:])
+	if err != nil {
+		os.Exit(1)
+	}
+
+	opts, err := resolveAssetBuildOptions(flags)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
 	}
 
 	if err := buildAssets(opts); err != nil {
@@ -103,8 +141,10 @@ func buildAssets(opts assetBuildOptions) error {
 			return err
 		}
 	}
-	if err := buildFonts(cfg.Fonts); err != nil {
-		return err
+	if opts.BuildFonts {
+		if err := buildFonts(cfg.Fonts); err != nil {
+			return err
+		}
 	}
 	if opts.BuildSprites {
 		if err := buildSVGSprites([]string{"--config", opts.ConfigPath}); err != nil {

@@ -15,7 +15,7 @@ body {
     linear-gradient(180deg, var(--docs-hero-start) 0%, var(--docs-hero-surface) 42%, var(--docs-hero-depth) 100%);
   color: var(--foreground);
   font-family: var(--font-sans, var(--docs-font-sans));
-  line-height: 1.65;
+  line-height: 1.25;
   text-rendering: optimizeLegibility;
 }
 
@@ -31,6 +31,7 @@ a:hover {
 code,
 pre {
   font-family: var(--font-mono, var(--docs-font-mono));
+  font-size: 0.8rem;
 }
 
 pre {
