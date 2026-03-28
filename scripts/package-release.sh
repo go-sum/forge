@@ -15,7 +15,7 @@ package="$1"
 version="$2"
 owner="${PACKAGE_REPO_OWNER:-go-sum}"
 token="${PACKAGE_SYNC_TOKEN:-}"
-gh_token="${GH_TOKEN:-${token}}"
+gh_token="${GH_TOKEN:-}"
 
 case "${package}" in
   auth|componentry|security|server|site)
@@ -38,6 +38,12 @@ fi
 prefix="pkg/${package}"
 repo="${owner}/${package}"
 remote_url="https://x-access-token:${token}@github.com/${repo}.git"
+
+if [[ ! -d "${prefix}" ]]; then
+  echo "package prefix not found: ${prefix}" >&2
+  exit 1
+fi
+
 split_sha="$(git subtree split --prefix="${prefix}/")"
 
 echo "Releasing ${prefix} to ${repo} as ${version} (${split_sha})"
