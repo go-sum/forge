@@ -6,24 +6,33 @@ weight: 20
 
 # server
 
-`github.com/go-sum/server` is a collection of infrastructure packages for building web applications with Echo v5 and PostgreSQL. All sub-packages live under a single `go.mod` and follow the **leaf-node rule**: they import only the standard library and external modules -- never application-specific `internal/` code. This makes the entire module portable to any Echo v5 project.
+`github.com/go-sum/server` is a collection of infrastructure packages for building web applications with [Echo] and PostgreSQL. All sub-packages live under a single `go.mod` and follow the **leaf-node rule**: they import only the standard library and external modules -- never application-specific `internal/` code. This makes the entire module portable to any [Echo] project.
+
+## Dependencies
+
+| Dependency | Version |
+|------------|---------|
+| [Echo] | v5.0 |
+| [koanf] | v2.3 |
+| [pgx] | v5.8 |
+| [validator] | v10.30 |
 
 ## Features
 
-- Lightweight Echo v5 instance factory with graceful shutdown driven by OS signals
+- Lightweight [Echo] instance factory with graceful shutdown driven by OS signals
 - Structured application errors with safe public messages and internal cause tracking
 - Generic, layered YAML configuration loader with environment variable expansion and struct validation
 - PostgreSQL connection pool management via `pgxpool` with safe defaults
 - Structured logging backed by `log/slog` with development and production modes
 - Static asset cache-control middleware with content-hash-aware immutable headers
 - Named route registration and type-safe URL reversal utilities
-- Struct and field validation via `go-playground/validator`
+- Struct and field validation via [validator]
 
 ## Sub-packages at a Glance
 
 | Package | Import Path | Purpose |
 |---------|-------------|---------|
-| `server` | `github.com/go-sum/server` | Echo v5 instance factory and graceful-shutdown lifecycle |
+| `server` | `github.com/go-sum/server` | [Echo] instance factory and graceful-shutdown lifecycle |
 | `apperr` | `github.com/go-sum/server/apperr` | Typed application errors with HTTP status codes and safe messages |
 | `config` | `github.com/go-sum/server/config` | Generic layered YAML config loader with `${VAR}` expansion |
 | `database` | `github.com/go-sum/server/database` | PostgreSQL `pgxpool` connection, health check, and helpers |
@@ -36,7 +45,7 @@ weight: 20
 
 ## server (root package)
 
-Creates a bare Echo v5 instance and manages server lifecycle with graceful shutdown.
+Creates a bare [Echo] instance and manages server lifecycle with graceful shutdown.
 
 ### Types
 
@@ -50,7 +59,7 @@ Creates a bare Echo v5 instance and manages server lifecycle with graceful shutd
 
 ### Functions
 
-**`New() *echo.Echo`** -- creates a bare Echo v5 instance with no middleware attached. Application-specific middleware and routing are wired separately.
+**`New() *echo.Echo`** -- creates a bare [Echo] instance with no middleware attached. Application-specific middleware and routing are wired separately.
 
 **`Start(e *echo.Echo, cfg Config) error`** -- begins listening on `Host:Port` and blocks until `SIGINT` or `SIGTERM` is received. Performs graceful shutdown within `GracefulTimeout`. Returns an error (prefixed with `"server:"`) rather than calling `os.Exit`, so deferred cleanup in `main` (such as closing database pools) runs normally. Logs startup and shutdown events via `slog`.
 
@@ -147,7 +156,7 @@ c.JSON(appErr.StatusCode(), map[string]string{
 
 ## config
 
-Generic, layered YAML configuration loader built on [koanf](https://github.com/knadh/koanf). Supports environment-specific overlays, `${VAR}` expansion, and struct validation.
+Generic, layered YAML configuration loader built on [koanf]. Supports environment-specific overlays, `${VAR}` expansion, and struct validation.
 
 ### Types
 
@@ -173,8 +182,8 @@ Generic, layered YAML configuration loader built on [koanf](https://github.com/k
 1. `Files[0].Filepath` -- required base config; returns an error if missing
 2. `{dir}/{stem}.{EnvKey}.yaml` -- optional environment overlay; silently skipped if absent
 3. `Files[1:]` -- optional extra files; silently skipped if absent
-4. Unmarshal merged YAML into `*T` via koanf struct tags
-5. Validate `*T` using `go-playground/validator` struct tags
+4. Unmarshal merged YAML into `*T` via [koanf] struct tags
+5. Validate `*T` using [validator] struct tags
 
 ### Variable Expansion
 
@@ -208,7 +217,7 @@ cfg, err := config.Load(func(c *AppConfig) config.Options {
 
 ## database
 
-PostgreSQL connection pool management via `pgxpool` (pgx v5).
+PostgreSQL connection pool management via `pgxpool` ([pgx]).
 
 ### Functions
 
@@ -274,7 +283,7 @@ logging.Init(logging.Config{
 
 ## middleware
 
-Reusable Echo middleware functions. Each middleware carries no application-specific imports.
+Reusable [Echo] middleware functions. Each middleware carries no application-specific imports.
 
 ### Functions
 
@@ -305,7 +314,7 @@ e.Use(middleware.StaticCacheControl("/public"))
 
 ## route
 
-Named route registration and type-safe URL reversal for Echo v5. Enforces the convention that every route has a `Name`.
+Named route registration and type-safe URL reversal for [Echo]. Enforces the convention that every route has a `Name`.
 
 ### Types
 
@@ -360,7 +369,7 @@ if path, ok := route.SafeReverse(e.Routes(), "home.show"); ok {
 
 ## validate
 
-Thin wrapper around `go-playground/validator` providing a reusable `Validator` type. Construct a single instance at startup and pass it to handlers and form helpers.
+Thin wrapper around [validator] providing a reusable `Validator` type. Construct a single instance at startup and pass it to handlers and form helpers.
 
 ### Types
 
@@ -376,7 +385,7 @@ Thin wrapper around `go-playground/validator` providing a reusable `Validator` t
 
 **`Var(field any, tag string) error`** -- validates a single variable against a tag expression.
 
-**`Validate() *validator.Validate`** -- returns the underlying `go-playground/validator` instance for callers that need direct access (e.g., form submission helpers).
+**`Validate() *validator.Validate`** -- returns the underlying [validator] instance for callers that need direct access (e.g., form submission helpers).
 
 ```go
 v := validate.New()
@@ -471,4 +480,9 @@ func main() {
 
 ## Leaf-Node Rule
 
-Every package in this module imports only the Go standard library and external modules. There are no imports from application-specific `internal/` packages and no cross-imports between sibling `pkg/` packages. This means the entire `github.com/go-sum/server` module can be vendored into any Echo v5 project without pulling in application-specific code.
+Every package in this module imports only the Go standard library and external modules. There are no imports from application-specific `internal/` packages and no cross-imports between sibling `pkg/` packages. This means the entire `github.com/go-sum/server` module can be vendored into any [Echo] project without pulling in application-specific code.
+
+[Echo]: https://echo.labstack.com/
+[pgx]: https://github.com/jackc/pgx
+[koanf]: https://github.com/knadh/koanf
+[validator]: https://github.com/go-playground/validator

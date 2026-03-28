@@ -25,10 +25,19 @@ disableKinds = ["taxonomy", "term", "RSS", "sitemap", "robotsTXT"]
   [[module.mounts]]
     source = "../.decisions"
     target = "content/architecture"
-    includeFiles = ["API_RULES.md", "DESIGN_GUIDE.md", "UI_GUIDE.md"]
+    includeFiles = ["DESIGN_GUIDE.md", "UI_GUIDE.md"]
   [[module.mounts]]
-    source = "../pkg/site/README.md"
-    target = "content/packages/site.md"
+    source = "../pkg/componentry/README.md"
+    target = "content/packages/componentry.md"
+  [[module.mounts]]
+    source = "../pkg/security/README.md"
+    target = "content/packages/security.md"
+  [[module.mounts]]
+    source = "../pkg/send/README.md"
+    target = "content/packages/send.md"
   [[module.mounts]]
     source = "../pkg/server/README.md"
     target = "content/packages/server.md"
+  [[module.mounts]]
+    source = "../pkg/site/README.md"
+    target = "content/packages/site.md"

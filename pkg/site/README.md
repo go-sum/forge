@@ -4,16 +4,22 @@ description: Reusable package for generating `robots.txt` and `sitemap.xml` cont
 weight: 20
 ---
 
-# site
+# Site generation
 
-`github.com/go-sum/site` is a standalone, reusable Go module for generating `robots.txt` and `sitemap.xml` content. It provides pure generation functions with no framework dependencies in the core package, plus an optional `handlers` sub-package that serves the generated content over HTTP using Echo v5.
+`github.com/go-sum/site` is a standalone, reusable Go module for generating `robots.txt` and `sitemap.xml` content. It provides pure generation functions with no framework dependencies in the core package, plus an optional `handlers` sub-package that serves the generated content over HTTP using [Echo].
+
+## Dependencies
+
+| Dependency | Version |
+|------------|---------|
+| [Echo] | v5.0 |
 
 ## Sub-packages
 
 | Package | Import Path | Purpose |
 |---------|-------------|---------|
 | `site` (root) | `github.com/go-sum/site` | Pure generation functions for robots.txt and sitemap.xml |
-| `handlers` | `github.com/go-sum/site/handlers` | Echo v5 HTTP handlers that serve `/robots.txt` and `/sitemap.xml` |
+| `handlers` | `github.com/go-sum/site/handlers` | [Echo] HTTP handlers that serve `/robots.txt` and `/sitemap.xml` |
 
 ## Core Package
 
@@ -110,11 +116,11 @@ The following types support declarative sitemap configuration via YAML (deserial
 | `DefaultChangeFreq` | `string` | `default_changefreq` | Fallback change frequency for entries that do not specify one. |
 | `DefaultPriority` | `float64` | `default_priority` | Fallback priority (`0.0`--`1.0`) for entries that do not specify one. |
 
-**`RouteEntry`** -- References a named Echo route for sitemap inclusion.
+**`RouteEntry`** -- References a named [Echo] route for sitemap inclusion.
 
 | Field | Type | YAML Key | Description |
 |-------|------|----------|-------------|
-| `Name` | `string` | `name` | Registered Echo route name, e.g. `"home.show"` (required). |
+| `Name` | `string` | `name` | Registered [Echo] route name, e.g. `"home.show"` (required). |
 | `ChangeFreq` | `string` | `changefreq` | Overrides `DefaultChangeFreq` for this entry. |
 | `Priority` | `*float64` | `priority` | Overrides `DefaultPriority` for this entry. `nil` means use default. |
 
@@ -128,7 +134,7 @@ The following types support declarative sitemap configuration via YAML (deserial
 
 ## HTTP Handlers
 
-The `handlers` sub-package provides ready-to-use Echo v5 handlers that serve `/robots.txt` and `/sitemap.xml`.
+The `handlers` sub-package provides ready-to-use [Echo] handlers that serve `/robots.txt` and `/sitemap.xml`.
 
 ### `New`
 
@@ -217,3 +223,5 @@ The `func() echo.Routes` parameter is a closure evaluated lazily at request time
 ## Parameterized Route Exclusion
 
 Routes whose resolved paths contain `:` (such as `/users/:id` or `/posts/:slug/edit`) are automatically excluded from the generated sitemap. These routes require runtime parameters to produce valid URLs and cannot be enumerated statically. The handler silently skips them during sitemap generation, so it is safe to reference parameterized route names in configuration -- they simply produce no output.
+
+[Echo]: https://echo.labstack.com/
