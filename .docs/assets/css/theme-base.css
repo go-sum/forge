@@ -3,26 +3,10 @@ html {
   --docs-font-sans:  ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --docs-font-mono:  ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --docs-font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --docs-hero-start: color-mix(in srgb, var(--accent) 76%, white);
-  --docs-hero-surface: var(--background);
-  --docs-hero-depth: color-mix(in srgb, white 86%, var(--accent));
-  --docs-panel-bg: color-mix(in srgb, var(--card) 88%, transparent);
-  --docs-card-bg: color-mix(in srgb, white 94%, var(--accent));
-  --docs-panel-shadow:
-    0 18px 40px rgb(15 23 42 / 0.08),
-    0 2px 10px rgb(79 70 229 / 0.05);
 }
 
 html.dark {
   color-scheme: dark;
-  --docs-hero-start: color-mix(in srgb, var(--card) 82%, rgb(55 48 163 / 0.38));
-  --docs-hero-surface: var(--background);
-  --docs-hero-depth: color-mix(in srgb, var(--background) 88%, rgb(17 24 39));
-  --docs-panel-bg: color-mix(in srgb, var(--card) 88%, transparent);
-  --docs-card-bg: color-mix(in srgb, var(--card) 92%, rgb(79 70 229 / 0.08));
-  --docs-panel-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.04),
-    0 24px 50px rgb(2 6 23 / 0.42);
 }
 
 .docs-header-actions {
@@ -35,16 +19,16 @@ html.dark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.8rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 94%, transparent);
-  color: var(--foreground);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted-foreground);
   font: inherit;
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -54,9 +38,9 @@ html.dark {
 }
 
 .docs-theme-toggle:hover {
-  background: var(--accent);
-  color: var(--accent-foreground);
-  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border));
 }
 
 .docs-theme-toggle:focus-visible {

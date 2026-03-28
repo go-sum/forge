@@ -57,7 +57,9 @@
         {{ partial "sidebar.html" . }}
       </aside>
       <main class="docs-main">
-        {{ block "main" . }}{{ end }}
+        <div class="docs-main-inner">
+          {{ block "main" . }}{{ end }}
+        </div>
       </main>
     </div>
   </div>

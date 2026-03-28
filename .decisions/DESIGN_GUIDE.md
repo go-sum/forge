@@ -1,10 +1,10 @@
 ---
-title: Application Design Principles
+title: Design Principles
 description: Layering, feature development rules, and architectural decision guidance for Forge.
 weight: 20
 ---
 
-# DESIGN_GUIDE.md — Application Design Principles
+# Design Principles
 
 > This guide prescribes **how to think and build** when using this starter.
 > It covers architecture, feature development process, layer patterns, error design,
