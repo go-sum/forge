@@ -10,21 +10,25 @@ weight: 30
 > It is the visual companion to [`CLAUDE.md`](../CLAUDE.md) and the
 > implementation companion to [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md).
 >
-> It incorporates the relevant design principles that were previously carried
-> in `RefactoringUI-small.pdf`, adapted to this repository's actual UI surface.
-> This file is intended to stand on its own after that PDF is removed.
+> It incorporates the relevant design principles from [`tailwindcss.com`](https://tailwindcss.com/) 
+> and one of the definitive guides on design [`Refactoring UI`](https://refactoringui.com/) 
+> by Adam Wathan & Steve Schoger, adapted to the repository's current UI surface and
+> `pkg/componentry` package layout.  This guide should stand on its own without
+> requiring the source text.
 >
 > The guidance is tailored to:
 >
-> - reusable components in `pkg/components/ui/`
-> - supporting form and HTMX helpers in `pkg/components/`
-> - app-specific views in `internal/view/`
+> - reusable components in `pkg/componentry/ui/`
+> - form controls in `pkg/componentry/form/`
+> - higher-level interaction and HTMX helpers in `pkg/componentry/interactive/`
+>   and `pkg/componentry/patterns/`
+> - app-specific composition in `internal/view/`
 
 ---
 
 ## Purpose
 
-This starter targets high-performance modern web applications that are rendered
+This starter targets high-performance modern web applications rendered
 primarily on the server. The UI should therefore feel:
 
 - clear before it feels decorative
@@ -32,9 +36,9 @@ primarily on the server. The UI should therefore feel:
 - reusable before it becomes page-specific
 - consistent across full-page views and HTMX partials
 
-The component library exists to make those goals cheap to achieve. Prefer using
-the shared components and tokens over rebuilding visual patterns ad hoc in
-views.
+The component library exists to make those goals cheap to achieve. Prefer the
+shared components, patterns, and tokens over rebuilding visual patterns ad hoc
+inside views.
 
 ---
 
@@ -42,19 +46,26 @@ views.
 
 This guide covers:
 
-- visual principles for components in `pkg/components/ui/`
-- how page and partial views in `internal/view/` should use those components
+- visual principles for components in `pkg/componentry/ui/`
+- how `pkg/componentry/form`, `pkg/componentry/interactive`, and
+  `pkg/componentry/patterns` should shape interface behavior
+- how full pages and HTMX partials in `internal/view/` should compose those
+  pieces
 - the default spacing, typography, color, and elevation language of the app
 
 This guide does not try to document every exported API. For exact props and
-rendering behavior, read the component source and tests.
+rendering behavior, read the package source and tests.
 
 Primary code references:
 
-- `pkg/components/ui/core/`
-- `pkg/components/ui/data/`
-- `pkg/components/ui/feedback/`
-- `pkg/components/ui/layout/`
+- `pkg/componentry/examples/`
+- `pkg/componentry/ui/core/`
+- `pkg/componentry/ui/data/`
+- `pkg/componentry/ui/feedback/`
+- `pkg/componentry/ui/layout/`
+- `pkg/componentry/form/`
+- `pkg/componentry/interactive/`
+- `pkg/componentry/patterns/`
 - `internal/view/layout/`
 - `internal/view/page/`
 - `internal/view/partial/`
@@ -66,28 +77,34 @@ Primary code references:
 
 ### 1. Start with a feature, not the shell
 
-From Refactoring UI, the most important rule is to design around the job the
-user is doing, not around abstract page chrome.
+The most important rule still applies: design around the job
+the user is doing, not around abstract page chrome.
 
 In this repo that means:
 
-- design the signin form before rethinking the navbar
-- design the users table before inventing a dashboard layout
-- design the inline edit flow before adding decorative wrappers
+- design the user table before redesigning the navbar
+- design the contact flow before inventing a new page template
+- design the inline edit row before adding decorative wrappers
 
-`internal/view/page/auth.go` and `internal/view/page/users.go` are the model:
-the core task is visible immediately, and surrounding layout is minimal.
+Good current examples:
+
+- [`internal/view/page/users.go`](../internal/view/page/users.go)
+- [`internal/view/partial/userpartial/user_form.go`](../internal/view/partial/userpartial/user_form.go)
+- [`internal/view/page/contact.go`](../internal/view/page/contact.go)
+
+The shell should emerge from repeated feature needs. It should not be the first
+thing designed.
 
 ### 2. Detail comes later
 
-Do not start by tuning shadows, icon sizes, or decorative accents.
+Do not begin by tuning shadows, icon sizes, borders, or decorative accents.
 
 Start with:
 
-- the job the user is trying to do
-- the information they need to see
+- the user job
+- the information they need
 - the action they need to take
-- the states the screen has to support
+- the states the screen must support
 
 Then refine:
 
@@ -97,13 +114,13 @@ Then refine:
 - color
 - depth
 
-This is especially important in server-rendered UI work, where it is easy to
-burn time polishing the shell before the actual feature exists.
+Design in grayscale first when exploring a new surface. Forcing spacing,
+contrast, and size to carry the hierarchy produces a clearer result than
+reaching for color too early.
 
 ### 3. Ship the smallest useful version first
 
-If part of a feature is optional, nice-to-have, or likely to be expensive, do
-not let it block the first useful version.
+Do not design or imply functionality that is not ready to build.
 
 For new UI, build:
 
@@ -112,12 +129,28 @@ For new UI, build:
 - the minimum credible error state
 - the minimum credible loading state if the surface needs one
 
-Then iterate.
+Then iterate on the real implementation. The repo already follows this pattern:
+the users region supports listing, inline editing, loading, and empty state
+without trying to solve every future admin workflow on day one.
 
-### 4. Choose a personality deliberately
+### 4. Work in short cycles
 
-Every interface communicates a personality whether intended or not. In this
-starter, the default personality should be:
+Do not try to design every edge case in the abstract before implementation.
+
+Preferred loop:
+
+1. sketch the simplest useful version
+2. implement it in the real UI
+3. exercise the working interface
+4. refine only where real usage exposes friction
+
+This starter favors server-rendered HTML precisely because it makes iteration
+cheap. Use that advantage.
+
+### 5. Choose a personality deliberately
+
+Every interface communicates a personality whether intended or not. The
+starter's default personality should be:
 
 - clear
 - competent
@@ -128,15 +161,14 @@ That personality is expressed through:
 
 - restrained color usage
 - consistent corner radius
-- a small type scale
+- a small, purposeful type scale
 - straightforward copy
 - quiet but polished interaction states
 
-Do not mix competing personalities on the same screen. If a future project
-using this starter wants a different tone, that should be changed centrally in
-theme tokens, typography, radius, and copy style rather than page by page.
+If a project built on this starter needs a different tone, change it centrally
+through tokens, typography, and component defaults. Do not drift page by page.
 
-### 5. Limit choices on purpose
+### 6. Limit choices on purpose
 
 Design quality improves when the system narrows the decision surface.
 
@@ -146,63 +178,106 @@ This starter should rely on predefined systems for:
 - spacing
 - semantic color
 - elevation
-- component variants
 - widths and layout constraints
+- component variants
 
 When making a UI decision, choose from the system first. If the system feels
-too small, expand it deliberately; do not bypass it with arbitrary one-off
+too small, extend it deliberately; do not bypass it with arbitrary one-off
 values.
 
-### 6. Use hierarchy before decoration
+### 7. Hierarchy comes before decoration
 
 Most emphasis should come from:
 
 - spacing
 - font weight
-- limited text-size changes
-- muted vs. foreground text
+- restrained text-size changes
+- muted versus foreground text
+- placement
 
-Do not reach for extra colors, borders, or badges first.
+Do not reach for extra borders, badges, or colors first.
 
-Existing hierarchy patterns to follow:
+Current hierarchy defaults:
 
 - page title: `text-2xl font-bold`
 - card title: `text-lg font-semibold`
-- body and controls: `text-sm`
-- secondary/supporting text: `text-muted-foreground`
-- badges and helper text: `text-xs`
+- controls and body text: `text-sm`
+- supporting text: `text-muted-foreground`
+- badges and fine metadata: `text-xs`
 
 Examples:
 
-- [`pkg/components/ui/data/card.go`](../pkg/components/ui/data/card.go)
-- [`pkg/components/ui/core/button.go`](../pkg/components/ui/core/button.go)
+- [`pkg/componentry/ui/data/card.go`](../pkg/componentry/ui/data/card.go)
+- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
 - [`internal/view/page/home.go`](../internal/view/page/home.go)
 
-### 7. Design in grayscale first, then apply semantic color
+### 8. Size is not everything
 
-Refactoring UI's advice to delay color maps well to this starter.
+Users notice contrast, placement, and density before they notice a one-step
+font-size change.
+
+Prefer to emphasize by:
+
+- increasing contrast
+- isolating the important element with space
+- simplifying nearby competing elements
+- using weight or case deliberately
+
+Before making something larger, ask if the surrounding content should instead
+be quieter.
+
+### 9. Emphasize by de-emphasizing
+
+When a screen feels noisy, the fix is usually not to make the important thing
+louder. The fix is to soften everything that is less important.
+
+Common repo patterns:
+
+- row actions use `ghost` or destructive ghost buttons so table data dominates
+- descriptions use `text-muted-foreground` so headings and values lead
+- nav metadata and helper text stay quieter than primary actions
+
+### 10. Labels are a last resort
+
+In display UI, labels are secondary. The value is what the user came to see.
+
+This means:
+
+- labels in cards and detail views should usually be smaller and muted
+- if context makes a value obvious, omit the label entirely
+- repeated label-value noise should be simplified into layout or grouping
+
+Forms still need explicit labels unless there is a deliberate accessible
+alternative. Display UI usually does not.
+
+### 11. Separate visual hierarchy from document hierarchy
+
+Choose semantic elements for structure and accessibility, then style them for
+their visual role.
+
+Examples:
+
+- a page title can be an `h1` without looking like a marketing hero
+- a card title can be an `h3` without feeling oversized
+- a section heading can visually behave like a label
+
+Do not let heading levels force a visual type scale that harms the page.
+
+### 12. Design in grayscale first, then apply semantic color
 
 Use semantic tokens only when they carry meaning:
 
 - `primary` for the main action
-- `destructive` for dangerous actions and error emphasis
-- `secondary` and `muted` for lower emphasis
-- `accent` for hover/focus surfaces
+- `destructive` for danger or error emphasis
+- `secondary` or `muted` for lower emphasis
+- `accent` for hover or focus surfaces
 
-Do not introduce arbitrary color families in views when a semantic token
-already exists.
+Do not introduce arbitrary palette classes in views when a semantic token or
+component variant already exists.
 
-Use the component defaults where possible:
+### 13. Keep the scale tight
 
-- primary button: `core.VariantDefault`
-- destructive button: `core.VariantDestructive`
-- destructive alert: `feedback.AlertDestructive`
-- status badge: `core.BadgeDefault`, `core.BadgeSecondary`, `core.BadgeDestructive`
-
-### 8. Keep the scale tight
-
-The visual system in this repo already leans on a small number of recurring
-sizes. Keep using them.
+The repo already leans on a small number of recurring sizes. Keep using them.
 
 Recommended spacing rhythm:
 
@@ -220,60 +295,86 @@ Recommended text rhythm:
 - `text-lg` for card titles
 - `text-2xl` for page headings
 
-If a new design needs a larger type ramp or more spacing values than these,
-the design probably needs simplification before it needs new utilities.
+If a design needs a large new ramp of spacing or typography values, simplify
+the design before extending the system.
 
-### 9. Let empty space do work
+### 14. Start with too much white space
 
-Refactoring UI emphasizes starting with more white space than you think you
-need. That is correct for this codebase.
+When a UI feels cramped, the problem is usually layout density, not a missing
+shadow or color accent.
+
+Default bias:
+
+- give forms, cards, and grouped sections more room first
+- tighten only when density has a clear product reason
+
+### 15. Keep more space around a group than inside it
+
+This is one of the most important spacing rules in the system.
+
+Examples:
+
+- label-to-input spacing should be smaller than field-to-field spacing
+- card title-to-description spacing should be tighter than card-to-card spacing
+- row action gaps should be smaller than the distance to the next row
+
+If intra-group and inter-group spacing are too similar, the UI becomes hard to
+scan.
+
+### 16. Do not fill the whole screen by default
+
+You do not need to use the full available width just because it exists.
 
 Preferred patterns:
 
 - constrain forms with `max-w-sm` or `max-w-md`
-- constrain error pages with `max-w-2xl`
-- keep the main shell readable with `container mx-auto px-4 py-6`
-- use `space-y-*` and `gap-*` instead of stacking many unrelated margins
+- constrain descriptive content with `max-w-2xl` or similar
+- use wider layouts only for tables, dashboards, and data-heavy surfaces
 
-Avoid stretching narrow content across the full screen unless the content is
-truly tabular or dashboard-like.
+Most app tasks become easier when the content width is intentionally limited.
 
-### 10. Use depth sparingly and intentionally
+### 17. Avoid ambiguous spacing
+
+Spacing should communicate structure. If two gaps look the same, users will
+assume the relationships are the same.
+
+Be explicit about:
+
+- whether a caption belongs to the field above or the section below
+- whether row actions belong to a row or to the table as a whole
+- whether helper text belongs to the card header or card body
+
+Use spacing to answer those questions without needing extra borders.
+
+### 18. Use depth sparingly and intentionally
 
 Depth is already encoded in the shared components:
 
-- cards and buttons use `shadow-xs`
+- cards and many buttons use `shadow-xs`
 - toasts use `shadow-md`
-- mobile sidebar uses `shadow-xl`
+- drawers and overlays use stronger elevation
 
 Use borders for separation and shadows for elevation. Do not stack both
 aggressively everywhere.
 
-Good defaults:
+### 19. Accessibility is part of the design language
 
-- cards: elevated surface
-- tables: border-driven structure
-- overlays and drawers: stronger shadow
-- forms inside tables: minimal container treatment, rely on structure and spacing
-
-### 11. Accessibility is part of the design language
-
-Accessible UI is the default, not an optional pass afterward.
+Accessible UI is the default, not a later pass.
 
 Current patterns to preserve:
 
 - focus-visible rings on buttons and inputs
 - destructive color on invalid labels and fields
-- `aria-describedby` / `aria-errormessage` wiring via form helpers
-- correct announcement roles for alerts and toasts
+- `aria-describedby` and `aria-errormessage` wiring via form helpers
+- correct announcement roles for alerts and toast surfaces
 - semantic HTML tables, headings, forms, and navigation
 
 Examples:
 
-- [`pkg/components/ui/core/button.go`](../pkg/components/ui/core/button.go)
-- [`pkg/components/ui/core/label.go`](../pkg/components/ui/core/label.go)
-- [`pkg/components/ui/feedback/alert.go`](../pkg/components/ui/feedback/alert.go)
-- [`pkg/components/ui/feedback/toast.go`](../pkg/components/ui/feedback/toast.go)
+- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
+- [`pkg/componentry/form/field.go`](../pkg/componentry/form/field.go)
+- [`pkg/componentry/ui/feedback/alert.go`](../pkg/componentry/ui/feedback/alert.go)
+- [`pkg/componentry/interactive/pagination/pagination.go`](../pkg/componentry/interactive/pagination/pagination.go)
 
 ---
 
@@ -290,27 +391,11 @@ Use a narrow, purposeful type scale:
 
 Supporting rules:
 
-- prefer weight and contrast over jumping multiple font sizes
-- use `leading-none` for compact headings when the component already provides it
+- prefer weight and contrast over large type jumps
+- use tighter tracking for headings
 - use muted text for descriptions, hints, empty states, and secondary metadata
-
-Additional typography rules carried into this guide:
-
-- separate visual hierarchy from document hierarchy
-- do not let semantic element choice force oversized styling
-- keep line lengths readable for prose and descriptive content
-- adjust large text disproportionately faster than small text on smaller screens
-
-#### Separate visual hierarchy from document hierarchy
-
-Choose heading tags for semantics and accessibility, then style them based on
-their visual role.
-
-Examples:
-
-- a page title can be an `h1` and still be visually restrained
-- a card title can be semantically important without looking like a hero
-- some section titles are effectively labels and should be styled that way
+- keep line lengths readable for prose
+- keep large text line-height tighter than body text
 
 #### Keep line length readable
 
@@ -319,54 +404,54 @@ layout indefinitely.
 
 Use:
 
-- narrow containers for auth and settings forms
+- narrow containers for forms and focused tasks
 - constrained prose widths for explanations and help text
-- wider containers only for tables, dashboards, and data-heavy surfaces
+- wider containers only for data-heavy surfaces
 
-#### Relative sizing does not scale automatically
+#### Baseline, not center
 
-Do not assume that if body text shrinks by some ratio, headings, padding, and
-adjacent elements should shrink by the same ratio.
+When aligning text with icons, inputs, or adjacent blocks, bias toward optical
+baseline alignment instead of geometric centering. Perfect centering often
+looks wrong because text has different visual weight than boxes and icons.
 
-In practice:
-
-- large headings often need to shrink faster than body text on smaller screens
-- button padding and font size should be tuned independently by size variant
-- card and form spacing can stay comfortable even when type scales down slightly
-
-#### Use letter spacing intentionally
-
-Letter spacing is not neutral. It affects both legibility and personality:
-
-- headings benefit from slightly tighter tracking (`tracking-tight`, ~-0.025em)
-  to look intentional and confident rather than spaced-apart
-- all-caps labels and overlines need looser tracking (`tracking-wide` or
-  `tracking-wider`, ~+0.05–0.1em) because uppercase letters crowd each other
-  at normal spacing
-- body text and controls should remain at default tracking
-
-Do not add letter spacing to mixed-case body copy — it degrades readability.
-
-#### Line height scales inversely with font size
+#### Line height is proportional
 
 Larger text needs less line height than small text:
 
-- headings (`text-lg` and above): `leading-tight` or `leading-snug` (1.1–1.3)
-- body text (`text-sm` / `text-base`): `leading-normal` or `leading-relaxed`
-  (1.5–1.6)
-- dense metadata and badges: can use `leading-none` or `leading-tight`
+- headings: `leading-tight` or `leading-snug`
+- body text: `leading-normal` or `leading-relaxed`
+- dense metadata: `leading-none` or `leading-tight`
 
-A large heading with `leading-relaxed` looks unintentionally airy. Body text
-with `leading-tight` becomes hard to read.
+A large heading with loose leading looks accidental. Body text with tight
+leading becomes hard to read.
 
-#### Right-align numbers in tables
+#### Use letter spacing intentionally
 
-Numeric columns in tables should be right-aligned so that values of different
-magnitudes stay comparable at a glance. Label columns and free-text columns
-should remain left-aligned.
+Letter spacing affects both readability and personality:
 
-Use `text-right` on both the `<th>` and each `<td>` in numeric columns. Keep
-mixed columns (e.g. name + secondary info stacked) left-aligned.
+- headings benefit from slightly tighter tracking
+- all-caps labels and overlines need looser tracking
+- body text and controls should usually remain at default tracking
+
+Do not add extra letter spacing to mixed-case body copy.
+
+#### Not every link needs a color
+
+Links inside navigation, menus, buttons, and structured UI can often inherit
+surrounding text color and rely on placement, hover state, underline, or
+weight for distinction.
+
+Reserve obvious link color shifts for places where discoverability actually
+needs help.
+
+#### Align with readability in mind
+
+Default alignment rules:
+
+- left-align paragraphs, labels, and mixed text content
+- center-align only short, intentionally centered compositions like hero or
+  empty-state blocks
+- right-align numeric table columns for comparison
 
 ### Color
 
@@ -387,43 +472,59 @@ Rules:
 - on colored surfaces, use the matching foreground token or opacity variant
 - prefer semantic variants over raw palette classes in shared UI
 
-Additional color rules carried into this guide:
-
-- do not use generic grey text on colored backgrounds
-- define shades and state meaning up front
-- avoid washed-out tints when a saturated low-opacity version communicates better
-- neutral colors do not need to be mathematically grey if a warmer or cooler
-  neutral fits the palette better
-
 #### Build palettes with enough shades
 
-Most color decisions require more steps in the scale than designers initially
-expect. A useful scale has:
+Most color systems need more steps than initially expected.
 
-- 8–10 steps for greys (near-white → near-black)
-- 5–10 steps for each accent or brand color (very light tint → very dark shade)
+Useful defaults:
 
-#### Meet WCAG contrast ratios
+- 8 to 10 steps for neutrals
+- 5 to 10 steps for each accent or brand family
 
-Text must be readable. The WCAG minimum contrast requirements are:
+That gives enough room for:
 
-- **4.5:1** for normal text (roughly `text-sm` and smaller, or under ~18px)
-- **3:1** for large text (roughly `text-lg` and above, or over ~18px bold)
+- surfaces
+- borders
+- hover states
+- active states
+- readable foregrounds
+
+#### Greys do not have to be perfectly grey
+
+Neutral colors can lean slightly warm or cool if that better fits the product
+palette. The goal is a coherent interface, not mathematical neutrality.
+
+#### Do not let lightness kill saturation
+
+Very light tints often look washed out. If a surface needs subtle color, a
+low-opacity saturated color frequently communicates better than a chalky pastel.
+
+Use color sparingly on the face of the component. Accent borders and restrained
+background washes are usually enough.
 
 #### Do not use grey text on colored backgrounds
 
 On colored surfaces, use:
 
 - the matching foreground token
-- reduced opacity of that foreground when needed
+- a reduced-opacity version of that foreground when needed
 - a hand-picked semantic token if the component requires one
 
-Do not drop in `text-gray-*` style thinking on top of colored or image-based
-surfaces.
+Do not drop generic grey text onto colored or image-based surfaces.
+
+#### Meet WCAG contrast ratios
+
+Text must be readable:
+
+- `4.5:1` for normal text
+- `3:1` for large text
+
+Accessible does not have to mean ugly. Build contrast into the palette instead
+of treating it as a late-stage compromise.
 
 #### Do not rely on color alone
 
-Use shape, copy, icons, placement, and text labels alongside color when
+Use copy, placement, icons, borders, or shape alongside color when
 communicating:
 
 - destructive state
@@ -432,54 +533,22 @@ communicating:
 - selection
 - disabled state
 
-In this codebase, that often means pairing:
-
-- destructive color with alert copy or an explicit destructive variant
-- badge color with readable badge text
-- invalid input styling with an error message
-- current nav state with both styling and structural position
-
-### Spacing
+### Layout and Spacing
 
 Use consistent spacing instead of one-off values. Page composition should read
 as a rhythm, not as a pile of local tweaks.
 
-Good existing examples:
+Good current examples:
 
-- auth forms: compact vertical flow inside a padded card
-- user list region: `space-y-4` between table and pagination
-- error page: `flex max-w-2xl flex-col gap-6 py-16`
+- [`internal/view/page/users.go`](../internal/view/page/users.go)
+- [`internal/view/page/home.go`](../internal/view/page/home.go)
+- [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
 
-Additional layout and spacing rules carried into this guide:
+#### Establish a spacing and sizing system
 
-- start with more white space than you think you need, then remove it
-- keep more space around a group than inside it
-- dense UIs should be a deliberate exception
-- grids are tools, not laws
-- use fixed widths or max widths when the content demands them
-
-#### Start with more white space, then remove it
-
-When a UI feels cramped, the problem is usually not subtle styling, it is
-insufficient breathing room.
-
-Default bias:
-
-- give forms, cards, and major sections more room first
-- tighten only when the screen density has a clear product reason
-
-#### Keep more space around a group than inside it
-
-This is one of the most important spacing rules in the system.
-
-Examples:
-
-- label-to-input spacing should be smaller than field-to-field spacing
-- row action gaps should be smaller than the distance between the actions and the next table row
-- card title/description spacing should be tighter than card-to-card spacing
-
-If intra-group and inter-group spacing are too similar, the UI becomes hard to
-scan.
+Use a small set of repeated values rather than inventing new spacing for every
+surface. Repetition makes the interface feel intentional and makes component
+composition faster.
 
 #### Grids are tools, not laws
 
@@ -487,11 +556,27 @@ Do not force every layout into equal fluid columns.
 
 Prefer:
 
-- fixed or max-width sidebars when navigation needs a stable width
-- constrained cards and forms that only shrink when necessary
-- content-driven widths inside a flexible container
+- fixed or max-width sidebars when navigation needs stability
+- constrained cards and forms that shrink only when necessary
+- content-driven widths inside flexible containers
 
-Use fluid distribution where it helps, not because a grid exists.
+Use grid when it helps the content, not because a grid is available.
+
+#### Relative sizing does not scale automatically
+
+Do not assume that if body text shrinks by some ratio, headings, padding, and
+adjacent elements should shrink by the same ratio.
+
+In practice:
+
+- large headings often need to shrink faster than body text on small screens
+- button padding and font size should be tuned independently
+- card and form spacing can stay comfortable even when type scales down a bit
+
+#### Right-align numbers in tables
+
+Numeric columns should be right-aligned so values of different magnitudes stay
+comparable at a glance. Keep free text and mixed-content columns left-aligned.
 
 ### Elevation
 
@@ -500,69 +585,155 @@ Use these defaults:
 - none or border-only for structural rows and sections
 - `shadow-xs` for cards and small controls
 - `shadow-md` for transient feedback
-- `shadow-xl` for off-canvas drawers and overlays
-
-Additional depth rules carried into this guide:
-
-- treat the light source as consistent
-- use shadows to show elevation, not decoration for its own sake
-- overlap and layering should be rare and meaningful
-- borders and shadows should complement one another, not compete
+- stronger shadows for off-canvas drawers and modal overlays
 
 #### Keep the implied light source consistent
 
-This UI system assumes a conventional top-down light source. Avoid mixing
-shadow directions or adding effects that imply competing lighting logic.
+The system assumes a conventional top-down light source. Avoid mixing shadow
+directions or effects that imply conflicting lighting.
 
-#### Shadow scale
+#### Use shadows to show elevation, not decoration
 
-Define a small, fixed shadow scale rather than picking values ad hoc. Five
-levels is enough for most interfaces:
+Think about z-axis intent, not about the shadow itself:
 
-| Level | Typical use | Example value |
-|-------|-------------|---------------|
-| 1 | Buttons, small controls | `0 1px 3px hsla(0,0%,0%,.2)` |
-| 2 | Cards | `0 4px 6px hsla(0,0%,0%,.1)` |
-| 3 | Dropdowns, popovers | `0 5px 15px hsla(0,0%,0%,.1)` |
-| 4 | Toasts, non-modal overlays | `0 10px 24px hsla(0,0%,0%,.15)` |
-| 5 | Modals, dialogs | `0 15px 35px hsla(0,0%,0%,.2)` |
+- buttons sit slightly above the background
+- cards sit above the page
+- dropdowns and dialogs sit above cards
 
-This maps to `shadow-xs` → `shadow-md` → `shadow-xl` in the token scale.
-Pick the level based on where the element lives on the z-axis — do not think
-about the shadow itself; think about how close the element feels to the user.
+If the element is not elevated in the interaction model, it probably does not
+need a stronger shadow.
 
 #### Overlap only when it clarifies layers
 
 Layering is appropriate for:
 
-- the mobile sidebar
-- toasts
+- the mobile nav drawer
 - dropdowns and popovers
 - dialogs
+- toasts
 
-Do not create overlap in normal page flow merely for visual novelty.
+Do not overlap elements in normal page flow merely for visual novelty.
+
+### Images
+
+Use images carefully and only when they have a job.
+
+Rules:
+
+- use good images, not generic filler
+- preserve text contrast on top of images
+- give images an intended display size
+- treat user-uploaded images as hostile to layout consistency
+
+#### Text over images needs deliberate contrast control
+
+A photograph contains both light and dark areas. Solve text contrast by
+reducing image dynamics with overlays, cropping, or blur rather than by hoping
+one text color works everywhere.
+
+#### Everything has an intended size
+
+Icons, screenshots, and photos look best near the size they were designed to
+be seen.
+
+- small icons should usually stay small and gain presence through padding or a
+  surrounding shape
+- screenshots should be cropped, not crushed into unreadable thumbnails
+
+#### Beware user-uploaded content
+
+User images have unpredictable aspect ratios, backgrounds, and quality. Contain
+them in fixed-size wrappers and crop with `object-fit: cover` when the layout
+depends on consistency.
+
+### Finishing Touches
+
+Apply these only after hierarchy, spacing, and accessibility are already solid.
+
+#### Supercharge the defaults
+
+Before inventing a new component, ask whether the default HTML element or
+existing component can carry a bit more personality through:
+
+- better icon use
+- stronger underlines
+- improved grouping
+- slightly richer state styling
+
+#### Add color with accent borders
+
+A thin accent border is one of the easiest ways to add intention without
+hurting legibility.
+
+Good uses:
+
+- the top edge of a card or panel
+- the left edge of an alert
+- an active nav indicator
+- a short underline beneath a heading
+
+#### Use fewer borders
+
+Borders are useful, but overuse creates noise.
+
+Prefer:
+
+- spacing for grouping
+- contrast for hierarchy
+- shadows for elevation
+- borders for inputs, tables, and intentional separation
+
+#### Backgrounds should support, not distract
+
+Most screens in this starter should lean on:
+
+- `bg-background` for the page
+- `bg-card` for elevated surfaces
+- `bg-muted` or `bg-accent` sparingly for supporting distinction
+
+Decorative backgrounds are acceptable only when they do not weaken legibility
+or fight the app's restrained personality.
+
+#### Do not overlook empty states
+
+Polish often shows up in the states teams postpone.
+
+Every meaningful surface should consider:
+
+- what appears when there is no data
+- what appears while work is happening
+- what appears when the operation fails
+
+The empty users card and loading indicator are the current model for this:
+
+- [`internal/view/page/users.go`](../internal/view/page/users.go)
 
 ---
 
 ## Component Guide
 
-### `pkg/components/ui/core`
+### `pkg/componentry/ui/core`
 
-Use `core` for the smallest shared primitives.
+Use `ui/core` for the smallest shared primitives.
 
 Primary components:
 
-- `Button`: shared action styling, link/button dual rendering, size and variant system
-- `Badge`: compact status and role indicators
-- `Label`: form labels with built-in invalid styling
-- `Avatar`, `Icon`, `Separator`, `Skeleton`, `Popover`: primitive supporting UI
+- `Button`
+- `Badge`
+- `Label`
+- `Avatar`
+- `Icon`
+- `Separator`
+- `Skeleton`
+- `Popover`
 
 Rules:
 
-- use `core.Button` for actions instead of hand-rolled `<button>` class strings
-- use `core.Badge` for terse categorical status, not for paragraphs or feedback messages
-- use `core.Label` through the form field helpers instead of styling labels manually
-- de-emphasize heavy icons when they compete with adjacent text
+- use `core.Button` for actions instead of hand-rolled `<button>` classes
+- use `core.Badge` for terse status or category indicators, not full feedback
+- use `core.Label` directly or through form helpers instead of styling labels
+  ad hoc
+- soften icon contrast before increasing icon size when icons compete with text
 
 ### Button usage
 
@@ -570,53 +741,57 @@ Use variants consistently:
 
 - `VariantDefault`: primary action
 - `VariantSecondary`: lower-emphasis filled action
-- `VariantOutline`: secondary action needing boundary
-- `VariantGhost`: quiet inline actions
-- `VariantDestructive`: dangerous action
-- `VariantLink`: text-only navigation/action
+- `VariantOutline`: secondary action needing a boundary
+- `VariantGhost`: quiet inline action
+- `VariantDestructive`: dangerous primary action
+- `VariantDestructiveGhost`: dangerous action that should stay visually quiet
+- `VariantLink`: text-only navigation or action
 
 Use sizes consistently:
 
 - default for primary form and page actions
-- `SizeSm` for row actions, pagination controls, nav form actions
+- `SizeSm` for row actions, pagination controls, and compact nav actions
 - `SizeLg` only when the layout genuinely needs a larger target
 
-### `pkg/components/ui/data`
+### `pkg/componentry/ui/data`
 
-Use `data` for grouped informational surfaces and tabular display.
+Use `ui/data` for grouped informational surfaces and tabular display.
 
 Primary components:
 
-- `Card.Root`, `Card.Header`, `Card.Title`, `Card.Description`, `Card.Content`, `Card.Footer`
-- `Table.Root`, `Table.Header`, `Table.Body`, `Table.Row`, `Table.Head`, `Table.Cell`, `Table.Caption`
+- `Card.Root`, `Card.Header`, `Card.Title`, `Card.Description`,
+  `Card.Content`, `Card.Footer`
+- `Table.Root`, `Table.Header`, `Table.Body`, `Table.Row`, `Table.Head`,
+  `Table.Cell`, `Table.Caption`
 
 Rules:
 
-- use cards for bounded tasks, summaries, and dialogs-in-page
-- use tables for multi-column structured data, not for layout
-- keep table actions compact and aligned to scan cleanly
-- keep card content padded through card subcomponents, not extra wrapper div soup
+- use cards for bounded tasks, summaries, and empty states
+- use tables for multi-column structured data, not for page layout
+- keep table actions compact and aligned for scanning
+- keep card padding inside card subcomponents, not wrapper `div` clutter
 
-### `pkg/components/ui/feedback`
+### `pkg/componentry/ui/feedback`
 
-Use `feedback` for messages and progress, not badges.
+Use `ui/feedback` for feedback surfaces and progress, not for terse status
+chips.
 
 Primary components:
 
-- `Alert`: inline page or form feedback
-- `Toast`: transient or out-of-band feedback
-- `Progress`: explicit progress display
+- `Alert`
+- `Toast`
+- `Progress`
 
 Rules:
 
 - alerts explain a situation in context
 - toasts acknowledge an event and should stay brief
-- destructive variants are for error or dangerous states, not generic emphasis
-- use toast announcement roles as implemented; do not rebuild toast markup ad hoc
+- destructive variants are for danger or failure, not generic emphasis
+- preserve the accessibility roles and structure already encoded in the package
 
-### `pkg/components/ui/layout`
+### `pkg/componentry/ui/layout`
 
-Use `layout` for shell-level navigation and structural navigation patterns.
+Use `ui/layout` for shell-level navigation and structural navigation patterns.
 
 Primary components:
 
@@ -626,15 +801,86 @@ Primary components:
 
 Rules:
 
-- page shell navigation should be configured declaratively through `NavConfig`
-- mobile drawer behavior should reuse `Sidebar`, not a second bespoke pattern
-- dynamic auth or theme content should flow through nav slots, not hardcoded branches in many views
+- configure primary navigation declaratively through `NavConfig`
+- reuse `Sidebar` and `NavMenu` behavior instead of building a second mobile
+  drawer pattern
+- push auth and theme differences through nav slots, not duplicated view logic
 
-Examples:
+### `pkg/componentry/form`
 
-- [`pkg/components/ui/layout/navmenu.go`](../pkg/components/ui/layout/navmenu.go)
-- [`pkg/components/ui/layout/navbar.go`](../pkg/components/ui/layout/navbar.go)
-- [`internal/view/layout/base.go`](../internal/view/layout/base.go)
+Use `form` for accessible field composition and consistent input wiring.
+
+Primary components and helpers:
+
+- `Field`
+- `Input`
+- `Textarea`
+- `Select`
+- `Checkbox`
+- `Radio`
+- `Switch`
+- `Toggle`
+- `FieldControlAttrs`
+
+Rules:
+
+- use `Field` for label, control, description, hint, and error grouping
+- use `FieldControlAttrs` so controls point at descriptions and errors
+- prefer package defaults over hand-assembling error markup
+- keep standalone forms narrow unless the task genuinely requires density
+
+### `pkg/componentry/interactive`
+
+Use `interactive/*` for higher-level UI that remains HTML-first and progressive.
+
+Current examples:
+
+- `accordion`
+- `breadcrumb`
+- `dialog`
+- `dropdown`
+- `pagination`
+- `tabs`
+- `tooltip`
+
+Rules:
+
+- prefer native HTML behavior where the package already encodes it
+- keep interaction affordances consistent with the rest of the design language
+- use these packages when behavior would otherwise be reimplemented in a page
+
+### `pkg/componentry/patterns`
+
+Use `patterns/*` for cross-cutting UI behavior and wiring rather than visual
+primitives.
+
+Important packages:
+
+- `patterns/flash`
+- `patterns/font`
+- `patterns/form`
+- `patterns/head`
+- `patterns/htmx`
+- `patterns/pager`
+- `patterns/redirect`
+
+Rules:
+
+- use typed HTMX helpers instead of sprinkling ad hoc `hx-*` strings
+- keep async behavior local to the markup it affects
+- use flash and head helpers for app-wide conventions instead of view-local
+  duplication
+
+### `pkg/componentry/examples`
+
+Treat [`pkg/componentry/examples/examples.go`](../pkg/componentry/examples/examples.go)
+as the living visual reference for the component library.
+
+Use it to:
+
+- review the intended default variants
+- compare component families side by side
+- anchor UI guide examples to real package usage
 
 ---
 
@@ -642,15 +888,16 @@ Examples:
 
 ### `internal/view/layout/`
 
-`internal/view/layout/base.go` is the application shell.
+[`internal/view/layout/base.go`](../internal/view/layout/base.go) is the
+application shell.
 
 It is responsible for:
 
 - document structure
 - stylesheet and script inclusion
-- nav rendering
-- CSRF wiring for standard and HTMX requests
-- the toast container
+- primary nav rendering
+- body-level CSRF and HTMX wiring
+- flash toast container placement
 
 Do not duplicate shell concerns in page-level views.
 
@@ -663,14 +910,15 @@ Rules:
 - accept `view.Request` first
 - wrap content with `req.Page(...)`
 - compose page structure with shared components first, utilities second
-- use utility classes for layout and spacing, not to recreate missing button/card/alert systems
-- keep semantic structure correct even when the visual styling is intentionally restrained
+- use utility classes for layout and spacing, not to recreate button, card, or
+  alert systems
+- keep semantic structure correct even when the visual styling is restrained
 
 Current page patterns:
 
-- `auth.go`: centered auth cards with tight, task-focused forms
-- `users.go`: page heading plus reusable HTMX region
-- `home.go`: minimal landing page
+- `home.go`: centered landing composition with clear action hierarchy
+- `users.go`: heading plus HTMX-replaceable region
+- `contact.go`: focused form flow and supportive copy
 
 ### `internal/view/partial/`
 
@@ -678,27 +926,32 @@ Use `internal/view/partial/` for HTMX-replaceable fragments.
 
 Rules:
 
-- partials should preserve the same visual language as full pages
-- partials should be structurally self-sufficient for the DOM region they replace
-- prefer returning the same surface type after mutation as before mutation
-- partial layouts should not become visually denser or noisier than the full page they live within
+- partials should preserve the same visual language as the full page
+- partials should be self-sufficient for the DOM region they replace
+- return the same surface type after mutation whenever possible
+- partials should not become denser or noisier than the page around them
 
-`userpartial` is the reference implementation:
+Reference implementations:
 
-- read-only row uses `Table.Row` and compact ghost/destructive actions
-- edit row preserves table context, swaps in a form inline, and keeps controls compact
+- `userpartial/user_row.go`: compact row actions in a tabular context
+- `userpartial/user_form.go`: inline editing while preserving table structure
+- `contactpartial/contact_form.go`: fragment-safe form composition
 
 ### `internal/view/errorpage/`
 
-Errors should look like part of the application, not like fallback HTML.
+Errors should look like part of the application, not fallback HTML.
 
 Follow the existing pattern:
 
-- a constrained card surface
+- constrained card surface
 - clear title and HTTP badge
-- inline alert with the user-safe message
+- inline alert with a user-safe message
 - one obvious escape action
-- optional technical detail behind a disclosure in debug mode
+- optional technical detail behind disclosure in debug mode
+
+Reference:
+
+- [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
 
 ---
 
@@ -713,224 +966,63 @@ Do not hand-roll:
 - card framing
 - table anatomy
 - alert and toast structure
-- navbar or sidebar shells
+- nav shell structure
+- accessible field error wiring
+- common HTMX attribute patterns
 
 Ad hoc utilities are acceptable for:
 
 - page spacing
-- responsive layout wrappers
+- responsive wrappers
 - view-specific alignment
-- one-off structural composition
+- one-off composition around shared components
 
 ### Prefer composition over variant explosion
 
 If a screen needs a special arrangement, compose existing primitives first.
-Only add a new component variant when the same visual pattern is reused in
+Add a new component variant only when the same visual pattern is reused in
 multiple places.
 
 ### Make action hierarchy obvious
 
-Action styling should reflect importance first, semantics second.
-
-Default hierarchy:
+Default action hierarchy:
 
 - primary action: high-contrast filled button
-- secondary action: outline or lower-emphasis filled treatment
+- secondary action: outline or secondary filled treatment
 - tertiary action: ghost or link treatment
 
-Destructive actions do not automatically become primary. If the destructive
-action is not the main intended action on the page, style it as a secondary or
-tertiary destructive action and rely on confirmation at the point of no return.
+Destructive actions do not automatically become the visual primary action. If a
+dangerous action is not the main intended path, keep it quiet until the point
+of no return.
 
 ### Keep forms readable
 
-Most app forms in this repo should follow this structure:
+Most forms in this repo should follow this shape:
 
 - constrained width when standalone
-- `uiform.Field` for each control
-- `view.FormError(...)` for top-level validation state
+- `form.Field` for each control
+- clear top-level error presentation where needed
 - one obvious primary submit action
-- quiet secondary navigation underneath
-
-When labels are required, make them supportive and clear. When a value is
-self-evident from context or formatting, do not add redundant label/value
-noise in display UIs.
+- quiet secondary navigation or cancellation
 
 ### Keep table actions quiet until needed
 
 For tabular data:
 
 - data should dominate, controls should support
-- prefer `ghost` for edit/view actions
-- reserve `destructive` for delete/danger actions
+- prefer `ghost` for edit and view actions
+- reserve destructive styling for real danger
 - keep row actions in a right-aligned compact group
 
 ### Balance text, icons, and borders
 
 When one element feels too heavy:
 
-- soften icon contrast before changing its size
+- soften icon contrast before changing icon size
 - increase border weight slightly before making the color harsher
-- de-emphasize competing content before over-emphasizing the target content
-
-### Empty states, loading, and error states matter
-
-Refactoring UI is right that polish comes from these states.
-
-Every new surface should consider:
-
-- what shows when there is no data
-- what shows while work is happening
-- what shows when the operation fails
-
-If a page has no dedicated empty state yet, add one before adding decorative
-complexity.
-
-### Add color with accent borders
-
-A thin colorful border is one of the simplest ways to make a neutral UI feel
-more intentional. It requires no illustration skill and adds almost no visual
-noise. Use it:
-
-- across the top of a card or panel to distinguish it from its siblings
-- along the left side of an alert or callout block (`border-l-4 border-primary`)
-- as a short underline beneath a section heading
-- as the active indicator on navigation items (bottom border on tabs, left
-  border on sidebar items)
-- as a single colored bar across the very top of the layout to inject brand
-  color without affecting content legibility
-
-Accent borders work because they use color structurally, not decoratively.
-The color appears at the edge, not the face, so it does not fight text contrast.
-
-### Use fewer borders
-
-Borders are useful, but overuse creates noise.
-
-Prefer:
-
-- spacing for grouping
-- contrast for hierarchy
-- shadows for elevation
-- borders for inputs, tables, and intentional separation
-
-### Backgrounds should support, not distract
-
-Most screens in this starter should lean on:
-
-- `bg-background` for the page
-- `bg-card` for elevated surfaces
-- `bg-muted` or `bg-accent` sparingly for supporting distinction
-
-Decorative backgrounds are acceptable only when they do not weaken
-legibility or fight the app's restrained default personality.
-
-### Use images carefully
-
-When future screens include images:
-
-- choose images with a clear job, not generic filler
-- preserve text contrast on top of images
-- give images an intended display size
-- handle user-uploaded images defensively and expect inconsistent quality
-
-#### Text over images requires deliberate contrast control
-
-A photograph has both very light and very dark areas. No single text color
-works across both. Solve this by reducing image dynamics, not by choosing a
-text color:
-
-#### Do not scale icons beyond their intended size
-
-SVG icons drawn for 16–24px look chunky and lack visual detail when scaled to
-48px or 96px — even though SVG itself is resolution-independent. The strokes
-and proportions were designed at small sizes.
-
-If a large icon is needed:
-
-- use a larger icon from the same set drawn at that intended size
-- enclose the small icon in a padded shape with a background color, keeping the
-  actual icon near its intended size while filling the larger space
-
-Similarly, large icons or screenshots shrunk down to small sizes look muddy and
-unreadable. Use partial screenshots or a simplified illustration instead of
-scaling the full view down.
-
-#### Contain user-uploaded images
-
-User-supplied images have unpredictable aspect ratios and quality. Contain them:
-
-- render inside a fixed-size container
-- use `object-fit: cover` (or `background-size: cover` for background images)
-  to crop to fill, rather than letting the image dictate the layout
-
-For circular or rounded thumbnails where the image background color may blend
-into the page background, use an inner box shadow instead of a border:
-
-```css
-box-shadow: inset 0 0 0 1px hsla(0,0%,0%,.1);
-```
-
-Borders tend to clash with image colors; the inner shadow is nearly invisible
-against most images while still providing separation when needed.
-
-### De-emphasize labels relative to their values
-
-In display UI (not form inputs), labels are secondary. The value is the
-information the user came for; the label explains what the value means.
-
-This means labels should be visually quieter than their values:
-
-- use `text-xs text-muted-foreground` or `text-sm text-muted-foreground` for
-  labels in cards, detail views, and stat blocks
-- let the value carry the visual weight with normal foreground color and
-  slightly larger or heavier type
-- omit the label entirely when context makes the value self-evident
-
-Avoid the reverse: a bold label and a muted value — that makes users read the
-label twice and search for the data they actually want.
-
-### Supercharge default elements
-
-Before reaching for a new component, consider enriching what is already on the
-page:
-
-- **Bulleted lists**: replace generic bullets with relevant icons (`✓`, `→`, or
-  domain-specific icons) using `pkg/components/ui/core.Icon`
-- **Quotes and testimonials**: increase quotation mark size and soften their
-  color — they become a visual element rather than punctuation
-- **Links in body text**: a thick, colorful partial underline (using
-  `text-decoration-color` or a `border-b-2` on `<a>`) is more distinctive than
-  a plain underline
-- **Form controls**: custom checkbox and radio styling using brand colors for
-  the checked state makes forms feel polished without adding complexity
-- **Radio groups for important choices**: if a radio group is a key decision on
-  the screen, replace it with selectable card tiles
-
-These are finishing details — apply them after hierarchy, spacing, and
-accessibility are solid.
-
-### Think outside component conventions
-
-Do not assume the default shape of a component is the only option. Components
-are surfaces — what you put on them is flexible:
-
-- a dropdown does not have to be a plain list of links; it can use sections,
-  multiple columns, icons, and supporting descriptions
-- a table does not have to give each datum its own column; non-sortable
-  secondary text (like a role below a name) can share a cell, reducing column
-  count and improving readability
-- a table cell is not limited to plain text — avatars, badges, and colored
-  status labels add hierarchy without a separate component
-- a modal-level choice does not have to use radio buttons; selectable cards
-  present the same decision with more visual clarity
-
-Apply judgment before breaking from established patterns, but do not avoid
-improvements simply because the default form is familiar.
+- de-emphasize competing content before over-emphasizing the target
 
 ### Writing is part of the design
-
-UI copy affects personality as much as color or type.
 
 Default copy style for this starter:
 
@@ -949,22 +1041,24 @@ Choose words that reduce friction and match the visual restraint of the system.
 Before merging a UI change, confirm:
 
 - the design starts from the feature, not from extra shell complexity
-- a shared component was used where one already exists
-- hierarchy comes from spacing, weight, and contrast before extra color
+- a shared component or pattern was used where one already exists
+- hierarchy comes from spacing, weight, contrast, and placement before extra
+  color
 - semantic tokens were used instead of arbitrary palette classes
 - widths are constrained where readability matters
 - focus, invalid, and feedback states are visible
 - action hierarchy is obvious without reading every label twice
-- grouping is clear because spacing around groups is larger than spacing within them
+- grouping is clear because spacing around groups is larger than spacing within
+  them
 - the mobile layout still works without inventing a second visual language
 - HTMX partials match the full-page design language
 - the screen has credible empty, loading, and error states where applicable
-- text on colored or image backgrounds meets 4.5:1 contrast (4.5:1 normal, 3:1 large)
+- text on colored or image backgrounds meets contrast requirements
 - labels in display UI are quieter than the values they describe
 - numeric table columns are right-aligned
 - headings use tighter tracking and leading than body text
-- shadows reflect z-axis intent, not decoration; interaction changes that intent
-- any new palette extension defines the full shade range before use
+- shadows reflect z-axis intent, not decoration
+- any new palette extension defines enough shades before use
 
 ---
 
@@ -972,21 +1066,27 @@ Before merging a UI change, confirm:
 
 Use these files as the practical source of truth:
 
-- [`pkg/components/ui/core/button.go`](../pkg/components/ui/core/button.go)
-- [`pkg/components/ui/core/badge.go`](../pkg/components/ui/core/badge.go)
-- [`pkg/components/ui/core/label.go`](../pkg/components/ui/core/label.go)
-- [`pkg/components/ui/data/card.go`](../pkg/components/ui/data/card.go)
-- [`pkg/components/ui/data/table.go`](../pkg/components/ui/data/table.go)
-- [`pkg/components/ui/feedback/alert.go`](../pkg/components/ui/feedback/alert.go)
-- [`pkg/components/ui/feedback/toast.go`](../pkg/components/ui/feedback/toast.go)
-- [`pkg/components/ui/feedback/progress.go`](../pkg/components/ui/feedback/progress.go)
-- [`pkg/components/ui/layout/navbar.go`](../pkg/components/ui/layout/navbar.go)
-- [`pkg/components/ui/layout/navmenu.go`](../pkg/components/ui/layout/navmenu.go)
-- [`pkg/components/ui/layout/sidebar.go`](../pkg/components/ui/layout/sidebar.go)
+- [`pkg/componentry/examples/examples.go`](../pkg/componentry/examples/examples.go)
+- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
+- [`pkg/componentry/ui/core/badge.go`](../pkg/componentry/ui/core/badge.go)
+- [`pkg/componentry/ui/core/label.go`](../pkg/componentry/ui/core/label.go)
+- [`pkg/componentry/ui/data/card.go`](../pkg/componentry/ui/data/card.go)
+- [`pkg/componentry/ui/data/table.go`](../pkg/componentry/ui/data/table.go)
+- [`pkg/componentry/ui/feedback/alert.go`](../pkg/componentry/ui/feedback/alert.go)
+- [`pkg/componentry/ui/feedback/toast.go`](../pkg/componentry/ui/feedback/toast.go)
+- [`pkg/componentry/ui/feedback/progress.go`](../pkg/componentry/ui/feedback/progress.go)
+- [`pkg/componentry/ui/layout/navmenu.go`](../pkg/componentry/ui/layout/navmenu.go)
+- [`pkg/componentry/ui/layout/navbar.go`](../pkg/componentry/ui/layout/navbar.go)
+- [`pkg/componentry/ui/layout/sidebar.go`](../pkg/componentry/ui/layout/sidebar.go)
+- [`pkg/componentry/form/field.go`](../pkg/componentry/form/field.go)
+- [`pkg/componentry/interactive/pagination/pagination.go`](../pkg/componentry/interactive/pagination/pagination.go)
+- [`pkg/componentry/patterns/htmx/patterns.go`](../pkg/componentry/patterns/htmx/patterns.go)
 - [`internal/view/layout/base.go`](../internal/view/layout/base.go)
-- [`internal/view/page/auth.go`](../internal/view/page/auth.go)
+- [`internal/view/page/home.go`](../internal/view/page/home.go)
 - [`internal/view/page/users.go`](../internal/view/page/users.go)
+- [`internal/view/page/contact.go`](../internal/view/page/contact.go)
 - [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
+- [`internal/view/partial/contactpartial/contact_form.go`](../internal/view/partial/contactpartial/contact_form.go)
 - [`internal/view/partial/userpartial/user_form.go`](../internal/view/partial/userpartial/user_form.go)
 - [`internal/view/partial/userpartial/user_row.go`](../internal/view/partial/userpartial/user_row.go)
 
