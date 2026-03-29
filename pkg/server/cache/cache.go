@@ -56,7 +56,7 @@ func CheckIfNoneMatch(r *http.Request, etag string) bool {
 	if inm == "*" {
 		return true
 	}
-	for _, candidate := range strings.Split(inm, ",") {
+	for candidate := range strings.SplitSeq(inm, ",") {
 		if strings.TrimSpace(candidate) == etag {
 			return true
 		}
@@ -78,5 +78,5 @@ func CheckIfModifiedSince(r *http.Request, t time.Time) bool {
 	if err != nil {
 		return false
 	}
-	return !t.After(parsed)
+	return !t.UTC().Truncate(time.Second).After(parsed)
 }

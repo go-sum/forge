@@ -125,7 +125,7 @@ func (a AcceptLanguage) String() string {
 
 // ContentItem is a single parsed entry from an Accept header value.
 type ContentItem struct {
-	Type    string            // e.g. "text/html", "application/*", "*/*"
+	Type    string // e.g. "text/html", "application/*", "*/*"
 	Quality float64
 	Params  map[string]string // non-q extension parameters
 }
@@ -225,6 +225,15 @@ func ParseAccept(header string) Accept {
 // preferences. It iterates over the quality-sorted Accept and returns the
 // first candidate that satisfies any content item. Returns "" if no match.
 func (a Accept) Preferred(candidates []string) string {
+	if len(a) == 0 {
+		for _, c := range candidates {
+			if c != "" {
+				return c
+			}
+		}
+		return ""
+	}
+
 	for _, item := range a {
 		if item.Type == "*/*" {
 			for _, c := range candidates {

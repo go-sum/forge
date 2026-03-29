@@ -330,6 +330,12 @@ func TestUserRowETagCachingCycle(t *testing.T) {
 	if etagVal == "" {
 		t.Fatal("first request: ETag header not set")
 	}
+	if got := rec1.Header().Get("Cache-Control"); got != "private, must-revalidate" {
+		t.Fatalf("first request: Cache-Control = %q, want %q", got, "private, must-revalidate")
+	}
+	if got := rec1.Header().Get("Vary"); got != "Cookie" {
+		t.Fatalf("first request: Vary = %q, want %q", got, "Cookie")
+	}
 
 	// Second request with matching If-None-Match — expect 304.
 	req2 := httptest.NewRequest(http.MethodGet, path, nil)
@@ -343,6 +349,12 @@ func TestUserRowETagCachingCycle(t *testing.T) {
 	}
 	if rec2.Body.Len() != 0 {
 		t.Errorf("second request: body should be empty for 304, got %q", rec2.Body.String())
+	}
+	if got := rec2.Header().Get("Cache-Control"); got != "private, must-revalidate" {
+		t.Errorf("second request: Cache-Control = %q, want %q", got, "private, must-revalidate")
+	}
+	if got := rec2.Header().Get("Vary"); got != "Cookie" {
+		t.Errorf("second request: Vary = %q, want %q", got, "Cookie")
 	}
 }
 

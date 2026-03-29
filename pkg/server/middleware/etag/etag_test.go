@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-sum/server/cache"
-	etagmw "github.com/go-sum/server/middleware/etag"
+	"github.com/go-sum/server/middleware/etag"
 	"github.com/labstack/echo/v5"
 )
 
@@ -33,7 +33,7 @@ func handlerWriting(body string) echo.HandlerFunc {
 func TestMiddleware_FirstGET_200WithETag(t *testing.T) {
 	_, c, rec := newGETContext("/")
 
-	err := etagmw.Middleware()(handlerWriting("hello"))(c)
+	err := etag.Middleware()(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestMiddleware_MatchingIfNoneMatch_304(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := etagmw.Middleware()(handlerWriting("hello"))(c)
+	err := etag.Middleware()(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestMiddleware_WildcardIfNoneMatch_304(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := etagmw.Middleware()(handlerWriting("hello"))(c)
+	err := etag.Middleware()(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestMiddleware_StaleETag_200(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := etagmw.Middleware()(handlerWriting("hello"))(c)
+	err := etag.Middleware()(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -121,10 +121,10 @@ func TestMiddleware_StaleETag_200(t *testing.T) {
 func TestMiddleware_Skipper_NoETag(t *testing.T) {
 	_, c, rec := newGETContext("/")
 
-	cfg := etagmw.Config{
+	cfg := etag.Config{
 		Skipper: func(*echo.Context) bool { return true },
 	}
-	err := etagmw.NewWithConfig(cfg)(handlerWriting("hello"))(c)
+	err := etag.NewWithConfig(cfg)(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestMiddleware_POST_Passthrough(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	err := etagmw.Middleware()(handlerWriting("hello"))(c)
+	err := etag.Middleware()(handlerWriting("hello"))(c)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestMiddleware_HandlerError_Propagates(t *testing.T) {
 		return sentinelErr
 	}
 
-	err := etagmw.Middleware()(handler)(c)
+	err := etag.Middleware()(handler)(c)
 	if !errors.Is(err, sentinelErr) {
 		t.Errorf("error = %v, want %v", err, sentinelErr)
 	}

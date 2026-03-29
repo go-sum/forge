@@ -206,16 +206,7 @@ func (s *AuthService) VerifyToken(ctx context.Context, token string, input model
 		return model.VerifyResult{}, err
 	}
 
-	return s.finishVerification(ctx, model.PendingFlow{
-		Purpose:     payload.Purpose,
-		Email:       payload.Email,
-		DisplayName: payload.DisplayName,
-		Role:        payload.Role,
-		UserID:      payload.UserID,
-		Secret:      payload.Secret,
-		IssuedAt:    payload.IssuedAt,
-		ExpiresAt:   payload.ExpiresAt,
-	})
+	return s.finishVerification(ctx, model.PendingFlow(payload))
 }
 
 // VerifyPageState decodes an emailed token so the verification page can prefill the code.
@@ -272,16 +263,7 @@ func (s *AuthService) newPendingFlow(
 }
 
 func (s *AuthService) deliver(ctx context.Context, flow model.PendingFlow, code, verifyPath string) error {
-	token, err := s.tokenCodec.Encode(model.VerificationToken{
-		Purpose:     flow.Purpose,
-		Email:       flow.Email,
-		DisplayName: flow.DisplayName,
-		Role:        flow.Role,
-		UserID:      flow.UserID,
-		Secret:      flow.Secret,
-		IssuedAt:    flow.IssuedAt,
-		ExpiresAt:   flow.ExpiresAt,
-	})
+	token, err := s.tokenCodec.Encode(model.VerificationToken(flow))
 	if err != nil {
 		return fmt.Errorf("encode verification token: %w", err)
 	}

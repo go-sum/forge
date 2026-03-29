@@ -184,7 +184,7 @@ func assertUsersSchema(ctx context.Context, state *verificationState) Result {
 	return passResult("required relations are present")
 }
 
-func assertHTTPRequest(ctx context.Context, state *verificationState) Result {
+func assertHTTPRequest(ctx context.Context, state *verificationState) (result Result) {
 	checkCtx, cancel := context.WithTimeout(ctx, state.opts.Timeout)
 	defer cancel()
 
@@ -197,13 +197,18 @@ func assertHTTPRequest(ctx context.Context, state *verificationState) Result {
 	if err != nil {
 		return failResult(fmt.Errorf("GET %s: %w", state.opts.HTTPURL, err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && result.Status == StatusPass {
+			result = failResult(fmt.Errorf("close response body for %s: %w", state.opts.HTTPURL, closeErr))
+		}
+	}()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
 		return failResult(fmt.Errorf("GET %s: status %d", state.opts.HTTPURL, resp.StatusCode))
 	}
 
-	return passResult("reachable at " + state.opts.HTTPURL)
+	result = passResult("reachable at " + state.opts.HTTPURL)
+	return result
 }
 
 func passResult(msg string) Result {

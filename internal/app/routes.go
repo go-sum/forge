@@ -6,6 +6,8 @@ import (
 	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
+	"github.com/go-sum/server/headers"
+	smw "github.com/go-sum/server/middleware"
 	"github.com/go-sum/server/middleware/etag"
 	"github.com/go-sum/server/route"
 	sitehandlers "github.com/go-sum/site/handlers"
@@ -76,6 +78,7 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) err
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "user.edit", Handler: h.UserEditForm})
 	// short-circuit repeat requests with 304 when the rendered output is unchanged.
 	cachedFragments := usersGroup.Group("")
+	cachedFragments.Use(smw.CacheHeaders(headers.NewCacheControl().Private().MustRevalidate().String(), "Cookie"))
 	cachedFragments.Use(etag.Middleware())
 	// user.row is a read-only HTMX fragment — wrap it in ETag middleware
 	route.Add(cachedFragments, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: h.UserRow})

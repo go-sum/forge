@@ -265,8 +265,16 @@ func TestAcceptPreferredNoMatch(t *testing.T) {
 func TestAcceptPreferredEmptySlice(t *testing.T) {
 	a := headers.ParseAccept("")
 	got := a.Preferred([]string{"text/html"})
-	if got != "" {
-		t.Errorf("Preferred = %q, want %q (empty Accept)", got, "")
+	if got != "text/html" {
+		t.Errorf("Preferred = %q, want %q (empty Accept matches first candidate)", got, "text/html")
+	}
+}
+
+func TestAcceptPreferredEmptySliceSkipsEmptyCandidates(t *testing.T) {
+	a := headers.ParseAccept("")
+	got := a.Preferred([]string{"", "application/json", "text/html"})
+	if got != "application/json" {
+		t.Errorf("Preferred = %q, want %q (empty Accept skips empty candidates)", got, "application/json")
 	}
 }
 

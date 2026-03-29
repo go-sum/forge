@@ -178,7 +178,7 @@ func buildFonts(cfg assetconfig.FontConfig) error {
 	return nil
 }
 
-func downloadFont(dl assetconfig.FontDownload) error {
+func downloadFont(dl assetconfig.FontDownload) (err error) {
 	if _, err := os.Stat(dl.Target); err == nil {
 		fmt.Printf("  ↷ font %s: target exists, skipping (delete to force re-download)\n", dl.Name)
 		return nil
@@ -195,7 +195,7 @@ func downloadFont(dl assetconfig.FontDownload) error {
 	if err != nil {
 		return fmt.Errorf("GET %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer closeOnReturn(&err, resp.Body, "response body for %s", url)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
 	}
@@ -204,7 +204,7 @@ func downloadFont(dl assetconfig.FontDownload) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", dl.Target, err)
 	}
-	defer out.Close()
+	defer closeOnReturn(&err, out, "file %s", dl.Target)
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return fmt.Errorf("write %s: %w", dl.Target, err)
@@ -239,7 +239,7 @@ func buildJS(cfg assetconfig.JSConfig, minify bool) error {
 // file to force a re-download on the next asset build.
 // The version is read from the {NAME}_VERSION environment variable first,
 // falling back to the value in .assets.yaml.
-func downloadJS(dl assetconfig.JSDownload) error {
+func downloadJS(dl assetconfig.JSDownload) (err error) {
 	if _, err := os.Stat(dl.Target); err == nil {
 		fmt.Printf("  ↷ %s: target exists, skipping (delete to force re-download)\n", dl.Name)
 		return nil
@@ -256,7 +256,7 @@ func downloadJS(dl assetconfig.JSDownload) error {
 	if err != nil {
 		return fmt.Errorf("GET %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer closeOnReturn(&err, resp.Body, "response body for %s", url)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
 	}
@@ -265,7 +265,7 @@ func downloadJS(dl assetconfig.JSDownload) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", dl.Target, err)
 	}
-	defer out.Close()
+	defer closeOnReturn(&err, out, "file %s", dl.Target)
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return fmt.Errorf("write %s: %w", dl.Target, err)
@@ -398,31 +398,18 @@ func buildDocs(paths assetconfig.Paths) error {
 	return nil
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", src, err)
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", dst, err)
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return fmt.Errorf("copy %s -> %s: %w", src, dst, err)
-	}
-	return nil
-}
-
 func command(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd
+}
+
+func closeOnReturn(errp *error, closer io.Closer, subject string, args ...any) {
+	if closeErr := closer.Close(); closeErr != nil && *errp == nil {
+		*errp = fmt.Errorf("close "+subject+": %w", append(args, closeErr)...)
+	}
 }
 
 func commandContext(ctx context.Context, name string, args ...string) *exec.Cmd {

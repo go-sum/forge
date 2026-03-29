@@ -17,7 +17,7 @@ import (
 var (
 	repoTestUserID    = uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	repoTestCreatedAt = time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)
-	repoTestUpdatedAt  = time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	repoTestUpdatedAt = time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
 )
 
 type stubDBTX struct {
@@ -102,45 +102,9 @@ func (r stubRows) RawValues() [][]byte { return nil }
 
 func (r stubRows) Conn() *pgx.Conn { return nil }
 
-type stubTx struct {
-	stubDBTX
-}
-
-func (tx stubTx) Begin(context.Context) (pgx.Tx, error) { return tx, nil }
-
-func (stubTx) Commit(context.Context) error { return nil }
-
-func (stubTx) Rollback(context.Context) error { return nil }
-
-func (stubTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
-	return 0, errors.New("unexpected CopyFrom call")
-}
-
-func (stubTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults { return nil }
-
-func (stubTx) LargeObjects() pgx.LargeObjects { return pgx.LargeObjects{} }
-
-func (stubTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
-	return nil, errors.New("unexpected Prepare call")
-}
-
-func (tx stubTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	return tx.stubDBTX.Exec(ctx, sql, args...)
-}
-
-func (tx stubTx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
-	return tx.stubDBTX.Query(ctx, sql, args...)
-}
-
-func (tx stubTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	return tx.stubDBTX.QueryRow(ctx, sql, args...)
-}
-
-func (stubTx) Conn() *pgx.Conn { return nil }
-
 func assignScanValue(dest, value any) error {
 	rv := reflect.ValueOf(dest)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
 		return errors.New("scan dest must be a non-nil pointer")
 	}
 	valueV := reflect.ValueOf(value)

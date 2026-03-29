@@ -62,9 +62,9 @@ func TestStrongETag(t *testing.T) {
 			wantLen:    66, // 2 quotes + 64 hex chars
 		},
 		{
-			name:       "non-empty content produces 66-char ETag",
-			content:    []byte("hello"),
-			wantLen:    66,
+			name:    "non-empty content produces 66-char ETag",
+			content: []byte("hello"),
+			wantLen: 66,
 		},
 	}
 	for _, tc := range tests {
@@ -140,8 +140,8 @@ func TestCheckIfModifiedSince(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		header string      // raw If-Modified-Since value ("" = absent)
-		t      time.Time   // resource modification time
+		header string    // raw If-Modified-Since value ("" = absent)
+		t      time.Time // resource modification time
 		want   bool
 	}{
 		{name: "absent header", header: "", t: base, want: false},
@@ -150,6 +150,12 @@ func TestCheckIfModifiedSince(t *testing.T) {
 			name:   "IMS equals t — not modified",
 			header: base.UTC().Format(http.TimeFormat),
 			t:      base,
+			want:   true,
+		},
+		{
+			name:   "sub-second resource time matches IMS at HTTP-date precision",
+			header: base.UTC().Format(http.TimeFormat),
+			t:      base.Add(500 * time.Millisecond),
 			want:   true,
 		},
 		{

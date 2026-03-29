@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/go-sum/componentry/assetconfig"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"time"
 
@@ -19,7 +19,7 @@ var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // fetchSVG fetches SVG bytes from base+file. Supports http/https URLs,
 // file:// URIs, and bare filesystem paths.
-func fetchSVG(base, file string) ([]byte, error) {
+func fetchSVG(base, file string) (data []byte, err error) {
 	switch {
 	case strings.HasPrefix(base, "http://") || strings.HasPrefix(base, "https://"):
 		url := base + file
@@ -27,11 +27,12 @@ func fetchSVG(base, file string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("GET %s: %w", url, err)
 		}
-		defer resp.Body.Close()
+		defer closeOnReturn(&err, resp.Body, "response body for %s", url)
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
 		}
-		return io.ReadAll(resp.Body)
+		data, err = io.ReadAll(resp.Body)
+		return data, err
 	case strings.HasPrefix(base, "file://"):
 		path := filepath.Join(strings.TrimPrefix(base, "file://"), file)
 		return os.ReadFile(path)

@@ -205,7 +205,7 @@ func writeErrorPage(c *echo.Context, appErr *apperr.Error, err error, debug bool
 func writeJSON(c *echo.Context, status int, contentType string, body any) {
 	data, err := json.Marshal(body)
 	if err != nil {
-		c.NoContent(http.StatusInternalServerError)
+		_ = c.NoContent(http.StatusInternalServerError)
 		return
 	}
 

@@ -4,6 +4,7 @@ package interactive
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"strings"
 
 	g "maragu.dev/gomponents"
@@ -38,7 +39,9 @@ func init() {
 	// rendered <script> element — so any future change to ThemeScript() or its
 	// gomponents wrapper automatically keeps the hash in sync.
 	var buf strings.Builder
-	ThemeScript().Render(&buf)
+	if err := ThemeScript().Render(&buf); err != nil {
+		panic(fmt.Sprintf("interactive.ThemeScript render: %v", err))
+	}
 	rendered := buf.String()
 	inner := strings.TrimPrefix(rendered, "<script>")
 	inner = strings.TrimSuffix(inner, "</script>")

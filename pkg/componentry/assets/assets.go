@@ -134,16 +134,21 @@ func MustInit(publicDir, prefix string) {
 func Path(name string) string { return Default.Path(name) }
 
 // hashFile returns the first 8 hex characters of the SHA-256 of the file at path.
-func hashFile(path string) (string, error) {
+func hashFile(path string) (hash string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))[:8], nil
+	hash = fmt.Sprintf("%x", h.Sum(nil))[:8]
+	return hash, nil
 }

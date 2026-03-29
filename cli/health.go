@@ -39,11 +39,15 @@ func verifyHealth(args []string, stdout, stderr io.Writer) int {
 	if *jsonOut {
 		enc := json.NewEncoder(stdout)
 		if err := enc.Encode(report); err != nil {
-			fmt.Fprintln(stderr, err)
+			if err := writeLine(stderr, err); err != nil {
+				return 1
+			}
 			return 1
 		}
 	} else if out := renderHealthHuman(report, *verbose); out != "" {
-		fmt.Fprintln(stdout, out)
+		if err := writeLine(stdout, out); err != nil {
+			return 1
+		}
 	}
 
 	if report.HasFailures() {
@@ -76,4 +80,9 @@ func formatHealthResult(result health.Result, verbose bool) string {
 		return result.Name
 	}
 	return result.Name + ": " + result.Message
+}
+
+func writeLine(w io.Writer, value any) error {
+	_, err := fmt.Fprintln(w, value)
+	return err
 }

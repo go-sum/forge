@@ -63,7 +63,7 @@ type mcPayload struct {
 // Send delivers msg via the MailChannels TX API. It returns an error when the
 // request cannot be constructed, the HTTP call fails, or the API returns a
 // non-2xx status.
-func (s *Sender) Send(ctx context.Context, msg core.Message) error {
+func (s *Sender) Send(ctx context.Context, msg core.Message) (err error) {
 	from := msg.From
 	if from == "" {
 		from = s.sendFrom
@@ -99,7 +99,11 @@ func (s *Sender) Send(ctx context.Context, msg core.Message) error {
 	if err != nil {
 		return fmt.Errorf("mailchannels: http: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("mailchannels: close response body: %w", closeErr)
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
