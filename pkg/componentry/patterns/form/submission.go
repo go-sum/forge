@@ -13,18 +13,24 @@ type Binder interface {
 	Bind(dest any) error
 }
 
+// StructValidator validates a struct and returns an error on failure.
+// *validate.Validator from pkg/server/validate satisfies this interface.
+type StructValidator interface {
+	Validate(i any) error
+}
+
 // Submission handles a single form POST: binding, validation, and error tracking.
 // Construct once per request via New and then call Submit.
 type Submission struct {
-	v         *validator.Validate
+	v         StructValidator
 	submitted bool
 	errors    map[string][]string
 }
 
 const formErrorKey = "_"
 
-// New creates a Submission backed by the provided validator instance.
-func New(v *validator.Validate) *Submission {
+// New creates a Submission backed by the provided validator.
+func New(v StructValidator) *Submission {
 	return &Submission{
 		v:      v,
 		errors: make(map[string][]string),
@@ -40,7 +46,7 @@ func (s *Submission) Submit(b Binder, dest any) {
 		s.SetFormError(err.Error())
 		return
 	}
-	if err := s.v.Struct(dest); err != nil {
+	if err := s.v.Validate(dest); err != nil {
 		var verrs validator.ValidationErrors
 		if errors.As(err, &verrs) {
 			for _, fe := range verrs {

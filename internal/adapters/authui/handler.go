@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-sum/auth/model"
 	"github.com/go-sum/auth/session"
-	authvalidate "github.com/go-sum/auth/validate"
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/patterns/redirect"
@@ -31,7 +30,7 @@ type authService interface {
 type Handler struct {
 	service          authService
 	sessions         *session.SessionManager
-	validator        authvalidate.Validator
+	validator        form.StructValidator
 	signinPath       func() string
 	signupPath       func() string
 	verifyPath       func() string
@@ -67,7 +66,7 @@ type Config struct {
 func New(
 	svc authService,
 	sessions *session.SessionManager,
-	validator authvalidate.Validator,
+	validator form.StructValidator,
 	cfg Config,
 ) *Handler {
 	csrfField := cfg.CSRFField
@@ -115,7 +114,7 @@ func (h *Handler) SigninPage(c *echo.Context) error {
 func (h *Handler) Signin(c *echo.Context) error {
 	req := h.req(c)
 	var input model.BeginSigninInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
@@ -147,7 +146,7 @@ func (h *Handler) SignupPage(c *echo.Context) error {
 func (h *Handler) Signup(c *echo.Context) error {
 	req := h.req(c)
 	var input model.BeginSignupInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
@@ -187,7 +186,7 @@ func (h *Handler) VerifyPage(c *echo.Context) error {
 func (h *Handler) Verify(c *echo.Context) error {
 	req := h.req(c)
 	var input model.VerifyInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	state, stateErrs := h.verifyStateFromPost(c, input.Token)
@@ -292,7 +291,7 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 	}
 
 	var input model.BeginEmailChangeInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 	if !sub.IsValid() {
 		node := EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)

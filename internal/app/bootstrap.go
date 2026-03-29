@@ -151,6 +151,7 @@ func (c *Container) initAuth() {
 // Validation bootstrap.
 func (c *Container) initValidator() {
 	c.Validator = validate.New()
+	c.Web.Validator = c.Validator
 }
 
 // Repository bootstrap.

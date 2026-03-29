@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
+	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/forge/internal/view"
-	"github.com/go-sum/server/validate"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -35,7 +35,7 @@ type handlerServices struct {
 // Handler holds the transport layer's dependencies.
 type Handler struct {
 	services    handlerServices
-	validator   *validate.Validator
+	validator   form.StructValidator
 	checkHealth func(context.Context) error
 	cfg         *config.Config
 	routes      func() echo.Routes // lazy accessor; evaluated at request time
@@ -48,7 +48,7 @@ type Handler struct {
 // that need to resolve named routes to URLs (e.g. sitemap generation).
 func New(
 	services *service.Services,
-	validator *validate.Validator,
+	validator form.StructValidator,
 	checkHealth func(context.Context) error,
 	cfg *config.Config,
 	routes func() echo.Routes,

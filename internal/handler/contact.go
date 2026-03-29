@@ -27,7 +27,7 @@ func (h *Handler) ContactSubmit(c *echo.Context) error {
 	req := h.request(c)
 
 	var input model.ContactInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {

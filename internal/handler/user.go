@@ -86,7 +86,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 	}
 
 	var input model.UpdateUserInput
-	sub := form.New(h.validator.Validate())
+	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {

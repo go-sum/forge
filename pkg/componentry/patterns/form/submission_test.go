@@ -7,8 +7,17 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// goPlaygroundValidator adapts *validator.Validate to the StructValidator interface for tests.
+type goPlaygroundValidator struct{ v *validator.Validate }
+
+func (g *goPlaygroundValidator) Validate(i any) error { return g.v.Struct(i) }
+
+func newTestValidator() StructValidator {
+	return &goPlaygroundValidator{v: validator.New()}
+}
+
 func TestSubmissionTracksFieldErrors(t *testing.T) {
-	s := New(validator.New())
+	s := New(newTestValidator())
 	if s.IsSubmitted() || s.IsValid() {
 		t.Fatal("new submission should start empty")
 	}
@@ -31,7 +40,7 @@ type stubBinder struct{ err error }
 func (sb *stubBinder) Bind(dest any) error { return sb.err }
 
 func TestSubmitStoresBindError(t *testing.T) {
-	s := New(validator.New())
+	s := New(newTestValidator())
 	bindErr := errors.New("malformed body")
 
 	s.Submit(&stubBinder{err: bindErr}, &struct{}{})
@@ -51,7 +60,7 @@ func TestSubmitValidatesStruct(t *testing.T) {
 		Email string `validate:"required,email"`
 	}
 
-	s := New(validator.New())
+	s := New(newTestValidator())
 	// Bind succeeds but dest is zero-value — validator should catch the required field.
 	s.Submit(&stubBinder{}, &signinForm{})
 	if s.IsValid() {
@@ -63,7 +72,7 @@ func TestSubmitValidatesStruct(t *testing.T) {
 }
 
 func TestSubmissionTracksFormErrors(t *testing.T) {
-	s := New(validator.New())
+	s := New(newTestValidator())
 	s.SetFormError("save failed")
 	if !s.HasFormErrors() {
 		t.Fatal("HasFormErrors() should report form-level errors")
@@ -74,7 +83,7 @@ func TestSubmissionTracksFormErrors(t *testing.T) {
 }
 
 func TestSubmitStoresNonValidationValidatorErrors(t *testing.T) {
-	s := New(validator.New())
+	s := New(newTestValidator())
 	dest := 123 // validator.Struct on a non-struct returns InvalidValidationError.
 	s.Submit(&stubBinder{}, dest)
 	if s.IsValid() {
