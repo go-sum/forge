@@ -16,6 +16,7 @@
 package csrf
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -42,6 +43,11 @@ type Config struct {
 	HeaderName string
 	// FormField is the form field name read when HeaderName is absent.
 	FormField string
+	// Skipper defines a function to skip the middleware. Defaults to never skip.
+	Skipper func(c *echo.Context) bool
+	// TokenExtractor optionally overrides the default header-then-form token
+	// lookup. When nil the middleware reads HeaderName then FormField.
+	TokenExtractor func(c *echo.Context) (string, error)
 }
 
 // violation is a typed CSRF failure value. It implements StatusCode() and
@@ -53,23 +59,36 @@ func (v *violation) Error() string         { return v.msg }
 func (v *violation) StatusCode() int       { return http.StatusForbidden }
 func (v *violation) PublicMessage() string { return v.msg }
 
-// Middleware returns an Echo middleware that applies HMAC-signed CSRF protection.
-//
-// Safe methods receive a freshly issued token stored in the Echo context under
-// Config.ContextKey. View templates embed this value in a hidden form field.
-//
-// Unsafe methods read the submitted token from Config.HeaderName first, then
-// Config.FormField, and verify it with HMAC-SHA256. Any failure — missing,
-// malformed, tampered, or expired token — returns a *violation error (403).
-func Middleware(cfg Config) echo.MiddlewareFunc {
-	ttlSeconds := cfg.TokenTTL
-	if ttlSeconds <= 0 {
-		ttlSeconds = defaultTTLSeconds
+// ToMiddleware converts Config to an echo.MiddlewareFunc, returning an error
+// for invalid configuration rather than panicking.
+func (cfg Config) ToMiddleware() (echo.MiddlewareFunc, error) {
+	if len(cfg.Key) < 32 {
+		return nil, errors.New("csrf: Key must be at least 32 bytes")
 	}
-	ttl := time.Duration(ttlSeconds) * time.Second
+	if cfg.Skipper == nil {
+		cfg.Skipper = func(*echo.Context) bool { return false }
+	}
+	if cfg.TokenTTL <= 0 {
+		cfg.TokenTTL = defaultTTLSeconds
+	}
+	if cfg.ContextKey == "" {
+		cfg.ContextKey = "csrf"
+	}
+	if cfg.HeaderName == "" {
+		cfg.HeaderName = "X-CSRF-Token"
+	}
+	if cfg.FormField == "" {
+		cfg.FormField = "_csrf"
+	}
+
+	ttl := time.Duration(cfg.TokenTTL) * time.Second
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
+			if cfg.Skipper(c) {
+				return next(c)
+			}
+
 			if httpsec.IsSafeMethod(c.Request().Method) {
 				tok, err := token.Issue(cfg.Key, scope, ttl)
 				if err != nil {
@@ -80,9 +99,18 @@ func Middleware(cfg Config) echo.MiddlewareFunc {
 			}
 
 			// Unsafe method: verify the submitted token.
-			raw := c.Request().Header.Get(cfg.HeaderName)
-			if raw == "" {
-				raw = c.FormValue(cfg.FormField)
+			var raw string
+			if cfg.TokenExtractor != nil {
+				extracted, err := cfg.TokenExtractor(c)
+				if err != nil {
+					return &violation{failureMessage}
+				}
+				raw = extracted
+			} else {
+				raw = c.Request().Header.Get(cfg.HeaderName)
+				if raw == "" {
+					raw = c.FormValue(cfg.FormField)
+				}
 			}
 			if raw == "" {
 				return &violation{failureMessage}
@@ -101,5 +129,22 @@ func Middleware(cfg Config) echo.MiddlewareFunc {
 
 			return next(c)
 		}
+	}, nil
+}
+
+// Middleware returns an Echo middleware that applies HMAC-signed CSRF protection.
+// Panics if cfg fails validation (matches the ratelimit/cors pattern).
+//
+// Safe methods receive a freshly issued token stored in the Echo context under
+// Config.ContextKey. View templates embed this value in a hidden form field.
+//
+// Unsafe methods read the submitted token from Config.HeaderName first, then
+// Config.FormField, and verify it with HMAC-SHA256. Any failure — missing,
+// malformed, tampered, or expired token — returns a *violation error (403).
+func Middleware(cfg Config) echo.MiddlewareFunc {
+	mw, err := cfg.ToMiddleware()
+	if err != nil {
+		panic(err)
 	}
+	return mw
 }

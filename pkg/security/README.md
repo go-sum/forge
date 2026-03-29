@@ -120,15 +120,21 @@ e.Use(cors.Middleware(cors.Config{
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Key` | `[]byte` | HMAC signing key (32+ bytes recommended) |
-| `TokenTTL` | `int` | Token lifetime in seconds (default: 3600) |
-| `ContextKey` | `string` | Echo context key where token is stored |
-| `HeaderName` | `string` | Request header to read token (checked first) |
-| `FormField` | `string` | Form field to read token (fallback) |
+| `Key` | `[]byte` | HMAC signing key. Must be at least 32 bytes. |
+| `TokenTTL` | `int` | Token lifetime in seconds. Defaults to 3600. |
+| `ContextKey` | `string` | Echo context key where token is stored. Defaults to `"csrf"`. |
+| `HeaderName` | `string` | Request header to read token (checked first). Defaults to `"X-CSRF-Token"`. |
+| `FormField` | `string` | Form field to read token (fallback). Defaults to `"_csrf"`. |
+| `Skipper` | `func(c *echo.Context) bool` | Skip middleware when returning `true`. Defaults to never skip. |
+| `TokenExtractor` | `func(c *echo.Context) (string, error)` | Custom token lookup. When nil, reads `HeaderName` then `FormField`. |
 
 ### Functions
 
-**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware that manages CSRF tokens.
+**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware that manages CSRF tokens. Panics on invalid configuration (e.g. key shorter than 32 bytes). Use `ToMiddleware` for non-panicking construction.
+
+### Methods
+
+**`(cfg Config) ToMiddleware() (echo.MiddlewareFunc, error)`** -- converts `Config` to an `echo.MiddlewareFunc`. Returns an error for invalid configuration (key too short). Applies defaults for empty fields.
 
 ### Behavior
 
@@ -254,29 +260,44 @@ Methods:
 - `PublicMessage() string` -- returns `Message`
 - `Unwrap() error` -- returns `Cause`
 
+**`Config`** -- middleware configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Skipper` | `func(c *echo.Context) bool` | Skip middleware when returning `true`. Defaults to never skip. |
+| `OriginPolicy` | `origin.Policy` | Origin header validation configuration. |
+| `FetchPolicy` | `fetchmeta.Policy` | Fetch Metadata validation configuration. |
+
 ### Functions
 
-**`CrossOriginGuard(originPolicy origin.Policy, fetchPolicy fetchmeta.Policy) echo.MiddlewareFunc`** -- returns an [Echo] middleware that validates unsafe requests against both policies.
+**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware from `cfg`. Panics on invalid configuration (both policies disabled). Use `ToMiddleware` for non-panicking construction.
+
+**`CrossOriginGuard(originPolicy origin.Policy, fetchPolicy fetchmeta.Policy) echo.MiddlewareFunc`** -- convenience wrapper. Deprecated: use `Middleware(Config{...})` instead.
+
+### Methods
+
+**`(cfg Config) ToMiddleware() (echo.MiddlewareFunc, error)`** -- converts `Config` to an `echo.MiddlewareFunc`. Returns an error when both `OriginPolicy` and `FetchPolicy` are disabled.
 
 ### Behavior
 
 - Safe methods (GET, HEAD, OPTIONS, TRACE) pass through without checks.
-- Unsafe methods are validated against both policies; either failure returns `*Error{Status: 403}`.
+- Unsafe methods are validated against enabled policies; either failure returns `*Error{Status: 403}`.
+- When `Skipper` returns `true`, the request passes through without checks regardless of method.
 
 ```go
-e.Use(middleware.CrossOriginGuard(
-    origin.Policy{
+e.Use(middleware.Middleware(middleware.Config{
+    OriginPolicy: origin.Policy{
         Enabled:         true,
         CanonicalOrigin: "https://example.com",
         RequireHeader:   true,
     },
-    fetchmeta.Policy{
+    FetchPolicy: fetchmeta.Policy{
         Enabled:             true,
         AllowedSites:        []string{"same-origin", "same-site"},
         AllowedModes:        []string{"cors", "navigate", "same-origin"},
         FallbackWhenMissing: true,
     },
-))
+}))
 ```
 
 ---
@@ -566,6 +587,29 @@ fetchPolicy := fetchmeta.Policy{
     RejectCrossSiteNavigate: true,
 }
 ```
+
+---
+
+## Middleware Composition
+
+`CrossOriginGuard` and `CSRF` protect against different threat vectors and are designed to compose.
+
+| Middleware | Question it answers | Mechanism |
+|------------|-------------------|-----------|
+| `CrossOriginGuard` | Did this request come from a trusted browsing context? | Origin header + `Sec-Fetch-*` metadata |
+| `CSRF` | Does the submitter hold a token our server issued? | HMAC-signed token from a legitimate page render |
+
+**Browser-facing mutations** (form submissions, HTMX actions) should apply both in order:
+
+```
+CrossOriginGuard → CSRF → Handler
+```
+
+`CrossOriginGuard` rejects cross-origin requests at the network level. `CSRF` validates the token even for same-origin requests, guarding against subdomain or browser-extension attacks.
+
+**API endpoints** authenticated via bearer tokens or CORS do not need CSRF tokens. Use CORS middleware + bearer auth instead. Omit `CrossOriginGuard` for API groups that intentionally accept cross-origin requests.
+
+**Error typing:** `CrossOriginGuard` returns `*middleware.Error` (403). `CSRF` returns its own violation type (403). Both implement `StatusCode() int` and `PublicMessage() string`.
 
 ---
 

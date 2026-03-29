@@ -202,6 +202,154 @@ func TestMiddlewareWrongKeyReturnsViolation(t *testing.T) {
 	assertViolation(t, err)
 }
 
+// ToMiddleware must reject a key shorter than 32 bytes.
+func TestToMiddlewareRejectsShortKey(t *testing.T) {
+	cfg := testConfig()
+	cfg.Key = []byte("too-short")
+
+	_, err := cfg.ToMiddleware()
+	if err == nil {
+		t.Fatal("ToMiddleware() with short key: expected error, got nil")
+	}
+	if err.Error() != "csrf: Key must be at least 32 bytes" {
+		t.Fatalf("ToMiddleware() error = %q, want %q", err.Error(), "csrf: Key must be at least 32 bytes")
+	}
+}
+
+// ToMiddleware must default ContextKey to "csrf" when empty.
+func TestToMiddlewareDefaultsEmptyContextKey(t *testing.T) {
+	cfg := testConfig()
+	cfg.ContextKey = ""
+
+	mw, err := cfg.ToMiddleware()
+	if err != nil {
+		t.Fatalf("ToMiddleware() error = %v", err)
+	}
+
+	_, c := newContext(http.MethodGet, "/")
+	if err := mw(func(c *echo.Context) error { return nil })(c); err != nil {
+		t.Fatalf("middleware error = %v", err)
+	}
+
+	tok, ok := c.Get("csrf").(string)
+	if !ok || tok == "" {
+		t.Fatal("expected non-empty token stored under default key \"csrf\"")
+	}
+}
+
+// ToMiddleware must default HeaderName to "X-CSRF-Token" when empty.
+func TestToMiddlewareDefaultsEmptyHeaderName(t *testing.T) {
+	cfg := testConfig()
+	cfg.HeaderName = ""
+
+	mw, err := cfg.ToMiddleware()
+	if err != nil {
+		t.Fatalf("ToMiddleware() error = %v", err)
+	}
+
+	tok, _ := token.Issue(cfg.Key, scope, time.Hour)
+	_, c := newContext(http.MethodPost, "/")
+	c.Request().Header.Set("X-CSRF-Token", tok)
+
+	var called bool
+	if err := mw(func(c *echo.Context) error { called = true; return nil })(c); err != nil {
+		t.Fatalf("middleware error = %v", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called")
+	}
+}
+
+// ToMiddleware must default FormField to "_csrf" when empty.
+func TestToMiddlewareDefaultsEmptyFormField(t *testing.T) {
+	cfg := testConfig()
+	cfg.FormField = ""
+
+	mw, err := cfg.ToMiddleware()
+	if err != nil {
+		t.Fatalf("ToMiddleware() error = %v", err)
+	}
+
+	tok, _ := token.Issue(cfg.Key, scope, time.Hour)
+	body := url.Values{"_csrf": {tok}}.Encode()
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	e := echo.New()
+	c := e.NewContext(req, rec)
+
+	var called bool
+	if err := mw(func(c *echo.Context) error { called = true; return nil })(c); err != nil {
+		t.Fatalf("middleware error = %v", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called")
+	}
+}
+
+// Skipper returning true must bypass CSRF validation entirely.
+func TestMiddlewareSkipperSkipsCheck(t *testing.T) {
+	cfg := testConfig()
+	cfg.Skipper = func(*echo.Context) bool { return true }
+
+	_, c := newContext(http.MethodPost, "/users")
+	// No token set — should still pass because skipper returns true.
+
+	var called bool
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		called = true
+		return nil
+	})(c)
+
+	if err != nil {
+		t.Fatalf("Middleware() with skipper=true returned error: %v", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called when skipper returned true")
+	}
+}
+
+// Skipper returning false must enforce CSRF validation.
+func TestMiddlewareSkipperDoesNotSkipWhenFalse(t *testing.T) {
+	cfg := testConfig()
+	cfg.Skipper = func(*echo.Context) bool { return false }
+
+	_, c := newContext(http.MethodPost, "/users")
+	// No token — should fail.
+
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		t.Fatal("next handler must not be called when CSRF fails")
+		return nil
+	})(c)
+
+	assertViolation(t, err)
+}
+
+// Custom TokenExtractor must be used instead of header/form lookup.
+func TestMiddlewareCustomTokenExtractor(t *testing.T) {
+	cfg := testConfig()
+	tok, _ := token.Issue(cfg.Key, scope, time.Hour)
+	cfg.TokenExtractor = func(c *echo.Context) (string, error) {
+		return tok, nil
+	}
+
+	_, c := newContext(http.MethodPost, "/users")
+	// No header or form token — extractor provides it.
+
+	var called bool
+	err := Middleware(cfg)(func(c *echo.Context) error {
+		called = true
+		return nil
+	})(c)
+
+	if err != nil {
+		t.Fatalf("Middleware() with custom extractor returned error: %v", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called with custom extractor")
+	}
+}
+
 // assertViolation checks that err is a non-nil *violation with StatusCode 403
 // and a non-empty PublicMessage.
 func assertViolation(t *testing.T, err error) {

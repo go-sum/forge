@@ -12,23 +12,30 @@ import (
 )
 
 // CrossOriginGuard applies origin and Fetch Metadata checks to unsafe requests.
+// When both policies are disabled in config the middleware is a no-op pass-through.
 func CrossOriginGuard(cfg *config.Config) echo.MiddlewareFunc {
-	originPolicy := origin.Policy{
-		Enabled:         cfg.App.Security.Origin.Enabled,
-		CanonicalOrigin: cfg.App.Security.ExternalOrigin,
-		RequireHeader:   cfg.App.Security.Origin.RequireHeader,
-		AllowedOrigins:  cfg.App.Security.Origin.AllowedOrigins,
+	guardCfg := secmw.Config{
+		OriginPolicy: origin.Policy{
+			Enabled:         cfg.App.Security.Origin.Enabled,
+			CanonicalOrigin: cfg.App.Security.ExternalOrigin,
+			RequireHeader:   cfg.App.Security.Origin.RequireHeader,
+			AllowedOrigins:  cfg.App.Security.Origin.AllowedOrigins,
+		},
+		FetchPolicy: fetchmeta.Policy{
+			Enabled:                 cfg.App.Security.FetchMetadata.Enabled,
+			AllowedSites:            cfg.App.Security.FetchMetadata.AllowedSites,
+			AllowedModes:            cfg.App.Security.FetchMetadata.AllowedModes,
+			AllowedDestinations:     cfg.App.Security.FetchMetadata.AllowedDestinations,
+			FallbackWhenMissing:     cfg.App.Security.FetchMetadata.FallbackWhenMissing,
+			RejectCrossSiteNavigate: cfg.App.Security.FetchMetadata.RejectCrossSiteNavigate,
+		},
 	}
-	fetchPolicy := fetchmeta.Policy{
-		Enabled:                 cfg.App.Security.FetchMetadata.Enabled,
-		AllowedSites:            cfg.App.Security.FetchMetadata.AllowedSites,
-		AllowedModes:            cfg.App.Security.FetchMetadata.AllowedModes,
-		AllowedDestinations:     cfg.App.Security.FetchMetadata.AllowedDestinations,
-		FallbackWhenMissing:     cfg.App.Security.FetchMetadata.FallbackWhenMissing,
-		RejectCrossSiteNavigate: cfg.App.Security.FetchMetadata.RejectCrossSiteNavigate,
+	mw, err := guardCfg.ToMiddleware()
+	if err != nil {
+		// Both policies disabled — return a no-op pass-through.
+		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	}
-
-	return secmw.CrossOriginGuard(originPolicy, fetchPolicy)
+	return mw
 }
 
 // CSRFMiddleware applies HMAC-signed, time-limited CSRF protection with typed
