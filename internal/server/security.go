@@ -1,14 +1,11 @@
 package server
 
 import (
-	"time"
-
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/security/csrf"
 	"github.com/go-sum/security/fetchmeta"
 	secmw "github.com/go-sum/security/middleware"
 	"github.com/go-sum/security/origin"
-	"github.com/go-sum/security/ratelimit"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
@@ -40,7 +37,7 @@ func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 	c := cfg.App.Security.CSRF
 	return csrf.Middleware(csrf.Config{
 		Key:        []byte(c.Key),
-		TokenTTL:   time.Hour,
+		TokenTTL:   c.TokenTTL,
 		ContextKey: cfg.App.Keys.CSRF,
 		HeaderName: c.HeaderName,
 		FormField:  c.FormField,
@@ -67,22 +64,5 @@ func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFu
 		HSTSMaxAge:            hstsMaxAge,
 		HSTSExcludeSubdomains: !h.HSTS.IncludeSubDomains,
 		HSTSPreloadEnabled:    h.HSTS.Preload,
-	})
-}
-
-// RateLimitMiddleware applies IP-based rate limiting for the named policy from
-// cfg.App.Security.RateLimits. When the policy is absent or Rate is 0, it returns a
-// no-op passthrough so it can be composed inline without nil guards:
-//
-// Each call creates an independent in-memory store, so different policy names
-// maintain completely separate per-IP bucket maps.
-func RateLimitMiddleware(cfg *config.Config, name string) echo.MiddlewareFunc {
-	rl, ok := cfg.App.Security.RateLimits[name]
-	if !ok || rl.Rate == 0 {
-		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
-	}
-	return ratelimit.Middleware(ratelimit.Config{
-		Rate:  rl.Rate,
-		Burst: rl.Burst,
 	})
 }

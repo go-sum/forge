@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
+	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
@@ -31,11 +31,11 @@ func New() *App {
 		func() echo.Routes { return c.Web.Router().Routes() },
 	)
 
-	authH := authadapter.New(
+	authH := authui.New(
 		c.AuthService,
 		c.Sessions,
 		c.Validator,
-		authadapter.Config{
+		authui.Config{
 			CSRFField:          c.Config.App.Security.CSRF.FormField,
 			SigninPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
 			SignupPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
@@ -46,9 +46,9 @@ func New() *App {
 			},
 			EmailChangeFn: func() string { return route.Reverse(c.Web.Router().Routes(), "account.email.get") },
 			HomePathFn:    func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
-			RequestFn: func(ec *echo.Context) authadapter.Request {
+			RequestFn: func(ec *echo.Context) authui.Request {
 				req := view.NewRequest(ec, c.Config)
-				return authadapter.Request{
+				return authui.Request{
 					CSRFToken: req.CSRFToken,
 					PageFn:    req.Page,
 				}

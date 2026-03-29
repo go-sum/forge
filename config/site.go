@@ -7,7 +7,7 @@ import (
 
 // SiteConfig holds site presentation metadata loaded from config/site.yaml.
 type SiteConfig struct {
-	Title         string             `koanf:"title"	validate:"required"`
+	Title         string             `koanf:"title" validate:"required"`
 	Description   string             `koanf:"description"`
 	LogoPath      string             `koanf:"logo_path"`
 	FaviconPath   string             `koanf:"favicon_path"`

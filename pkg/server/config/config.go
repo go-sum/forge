@@ -18,18 +18,19 @@ import (
 )
 
 // ConfigFile is a configuration file entry.
-// The first entry in Options.Files is the required base config; all others are optional.
 type ConfigFile struct {
 	// Filepath is the path to the YAML file (e.g. "config/app.yaml").
-	// The first file in Options.Files is required; all others are silently skipped when absent.
 	Filepath string
+
+	// Required controls whether a missing file should fail startup.
+	// Parse, read, and permission errors are always fatal.
+	Required bool
 }
 
 // Options configures how Load discovers and merges configuration sources.
 type Options struct {
-	// Files is the ordered list of configuration files to load.
-	// The first file is required (error if missing); all subsequent files are optional
-	// (silently skipped when absent). Last file wins on key conflicts.
+	// Files is the ordered list of configuration files to load. Last file wins on
+	// key conflicts. Each file explicitly declares whether it is required.
 	Files []ConfigFile
 
 	// EnvKey is the active environment name (e.g. "development").
@@ -43,9 +44,9 @@ type Options struct {
 // ${VAR} patterns in any YAML file are expanded via os.ExpandEnv before parsing.
 //
 // Loading order (last writer wins):
-//  1. Files[0].Filepath                           — required; error if missing
+//  1. Files[0].Filepath                           — usually required; error if missing when Required
 //  2. {dir}/{stem}.{EnvKey}.yaml                  — optional overlay; silently skipped
-//  3. Files[1:][*].Filepath                       — optional; silently skipped when absent
+//  3. Files[1:][*].Filepath                       — loaded in order; missing optional files skipped
 //  4. Unmarshal into target
 //  5. Validate target using go-playground/validator struct tags
 func loadConfig(target any, opts Options) error {
@@ -55,9 +56,9 @@ func loadConfig(target any, opts Options) error {
 
 	k := koanf.New(".")
 
-	// 1. First file is the required base config.
+	// 1. First file is usually the required base config.
 	base := opts.Files[0]
-	if err := k.Load(&envExpandedFile{base.Filepath}, yaml.Parser()); err != nil {
+	if err := loadFile(k, base); err != nil {
 		return fmt.Errorf("config: load %s: %w", base.Filepath, err)
 	}
 
@@ -73,12 +74,14 @@ func loadConfig(target any, opts Options) error {
 		}
 	}
 
-	// 3. Remaining files are all optional.
+	// 3. Load remaining files according to their Required flag.
 	for _, cf := range opts.Files[1:] {
 		if cf.Filepath == "" {
 			continue
 		}
-		_ = k.Load(&envExpandedFile{cf.Filepath}, yaml.Parser()) // missing = fine
+		if err := loadFile(k, cf); err != nil {
+			return fmt.Errorf("config: load %s: %w", cf.Filepath, err)
+		}
 	}
 
 	// 4. Unmarshal merged config state into the caller's target struct.
@@ -103,6 +106,17 @@ func Load[T any](opts func(*T) Options) (*T, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func loadFile(k *koanf.Koanf, cf ConfigFile) error {
+	err := k.Load(&envExpandedFile{cf.Filepath}, yaml.Parser())
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, fs.ErrNotExist) && !cf.Required {
+		return nil
+	}
+	return err
 }
 
 // envExpandedFile is a koanf Provider that reads a YAML file and expands

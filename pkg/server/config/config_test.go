@@ -99,6 +99,85 @@ site:
 	}
 }
 
+func TestLoadAllowsMissingOptionalFileOnly(t *testing.T) {
+	dir := t.TempDir()
+	writeLoaderFile(t, dir, "app.yaml", `
+app:
+  env: production
+auth:
+  session:
+    auth_key: base-key
+site:
+  title: base-title
+`)
+
+	var cfg loaderTestConfig
+	err := loadConfig(&cfg, Options{
+		Files: []ConfigFile{
+			{Filepath: filepath.Join(dir, "app.yaml"), Required: true},
+			{Filepath: filepath.Join(dir, "nav.yaml")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+}
+
+func TestLoadFailsWhenRequiredFileIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	writeLoaderFile(t, dir, "app.yaml", `
+app:
+  env: production
+auth:
+  session:
+    auth_key: base-key
+site:
+  title: base-title
+`)
+
+	var cfg loaderTestConfig
+	err := loadConfig(&cfg, Options{
+		Files: []ConfigFile{
+			{Filepath: filepath.Join(dir, "app.yaml"), Required: true},
+			{Filepath: filepath.Join(dir, "site.yaml"), Required: true},
+		},
+	})
+	if err == nil {
+		t.Fatal("loadConfig() error = nil, want missing required file error")
+	}
+	if !strings.Contains(err.Error(), "site.yaml") {
+		t.Fatalf("err = %v, want missing required path", err)
+	}
+}
+
+func TestLoadFailsOnInvalidOptionalFileContent(t *testing.T) {
+	dir := t.TempDir()
+	writeLoaderFile(t, dir, "app.yaml", `
+app:
+  env: production
+auth:
+  session:
+    auth_key: base-key
+site:
+  title: base-title
+`)
+	writeLoaderFile(t, dir, "site.yaml", `site: [`)
+
+	var cfg loaderTestConfig
+	err := loadConfig(&cfg, Options{
+		Files: []ConfigFile{
+			{Filepath: filepath.Join(dir, "app.yaml"), Required: true},
+			{Filepath: filepath.Join(dir, "site.yaml")},
+		},
+	})
+	if err == nil {
+		t.Fatal("loadConfig() error = nil, want parse error")
+	}
+	if !strings.Contains(err.Error(), "site.yaml") {
+		t.Fatalf("err = %v, want invalid file path", err)
+	}
+}
+
 func TestEnvVarExpansionInYAML(t *testing.T) {
 	dir := t.TempDir()
 	writeLoaderFile(t, dir, "app.yaml", `

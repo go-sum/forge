@@ -73,7 +73,7 @@ Domain types and error sentinels live in `internal/model/`. Handlers never impor
 
 ## Package Rules
 
-**`pkg/` leaf-node rule** — every `pkg/` package MUST NOT import `internal/` or other `pkg/` packages. Standard library and external modules only. Each package is extractable as a standalone module.
+**`pkg/` module-boundary leaf rule** — top-level reusable modules under `pkg/` (`auth`, `componentry`, `security`, `send`, `server`, `site`) MUST NOT import each other or `internal/`. Inside a given module family, package-local layering may be used when documented by that module.
 
 **Component DAG** (`pkg/componentry/`) — imports flow downward only:
 ```

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-sum/auth"
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/send"
 	"github.com/google/uuid"
 )
 
@@ -58,16 +57,16 @@ func (f fakeUserStore) UpdateEmail(ctx context.Context, id uuid.UUID, email stri
 	return model.User{}, errors.New("unexpected UpdateEmail call")
 }
 
-type capturingSender struct {
-	messages []send.Message
-	err      error
+type capturingNotifier struct {
+	deliveries []model.DeliveryInput
+	err        error
 }
 
-func (s *capturingSender) Send(_ context.Context, msg send.Message) error {
-	if s.err != nil {
-		return s.err
+func (n *capturingNotifier) SendVerification(_ context.Context, input model.DeliveryInput) error {
+	if n.err != nil {
+		return n.err
 	}
-	s.messages = append(s.messages, msg)
+	n.deliveries = append(n.deliveries, input)
 	return nil
 }
 
@@ -77,15 +76,15 @@ type fixedClock struct {
 
 func (c fixedClock) Now() time.Time { return c.now }
 
-func testService(t *testing.T, users fakeUserStore, sender send.Sender, now time.Time) *AuthService {
+func testService(t *testing.T, users fakeUserStore, notifier Notifier, now time.Time) *AuthService {
 	t.Helper()
-	return NewAuthService(users, sender, Config{
+	return NewAuthService(users, Config{
 		Method: auth.EmailTOTPMethodConfig{
 			Enabled:       true,
 			Issuer:        "Forge",
 			PeriodSeconds: 300,
 		},
-		SendFrom: "no-reply@example.com",
+		Notifier: notifier,
 		TokenCodec: NewEncryptedTokenCodec(
 			strings.Repeat("a", 32),
 			strings.Repeat("b", 32),
@@ -96,12 +95,12 @@ func testService(t *testing.T, users fakeUserStore, sender send.Sender, now time
 
 func TestBeginSignupSendsVerificationEmail(t *testing.T) {
 	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
-	sender := &capturingSender{}
+	notifier := &capturingNotifier{}
 	svc := testService(t, fakeUserStore{
 		getByEmailFn: func(context.Context, string) (model.User, error) {
 			return model.User{}, model.ErrUserNotFound
 		},
-	}, sender, now)
+	}, notifier, now)
 
 	flow, err := svc.BeginSignup(context.Background(), model.BeginSignupInput{
 		Email:       "ada@example.com",
@@ -113,15 +112,15 @@ func TestBeginSignupSendsVerificationEmail(t *testing.T) {
 	if flow.Purpose != model.FlowPurposeSignup || flow.Email != "ada@example.com" || flow.DisplayName != "Ada" {
 		t.Fatalf("flow = %#v", flow)
 	}
-	if len(sender.messages) != 1 {
-		t.Fatalf("messages = %#v", sender.messages)
+	if len(notifier.deliveries) != 1 {
+		t.Fatalf("deliveries = %#v", notifier.deliveries)
 	}
 	code, err := svc.generateCode(flow.Secret, flow.IssuedAt)
 	if err != nil {
 		t.Fatalf("generateCode() error = %v", err)
 	}
-	if !strings.Contains(sender.messages[0].Text, code) || !strings.Contains(sender.messages[0].Text, "token=") {
-		t.Fatalf("message = %#v", sender.messages[0])
+	if notifier.deliveries[0].Code != code || !strings.Contains(notifier.deliveries[0].VerifyURL, "token=") {
+		t.Fatalf("delivery = %#v", notifier.deliveries[0])
 	}
 }
 
@@ -131,7 +130,7 @@ func TestBeginSignupRejectsDuplicateEmail(t *testing.T) {
 		getByEmailFn: func(context.Context, string) (model.User, error) {
 			return serviceTestUser, nil
 		},
-	}, &capturingSender{}, now)
+	}, &capturingNotifier{}, now)
 
 	_, err := svc.BeginSignup(context.Background(), model.BeginSignupInput{
 		Email:       serviceTestUser.Email,
@@ -144,12 +143,12 @@ func TestBeginSignupRejectsDuplicateEmail(t *testing.T) {
 
 func TestBeginSigninSuppressesDeliveryForUnknownEmail(t *testing.T) {
 	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
-	sender := &capturingSender{}
+	notifier := &capturingNotifier{}
 	svc := testService(t, fakeUserStore{
 		getByEmailFn: func(context.Context, string) (model.User, error) {
 			return model.User{}, model.ErrUserNotFound
 		},
-	}, sender, now)
+	}, notifier, now)
 
 	flow, err := svc.BeginSignin(context.Background(), model.BeginSigninInput{
 		Email: "missing@example.com",
@@ -160,8 +159,8 @@ func TestBeginSigninSuppressesDeliveryForUnknownEmail(t *testing.T) {
 	if flow.Purpose != model.FlowPurposeSignin || flow.Email != "missing@example.com" {
 		t.Fatalf("flow = %#v", flow)
 	}
-	if len(sender.messages) != 0 {
-		t.Fatalf("messages = %#v", sender.messages)
+	if len(notifier.deliveries) != 0 {
+		t.Fatalf("deliveries = %#v", notifier.deliveries)
 	}
 }
 
@@ -176,7 +175,7 @@ func TestVerifyPendingFlowCreatesVerifiedUserOnSignup(t *testing.T) {
 			}
 			return serviceTestUser, nil
 		},
-	}, &capturingSender{}, now)
+	}, &capturingNotifier{}, now)
 
 	flow, code, err := svc.newPendingFlow(model.FlowPurposeSignup, "ada@example.com", "Ada", model.RoleUser, uuid.Nil)
 	if err != nil {
@@ -206,7 +205,7 @@ func TestVerifyTokenPrefillsAndCompletesEmailChange(t *testing.T) {
 			updated.Email = targetEmail
 			return updated, nil
 		},
-	}, &capturingSender{}, now)
+	}, &capturingNotifier{}, now)
 
 	flow, code, err := svc.newPendingFlow(model.FlowPurposeEmailChange, targetEmail, "", "", serviceTestUser.ID)
 	if err != nil {
@@ -243,7 +242,7 @@ func TestVerifyTokenPrefillsAndCompletesEmailChange(t *testing.T) {
 
 func TestVerifyPendingFlowRejectsExpiredCode(t *testing.T) {
 	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
-	svc := testService(t, fakeUserStore{}, &capturingSender{}, now)
+	svc := testService(t, fakeUserStore{}, &capturingNotifier{}, now)
 	flow, code, err := svc.newPendingFlow(model.FlowPurposeSignin, "ada@example.com", "", "", uuid.Nil)
 	if err != nil {
 		t.Fatalf("newPendingFlow() error = %v", err)
@@ -258,12 +257,12 @@ func TestVerifyPendingFlowRejectsExpiredCode(t *testing.T) {
 
 func TestResendPendingFlowStartsFreshCycle(t *testing.T) {
 	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
-	sender := &capturingSender{}
+	notifier := &capturingNotifier{}
 	svc := testService(t, fakeUserStore{
 		getByEmailFn: func(context.Context, string) (model.User, error) {
 			return serviceTestUser, nil
 		},
-	}, sender, now)
+	}, notifier, now)
 
 	flow, _, err := svc.newPendingFlow(model.FlowPurposeSignin, serviceTestUser.Email, "", "", uuid.Nil)
 	if err != nil {
@@ -276,7 +275,7 @@ func TestResendPendingFlowStartsFreshCycle(t *testing.T) {
 	if next.Purpose != model.FlowPurposeSignin || next.Email != serviceTestUser.Email || next.Secret == flow.Secret {
 		t.Fatalf("next = %#v", next)
 	}
-	if len(sender.messages) != 1 {
-		t.Fatalf("messages = %#v", sender.messages)
+	if len(notifier.deliveries) != 1 {
+		t.Fatalf("deliveries = %#v", notifier.deliveries)
 	}
 }

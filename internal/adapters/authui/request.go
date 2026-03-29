@@ -1,4 +1,4 @@
-package echocomponentry
+package authui
 
 import (
 	g "maragu.dev/gomponents"

@@ -18,6 +18,7 @@ import (
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/adapters/authmail"
 	"github.com/go-sum/forge/internal/health"
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
@@ -160,10 +161,9 @@ func (c *Container) initServices() {
 	}
 	c.AuthService = authsvc.NewAuthService(
 		c.Repos.User,
-		c.Sender,
 		authsvc.Config{
 			Method:   c.Config.Service.Auth.Methods.EmailTOTP,
-			SendFrom: send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery),
+			Notifier: authmail.New(c.Sender, send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery)),
 			TokenCodec: authsvc.NewEncryptedTokenCodec(
 				c.Config.App.Auth.Session.AuthKey,
 				c.Config.App.Auth.Session.EncryptKey,

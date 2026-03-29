@@ -1,6 +1,6 @@
 // Package examples renders a living reference of every visual component in
-// pkg/components/. It produces a pure g.Node with no HTTP or internal/ imports,
-// keeping pkg/ as a leaf node in the dependency graph.
+// pkg/components/. It produces a pure g.Node with no HTTP or internal/ imports
+// and follows the componentry module's documented tiered import DAG.
 package examples
 
 import (

@@ -80,6 +80,7 @@ type CSRFConfig struct {
 	Key        string `koanf:"key"         validate:"required,min=32"`
 	FormField  string `koanf:"form_field"  validate:"required"`
 	HeaderName string `koanf:"header_name" validate:"required"`
+	TokenTTL   int    `koanf:"token_ttl"   validate:"omitempty,min=1"` // seconds; defaults to 3600 when unset
 }
 
 type DatabaseConfig struct {
@@ -93,7 +94,7 @@ type AuthConfig struct {
 type SessionConfig struct {
 	Name       string `koanf:"name"`
 	AuthKey    string `koanf:"auth_key"    validate:"required,min=32"`
-	EncryptKey string `koanf:"encrypt_key" validate:"required,min=32,max=32"`
+	EncryptKey string `koanf:"encrypt_key" validate:"required,min=16,max=32"`
 	MaxAge     int    `koanf:"max_age"`
 	Secure     bool   `koanf:"secure"`
 }

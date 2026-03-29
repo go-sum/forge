@@ -22,7 +22,7 @@ func newContext(method, path string) (*echo.Echo, *echo.Context) {
 func testConfig() Config {
 	return Config{
 		Key:        []byte("test-signing-key-32-bytes-padded!"),
-		TokenTTL:   time.Hour,
+		TokenTTL:   3600,
 		ContextKey: "csrf",
 		HeaderName: "X-CSRF-Token",
 		FormField:  "_csrf",
@@ -75,6 +75,25 @@ func TestMiddlewareContextTokenIsVerifiable(t *testing.T) {
 	tok, _ := c.Get(cfg.ContextKey).(string)
 	if err := token.Verify(cfg.Key, scope, tok); err != nil {
 		t.Fatalf("token.Verify() on context token = %v, want nil", err)
+	}
+}
+
+func TestMiddlewareUsesDefaultTTLWhenUnset(t *testing.T) {
+	cfg := testConfig()
+	cfg.TokenTTL = 0
+
+	_, c := newContext(http.MethodGet, "/")
+	err := Middleware(cfg)(func(c *echo.Context) error { return nil })(c)
+	if err != nil {
+		t.Fatalf("Middleware() error = %v", err)
+	}
+
+	tok, ok := c.Get(cfg.ContextKey).(string)
+	if !ok || tok == "" {
+		t.Fatalf("context key %q: got %q, want non-empty HMAC token", cfg.ContextKey, tok)
+	}
+	if err := token.Verify(cfg.Key, scope, tok); err != nil {
+		t.Fatalf("token.Verify() on default-ttl token = %v, want nil", err)
 	}
 }
 

@@ -1,4 +1,4 @@
-package echocomponentry
+package authui
 
 import (
 	"context"
@@ -298,10 +298,13 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 
 	flow, err := h.service.BeginEmailChange(c.Request().Context(), userID, input, h.verifyURL())
 	if err != nil {
-		if errors.Is(err, model.ErrEmailTaken) {
+		switch {
+		case errors.Is(err, model.ErrEmailTaken):
 			sub.SetFieldError("Email", "Email already in use.")
 			node := EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)
 			return render.ComponentWithStatus(c, http.StatusConflict, node)
+		case errors.Is(err, model.ErrUserNotFound):
+			return apperr.Unauthorized("Please sign in again.")
 		}
 		return apperr.Internal(err)
 	}

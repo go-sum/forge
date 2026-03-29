@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
+	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/server/route"
@@ -14,14 +14,13 @@ import (
 
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
 // This is the single source of truth for HTTP route registration.
-func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler) error {
-	authKeys := authadapter.ContextKeys{
+func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) error {
+	authKeys := authui.ContextKeys{
 		UserID:      c.Config.App.Keys.UserID,
 		UserRole:    c.Config.App.Keys.UserRole,
 		DisplayName: c.Config.App.Keys.DisplayName,
 	}
-	c.Web.Use(authadapter.LoadSession(c.Sessions, authKeys))
-	c.Web.Use(authadapter.LoadUserContext(c.Repos.User, authKeys))
+	c.Web.Use(authui.LoadSession(c.Sessions, authKeys))
 
 	siteH := sitehandlers.New(sitehandlers.Config{
 		Origin:  c.Config.App.Security.ExternalOrigin,
@@ -46,7 +45,10 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authadapter.Handler
 	authGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
 
 	adminGuarded := authGuarded.Group("") // (admin + requires session)
-	adminGuarded.Use(authadapter.RequireAdmin(authKeys))
+	adminGuarded.Use(
+		authui.LoadUserRole(c.Repos.User, authKeys),
+		authui.RequireAdmin(authKeys),
+	)
 
 	adminGuardedPost := adminGuarded.Group("") // (admin + session + cross-origin-guarded POST)
 	adminGuardedPost.Use(appserver.CrossOriginGuard(c.Config))

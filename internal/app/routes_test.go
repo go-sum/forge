@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	authadapter "github.com/go-sum/auth/adapters/echocomponentry"
 	"github.com/go-sum/auth/session"
 	"github.com/go-sum/forge/config"
+	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/repository"
+	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server/validate"
@@ -20,7 +21,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-func TestRegisterRoutesLoadsUserContextForPublicPages(t *testing.T) {
+func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	e := echo.New()
 	cfg := &config.Config{
 		App: config.AppConfig{
@@ -73,29 +74,30 @@ func TestRegisterRoutesLoadsUserContextForPublicPages(t *testing.T) {
 		t.Fatalf("NewSessionStore() error = %v", err)
 	}
 
-	container := &Container{
-		Config:    cfg,
-		Web:       e,
-		Sessions:  sessions,
-		Validator: validate.New(),
-		Repos: &repository.Repositories{
-			User: routesTestUserRepo{
-				users: map[uuid.UUID]model.User{
-					uuid.MustParse("11111111-1111-1111-1111-111111111111"): {
-						ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
-						Email:       "ada@example.com",
-						DisplayName: "Ada Lovelace",
-						Role:        "admin",
-					},
-				},
+	repo := &routesTestUserRepo{
+		users: map[uuid.UUID]model.User{
+			uuid.MustParse("11111111-1111-1111-1111-111111111111"): {
+				ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+				Email:       "ada@example.com",
+				DisplayName: "Ada Lovelace",
+				Role:        "admin",
 			},
 		},
+	}
+
+	container := &Container{
+		Config:       cfg,
+		Web:          e,
+		RateLimiters: appserver.NewRateLimiters(cfg),
+		Sessions:     sessions,
+		Validator:    validate.New(),
+		Repos:        &repository.Repositories{User: repo},
 	}
 
 	h := handler.New(&service.Services{}, container.Validator, func(context.Context) error { return nil }, cfg, func() echo.Routes {
 		return e.Router().Routes()
 	})
-	authH := authadapter.New(nil, sessions, container.Validator, authadapter.Config{
+	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -103,9 +105,9 @@ func TestRegisterRoutesLoadsUserContextForPublicPages(t *testing.T) {
 		VerifyURL:       "http://localhost:3000/verify",
 		EmailChangePath: "/account/email",
 		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) authadapter.Request {
+		RequestFn: func(ec *echo.Context) authui.Request {
 			req := view.NewRequest(ec, cfg)
-			return authadapter.Request{
+			return authui.Request{
 				CSRFToken: req.CSRFToken,
 				PageFn:    req.Page,
 			}
@@ -132,51 +134,56 @@ func TestRegisterRoutesLoadsUserContextForPublicPages(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "Ada Lovelace") {
-		t.Fatalf("body missing display name: %s", rec.Body.String())
+	if repo.getByIDCalls != 0 {
+		t.Fatalf("GetByID() calls = %d, want 0 for public page", repo.getByIDCalls)
+	}
+	if !strings.Contains(rec.Body.String(), "My Account") {
+		t.Fatalf("body missing generic auth label: %s", rec.Body.String())
 	}
 }
 
 type routesTestUserRepo struct {
-	users map[uuid.UUID]model.User
+	users        map[uuid.UUID]model.User
+	getByIDCalls int
 }
 
-func (r routesTestUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
+func (r *routesTestUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
 	return model.User{}, nil
 }
 
-func (r routesTestUserRepo) GetByID(_ context.Context, id uuid.UUID) (model.User, error) {
+func (r *routesTestUserRepo) GetByID(_ context.Context, id uuid.UUID) (model.User, error) {
+	r.getByIDCalls++
 	if u, ok := r.users[id]; ok {
 		return u, nil
 	}
 	return model.User{}, model.ErrUserNotFound
 }
 
-func (r routesTestUserRepo) GetByEmail(context.Context, string) (model.User, error) {
+func (r *routesTestUserRepo) GetByEmail(context.Context, string) (model.User, error) {
 	return model.User{}, nil
 }
 
-func (r routesTestUserRepo) List(context.Context, int32, int32) ([]model.User, error) {
+func (r *routesTestUserRepo) List(context.Context, int32, int32) ([]model.User, error) {
 	return nil, nil
 }
 
-func (r routesTestUserRepo) Update(context.Context, uuid.UUID, string, string, string) (model.User, error) {
+func (r *routesTestUserRepo) Update(context.Context, uuid.UUID, string, string, string) (model.User, error) {
 	return model.User{}, nil
 }
 
-func (r routesTestUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
+func (r *routesTestUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
 	return model.User{}, nil
 }
 
-func (r routesTestUserRepo) Delete(context.Context, uuid.UUID) error {
+func (r *routesTestUserRepo) Delete(context.Context, uuid.UUID) error {
 	return nil
 }
 
-func (r routesTestUserRepo) Count(context.Context) (int64, error) {
+func (r *routesTestUserRepo) Count(context.Context) (int64, error) {
 	return int64(len(r.users)), nil
 }
 
-var _ repository.UserRepository = routesTestUserRepo{}
+var _ repository.UserRepository = (*routesTestUserRepo)(nil)
 
 func TestRegisterRoutes_AccessTiers(t *testing.T) {
 	const (
@@ -222,7 +229,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		t.Fatalf("NewSessionStore() error = %v", err)
 	}
 
-	repo := routesTestUserRepo{
+	repo := &routesTestUserRepo{
 		users: map[uuid.UUID]model.User{
 			uuid.MustParse(adminID): {
 				ID:          uuid.MustParse(adminID),
@@ -240,11 +247,12 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 	}
 
 	container := &Container{
-		Config:    cfg,
-		Web:       e,
-		Sessions:  sessions,
-		Validator: validate.New(),
-		Repos:     &repository.Repositories{User: repo},
+		Config:       cfg,
+		Web:          e,
+		RateLimiters: appserver.NewRateLimiters(cfg),
+		Sessions:     sessions,
+		Validator:    validate.New(),
+		Repos:        &repository.Repositories{User: repo},
 	}
 
 	h := handler.New(
@@ -254,7 +262,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		cfg,
 		func() echo.Routes { return e.Router().Routes() },
 	)
-	authH := authadapter.New(nil, sessions, container.Validator, authadapter.Config{
+	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -262,9 +270,9 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		VerifyURL:       "http://localhost:3000/verify",
 		EmailChangePath: "/account/email",
 		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) authadapter.Request {
+		RequestFn: func(ec *echo.Context) authui.Request {
 			req := view.NewRequest(ec, cfg)
-			return authadapter.Request{
+			return authui.Request{
 				CSRFToken: req.CSRFToken,
 				PageFn:    req.Page,
 			}

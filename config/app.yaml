@@ -15,7 +15,7 @@ app:
     dev_only: []
 
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: ${DATABASE_URL}
 
   keys:
     user_id: user_id

@@ -26,3 +26,6 @@ app:
   auth:
     session:
       secure: false
+
+  database:
+    url: ${DATABASE_URL:-postgres://postgres:postgres@app_data:5432/starter?sslmode=disable}

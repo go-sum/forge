@@ -1,4 +1,4 @@
-package echocomponentry
+package authui
 
 import (
 	"errors"
@@ -56,8 +56,9 @@ func RequireAuthPath(signinPath func() string, keys ContextKeys) echo.Middleware
 	}
 }
 
-// LoadUserContext resolves the authenticated user's role and display name.
-func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.MiddlewareFunc {
+// LoadUserRole resolves the authenticated user's role only for routes that
+// actually need authorization data.
+func LoadUserRole(users authrepo.UserReader, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			userID, _ := c.Get(keys.UserID).(string)
@@ -79,7 +80,6 @@ func LoadUserContext(users authrepo.UserReader, keys ContextKeys) echo.Middlewar
 			}
 
 			c.Set(keys.UserRole, user.Role)
-			c.Set(keys.DisplayName, user.DisplayName)
 			return next(c)
 		}
 	}

@@ -69,6 +69,29 @@ func TestInitLoadsNavContentFile(t *testing.T) {
 		"site.yaml": `site:
   title: starter
 `,
+		"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: log
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
 		"nav.yaml": `nav:
   brand:
     label: Starter
@@ -210,6 +233,29 @@ func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
 				"site.yaml": `site:
   title: starter
 `,
+				"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: log
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
 				"nav.yaml": tt.nav,
 			}
 			for name, contents := range files {
@@ -341,5 +387,172 @@ func TestLoadFromLoadsNestedServiceProviderConfig(t *testing.T) {
 	}
 	if got := cfg.Service.Auth.Methods.EmailTOTP.PeriodSeconds; got != 300 {
 		t.Fatalf("Service.Auth.Methods.EmailTOTP.PeriodSeconds = %d, want %d", got, 300)
+	}
+}
+
+func TestLoadFromLoadsCSRFSecurityTokenTTLSeconds(t *testing.T) {
+	dir := t.TempDir()
+
+	files := map[string]string{
+		"app.yaml": `app:
+  env: development
+  name: starter
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+      token_ttl: 3600
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
+`,
+		"site.yaml": `site:
+  title: starter
+`,
+		"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: log
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
+	}
+
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o644); err != nil {
+			t.Fatalf("WriteFile(%s) error = %v", name, err)
+		}
+	}
+
+	cfg, err := LoadFrom(dir, "")
+	if err != nil {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+
+	if got := cfg.App.Security.CSRF.TokenTTL; got != 3600 {
+		t.Fatalf("App.Security.CSRF.TokenTTL = %d, want %d", got, 3600)
+	}
+}
+
+func TestLoadFromRequiresServiceFile(t *testing.T) {
+	dir := t.TempDir()
+
+	files := map[string]string{
+		"app.yaml": `app:
+  env: development
+  name: starter
+  database:
+    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  auth:
+    session:
+      name: _session
+      auth_key: "12345678901234567890123456789012"
+      encrypt_key: "12345678901234567890123456789012"
+      max_age: 86400
+      secure: false
+`,
+		"site.yaml": `site:
+  title: starter
+`,
+	}
+
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o644); err != nil {
+			t.Fatalf("WriteFile(%s) error = %v", name, err)
+		}
+	}
+
+	if _, err := LoadFrom(dir, ""); err == nil {
+		t.Fatal("LoadFrom() error = nil, want missing required service.yaml error")
 	}
 }

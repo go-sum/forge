@@ -46,12 +46,13 @@ func (h *Handler) UserList(c *echo.Context) error {
 
 // UserEditForm renders the inline edit form for a single user row (HTMX swap).
 func (h *Handler) UserEditForm(c *echo.Context) error {
+	ctx := c.Request().Context()
 	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
-	user, err := h.services.User.GetByID(c.Request().Context(), id)
+	user, err := h.services.User.GetByID(ctx, id)
 	if err != nil {
 		return resolveErr(err)
 	}
@@ -60,12 +61,13 @@ func (h *Handler) UserEditForm(c *echo.Context) error {
 
 // UserRow renders a single read-only user table row (HTMX swap after save/cancel).
 func (h *Handler) UserRow(c *echo.Context) error {
+	ctx := c.Request().Context()
 	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
-	user, err := h.services.User.GetByID(c.Request().Context(), id)
+	user, err := h.services.User.GetByID(ctx, id)
 	if err != nil {
 		return resolveErr(err)
 	}
@@ -76,6 +78,7 @@ func (h *Handler) UserRow(c *echo.Context) error {
 
 // UserUpdate processes the inline edit form and returns the updated row.
 func (h *Handler) UserUpdate(c *echo.Context) error {
+	ctx := c.Request().Context()
 	req := h.request(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -94,7 +97,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 		}))
 	}
 
-	user, err := h.services.User.Update(c.Request().Context(), id, input)
+	user, err := h.services.User.Update(ctx, id, input)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
@@ -123,11 +126,12 @@ func resolveErr(err error) *apperr.Error {
 
 // UserDelete removes a user and returns 204 so HTMX can remove the row.
 func (h *Handler) UserDelete(c *echo.Context) error {
+	ctx := c.Request().Context()
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
-	if err := h.services.User.Delete(c.Request().Context(), id); err != nil {
+	if err := h.services.User.Delete(ctx, id); err != nil {
 		return resolveErr(err)
 	}
 	return c.NoContent(http.StatusNoContent)

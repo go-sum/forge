@@ -19,7 +19,7 @@ define with-svc
 endef
 
 .PHONY: help \
-        build clean lint hash-air-csp test test-cover test-watch test-up \
+        build clean lint vet hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets health \
         package-sync package-release \
@@ -45,16 +45,11 @@ health: _ensure-available ## Run health checks (use ARGS='--verbose' or '--json'
 	$(call with-svc,$(D_COMPOSE) dev,app_data,$(RUN_APP) go run ./cli health $(ARGS))
 
 lint: _ensure-available ## Run golangci-lint
-	$(D_RUN) $(APP_NAME) golangci-lint run ./...
+	$(D_RUN) $(APP_NAME) ./scripts/workspace.sh exec golangci-lint run ./...
+	$(D_RUN) $(APP_NAME) ./scripts/workspace.sh exec go vet ./...
 
 test: _ensure-available ## Run tests (auto-starts/stops test_data)
-	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) go test -v -race -count=1 ./...)
-
-test-cover: _ensure-available ## Run tests with coverage and print the summary
-	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) sh -c 'go test -coverpkg=./... -coverprofile=$(COVERAGE_FILE) ./... && go tool cover -func=$(COVERAGE_FILE)')
-
-test-watch: _ensure-available ## Run tests with hot-reload (auto-starts test_data)
-	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) air -c .air.test.toml)
+	$(call with-svc,$(D_COMPOSE) test,test_data,$(RUN_TEST) ./scripts/workspace.sh exec go test -v -race -count=1 ./...)
 
 test-up: ## Start the ephemeral test database manually
 	$(D_COMPOSE) test up -d --wait test_data

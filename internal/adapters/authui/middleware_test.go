@@ -1,4 +1,4 @@
-package echocomponentry
+package authui
 
 import (
 	"context"
@@ -106,15 +106,14 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	}
 }
 
-func TestLoadUserContextHandlesOutcomes(t *testing.T) {
+func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 	tests := []struct {
-		name            string
-		userID          string
-		repo            middlewareUserRepo
-		wantStatus      int
-		wantRole        string
-		wantDisplayName string
-		expectNext      bool
+		name       string
+		userID     string
+		repo       middlewareUserRepo
+		wantStatus int
+		wantRole   string
+		expectNext bool
 	}{
 		{name: "missing session user ID", repo: middlewareUserRepo{}, expectNext: true},
 		{name: "invalid UUID", userID: "not-a-uuid", wantStatus: http.StatusUnauthorized},
@@ -131,12 +130,11 @@ func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
-			name:            "success",
-			userID:          "11111111-1111-1111-1111-111111111111",
-			repo:            middlewareUserRepo{user: model.User{Role: "admin", DisplayName: "Alice"}},
-			wantRole:        "admin",
-			wantDisplayName: "Alice",
-			expectNext:      true,
+			name:       "success",
+			userID:     "11111111-1111-1111-1111-111111111111",
+			repo:       middlewareUserRepo{user: model.User{Role: "admin", DisplayName: "Alice"}},
+			wantRole:   "admin",
+			expectNext: true,
 		},
 	}
 
@@ -151,16 +149,11 @@ func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 			}
 
 			nextCalled := false
-			err := LoadUserContext(tc.repo, testContextKeys)(func(c *echo.Context) error {
+			err := LoadUserRole(tc.repo, testContextKeys)(func(c *echo.Context) error {
 				nextCalled = true
 				if tc.wantRole != "" {
 					if got, _ := c.Get(testContextKeys.UserRole).(string); got != tc.wantRole {
 						t.Fatalf("role = %q", got)
-					}
-				}
-				if tc.wantDisplayName != "" {
-					if got, _ := c.Get(testContextKeys.DisplayName).(string); got != tc.wantDisplayName {
-						t.Fatalf("display name = %q", got)
 					}
 				}
 				return nil
@@ -171,7 +164,7 @@ func TestLoadUserContextHandlesOutcomes(t *testing.T) {
 			}
 			if tc.wantStatus == 0 {
 				if err != nil {
-					t.Fatalf("LoadUserContext() error = %v", err)
+					t.Fatalf("LoadUserRole() error = %v", err)
 				}
 				return
 			}

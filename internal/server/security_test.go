@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-sum/forge/config"
+	"github.com/go-sum/security/token"
 	"github.com/labstack/echo/v5"
 )
 
@@ -112,5 +113,36 @@ func TestCrossOriginGuardWritesHTMXToast(t *testing.T) {
 	}
 	if body := rec.Body.String(); !strings.Contains(body, `hx-swap-oob="beforeend:#toast-container"`) {
 		t.Fatalf("body = %q", body)
+	}
+}
+
+func TestCSRFMiddlewareUsesTTLSecondsFromConfig(t *testing.T) {
+	cfg := testSecurityConfig()
+	cfg.App.Security.CSRF = config.CSRFConfig{
+		Key:        "test-signing-key-32-bytes-padded!",
+		FormField:  "_csrf",
+		HeaderName: "X-CSRF-Token",
+		TokenTTL:   3600,
+	}
+	cfg.App.Keys.CSRF = "csrf"
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := CSRFMiddleware(cfg)(func(c *echo.Context) error {
+		return c.NoContent(http.StatusNoContent)
+	})(c)
+	if err != nil {
+		t.Fatalf("CSRFMiddleware() error = %v", err)
+	}
+
+	tok, ok := c.Get("csrf").(string)
+	if !ok || tok == "" {
+		t.Fatalf("context key %q: got %q, want non-empty token", "csrf", tok)
+	}
+	if err := token.Verify([]byte(cfg.App.Security.CSRF.Key), "csrf", tok); err != nil {
+		t.Fatalf("token.Verify() error = %v", err)
 	}
 }

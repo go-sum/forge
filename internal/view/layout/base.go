@@ -101,8 +101,13 @@ func buildHeadExtras(p Props) []g.Node {
 }
 
 func pageNavSlots(p Props) uilayout.NavSlots {
+	userName := p.UserName
+	if p.IsAuthenticated && userName == "" {
+		userName = "Account"
+	}
+
 	return uilayout.NavSlots{
-		"user_name": uilayout.TextSlot(p.UserName),
+		"user_name": uilayout.TextSlot(userName),
 		"signout": uilayout.FormSlot(uilayout.FormSlotProps{
 			Label:  "Signout",
 			Action: "/signout",

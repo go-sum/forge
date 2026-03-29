@@ -25,17 +25,17 @@ import (
 )
 
 const (
-	scope          = "csrf"
-	defaultTTL     = time.Hour
-	failureMessage = "Your security token is invalid or missing. Refresh the page and try again."
+	scope             = "csrf"
+	defaultTTLSeconds = int(time.Hour / time.Second)
+	failureMessage    = "Your security token is invalid or missing. Refresh the page and try again."
 )
 
 // Config defines the signing key, token lifetime, and transport field names.
 type Config struct {
 	// Key is the HMAC-SHA256 signing key. Must be at least 32 bytes.
 	Key []byte
-	// TokenTTL is how long an issued token remains valid. Defaults to 1 hour.
-	TokenTTL time.Duration
+	// TokenTTL is how long an issued token remains valid, in seconds. Defaults to 3600.
+	TokenTTL int
 	// ContextKey is the Echo context key under which the token string is stored.
 	ContextKey string
 	// HeaderName is the request header checked before FormField on unsafe methods.
@@ -62,10 +62,11 @@ func (v *violation) PublicMessage() string { return v.msg }
 // Config.FormField, and verify it with HMAC-SHA256. Any failure — missing,
 // malformed, tampered, or expired token — returns a *violation error (403).
 func Middleware(cfg Config) echo.MiddlewareFunc {
-	ttl := cfg.TokenTTL
-	if ttl <= 0 {
-		ttl = defaultTTL
+	ttlSeconds := cfg.TokenTTL
+	if ttlSeconds <= 0 {
+		ttlSeconds = defaultTTLSeconds
 	}
+	ttl := time.Duration(ttlSeconds) * time.Second
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {

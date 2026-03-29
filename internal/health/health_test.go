@@ -193,6 +193,29 @@ func writeHealthConfig(t *testing.T, dsn string) string {
 		"site.yaml": `site:
   title: starter
 `,
+		"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: log
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
 		"nav.yaml": `nav:
   brand:
     label: Starter

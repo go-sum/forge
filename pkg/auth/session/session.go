@@ -56,7 +56,7 @@ func NewSessionStore(cfg SessionConfig) (*SessionManager, error) {
 	store.Options = &sessions.Options{
 		MaxAge:   cfg.MaxAge,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 		Secure:   cfg.Secure,
 		Path:     "/",
 	}

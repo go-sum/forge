@@ -50,7 +50,7 @@ weight: 20
 | Field | Type | Description |
 |-------|------|-------------|
 | `Key` | `[]byte` | HMAC signing key (32+ bytes recommended) |
-| `TokenTTL` | `time.Duration` | Token lifetime (default: 1 hour) |
+| `TokenTTL` | `int` | Token lifetime in seconds (default: 3600) |
 | `ContextKey` | `string` | Echo context key where token is stored |
 | `HeaderName` | `string` | Request header to read token (checked first) |
 | `FormField` | `string` | Form field to read token (fallback) |
@@ -69,7 +69,7 @@ The error type implements `StatusCode() int` (403) and `PublicMessage() string`.
 ```go
 e.Use(csrf.Middleware(csrf.Config{
     Key:        []byte(cfg.Security.CSRF.Key),
-    TokenTTL:   1 * time.Hour,
+    TokenTTL:   3600,
     ContextKey: "csrf_token",
     HeaderName: "X-CSRF-Token",
     FormField:  "_csrf",

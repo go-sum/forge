@@ -2,7 +2,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -23,10 +22,7 @@ import (
 	"github.com/go-sum/auth"
 	"github.com/go-sum/auth/model"
 	"github.com/go-sum/auth/repository"
-	email "github.com/go-sum/componentry/email"
-	"github.com/go-sum/send"
 	"github.com/google/uuid"
-	g "maragu.dev/gomponents"
 )
 
 type clock interface {
@@ -43,12 +39,16 @@ type TokenCodec interface {
 	Decode(string) (model.VerificationToken, error)
 }
 
+// Notifier delivers verification details to the user via the host application.
+type Notifier interface {
+	SendVerification(context.Context, model.DeliveryInput) error
+}
+
 // AuthService handles email-TOTP signup, signin, and email-change flows.
 type AuthService struct {
 	users      repository.UserStore
-	sender     send.Sender
+	notifier   Notifier
 	method     auth.EmailTOTPMethodConfig
-	sendFrom   string
 	tokenCodec TokenCodec
 	clock      clock
 }
@@ -56,21 +56,23 @@ type AuthService struct {
 // Config parameterises the passwordless auth service.
 type Config struct {
 	Method     auth.EmailTOTPMethodConfig
-	SendFrom   string
+	Notifier   Notifier
 	TokenCodec TokenCodec
 	Clock      clock
 }
 
 // NewAuthService constructs an AuthService from its repository, email, and token dependencies.
-func NewAuthService(users repository.UserStore, sender send.Sender, cfg Config) *AuthService {
+func NewAuthService(users repository.UserStore, cfg Config) *AuthService {
 	if cfg.Clock == nil {
 		cfg.Clock = systemClock{}
 	}
+	if cfg.Notifier == nil {
+		cfg.Notifier = noopNotifier{}
+	}
 	return &AuthService{
 		users:      users,
-		sender:     sender,
+		notifier:   cfg.Notifier,
 		method:     cfg.Method,
-		sendFrom:   cfg.SendFrom,
 		tokenCodec: cfg.TokenCodec,
 		clock:      cfg.Clock,
 	}
@@ -289,15 +291,13 @@ func (s *AuthService) deliver(ctx context.Context, flow model.PendingFlow, code,
 		return fmt.Errorf("build verify url: %w", err)
 	}
 
-	msg := verificationEmail(model.DeliveryInput{
+	if err := s.notifier.SendVerification(ctx, model.DeliveryInput{
 		Purpose:   flow.Purpose,
 		Email:     flow.Email,
 		Code:      code,
 		VerifyURL: verifyURL,
 		ExpiresAt: flow.ExpiresAt,
-	}, s.sendFrom)
-
-	if err := s.sender.Send(ctx, msg); err != nil {
+	}); err != nil {
 		return fmt.Errorf("send verification email: %w", err)
 	}
 
@@ -444,54 +444,10 @@ func appendVerifyToken(basePath, token string) (string, error) {
 	return u.String(), nil
 }
 
-func verificationEmail(input model.DeliveryInput, sendFrom string) send.Message {
-	subject := verificationSubject(input.Purpose)
-	return send.Message{
-		To:      input.Email,
-		From:    sendFrom,
-		Subject: subject,
-		HTML:    renderEmailHTML(verificationBody(input)),
-		Text:    verificationText(input),
-	}
-}
+type noopNotifier struct{}
 
-func verificationSubject(purpose model.FlowPurpose) string {
-	switch purpose {
-	case model.FlowPurposeSignup:
-		return "Verify your signup code"
-	case model.FlowPurposeEmailChange:
-		return "Verify your email change"
-	default:
-		return "Verify your sign in"
-	}
-}
-
-func renderEmailHTML(body g.Node) string {
-	var buf bytes.Buffer
-	_ = body.Render(&buf)
-	return buf.String()
-}
-
-func verificationBody(input model.DeliveryInput) g.Node {
-	title := verificationSubject(input.Purpose)
-	return email.Layout(title, g.Group([]g.Node{
-		email.H1(title),
-		email.P("Use this 6-digit code to continue: " + input.Code),
-		email.P("Or open this secure verification link: " + input.VerifyURL),
-		email.P("This code expires at " + input.ExpiresAt.UTC().Format(time.RFC1123) + "."),
-	}))
-}
-
-func verificationText(input model.DeliveryInput) string {
-	return strings.Join([]string{
-		verificationSubject(input.Purpose),
-		"",
-		"Code: " + input.Code,
-		"",
-		"Verify link: " + input.VerifyURL,
-		"",
-		"Expires at: " + input.ExpiresAt.UTC().Format(time.RFC1123),
-	}, "\r\n")
+func (noopNotifier) SendVerification(context.Context, model.DeliveryInput) error {
+	return errors.New("verification notifier required")
 }
 
 // EncryptedTokenCodec produces self-contained encrypted verification tokens.

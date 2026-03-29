@@ -42,10 +42,10 @@ func LoadFrom(dir, appEnv string) (*Config, error) {
 		return cfgs.Options{
 			EnvKey: appEnv,
 			Files: []cfgs.ConfigFile{
-				{Filepath: dir + "/app.yaml"},
-				{Filepath: dir + "/site.yaml"},
+				{Filepath: dir + "/app.yaml", Required: true},
+				{Filepath: dir + "/site.yaml", Required: true},
 				{Filepath: dir + "/nav.yaml"},
-				{Filepath: dir + "/service.yaml"},
+				{Filepath: dir + "/service.yaml", Required: true},
 			},
 		}
 	})
