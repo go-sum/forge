@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-sum/forge/config"
 	smw "github.com/go-sum/server/middleware"
+	"github.com/go-sum/server/middleware/override"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -31,6 +32,10 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 
 	// Pre-routing: runs before the router dispatches the request.
 	e.Pre(middleware.RemoveTrailingSlash())
+	// Method override reads _method from POST bodies and promotes the request
+	// method to PUT, PATCH, or DELETE before routing. Must run in Pre so the
+	// router sees the promoted method. Any disallowed override value returns 400.
+	e.Pre(override.Middleware())
 
 	// Post-routing (order matters — each middleware wraps the next).
 	e.Use(middleware.Recover())

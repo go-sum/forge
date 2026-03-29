@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/go-sum/forge/config"
+	"github.com/go-sum/security/cors"
 	"github.com/go-sum/security/csrf"
 	"github.com/go-sum/security/fetchmeta"
 	secmw "github.com/go-sum/security/middleware"
@@ -41,6 +42,24 @@ func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 		ContextKey: cfg.App.Keys.CSRF,
 		HeaderName: c.HeaderName,
 		FormField:  c.FormField,
+	})
+}
+
+// CORSMiddleware returns a CORS middleware for opt-in route groups (e.g. /api).
+// When AllowOrigins is empty the middleware permits all origins via "*";
+// AllowCredentials must be false in that case, which is the default.
+func CORSMiddleware(cfg *config.Config) echo.MiddlewareFunc {
+	c := cfg.App.Security.CORS
+	allowOrigins := c.AllowOrigins
+	if len(allowOrigins) == 0 {
+		allowOrigins = []string{"*"}
+	}
+	return cors.Middleware(cors.Config{
+		Mode:             cors.OriginModeExact,
+		AllowOrigins:     allowOrigins,
+		AllowHeaders:     c.AllowHeaders,
+		AllowCredentials: c.AllowCredentials,
+		MaxAge:           c.MaxAge,
 	})
 }
 

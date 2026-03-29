@@ -35,8 +35,30 @@ type SecurityConfig struct {
 	FetchMetadata    FetchMetadataConfig        `koanf:"fetch_metadata"`
 	Headers          HeadersConfig              `koanf:"headers"`
 	CSRF             CSRFConfig                 `koanf:"csrf"`
+	CORS             CORSConfig                 `koanf:"cors"`
 	RateLimitBackend RateLimitBackendConfig     `koanf:"rate_limit_backend"`
 	RateLimits       map[string]RateLimitConfig `koanf:"rate_limits"`
+}
+
+// CORSConfig configures the CORS middleware applied to opt-in route groups
+// such as /api. All fields are optional — zero values mean CORS is permissive
+// (wildcard origin, no credentials) which is safe for public API endpoints.
+type CORSConfig struct {
+	// AllowOrigins is the list of exact-match allowed origins.
+	// When empty, the middleware uses "*" (wildcard); AllowCredentials must
+	// be false when using wildcards.
+	AllowOrigins []string `koanf:"allow_origins"`
+
+	// AllowHeaders is the list of additional request headers permitted
+	// cross-origin. Empty means headers are echoed from the preflight request.
+	AllowHeaders []string `koanf:"allow_headers"`
+
+	// AllowCredentials permits cookies and authorization headers cross-origin.
+	// Cannot be combined with an empty AllowOrigins (wildcard).
+	AllowCredentials bool `koanf:"allow_credentials"`
+
+	// MaxAge is the preflight cache duration in seconds. 0 = header not sent.
+	MaxAge int `koanf:"max_age"`
 }
 
 // RateLimitConfig configures the IP-based rate limiter applied to high-risk

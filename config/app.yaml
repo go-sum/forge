@@ -64,6 +64,11 @@ app:
       form_field: _csrf
       header_name: X-CSRF-Token
       token_ttl: 3600
+    cors:
+      allow_origins: []
+      allow_headers: []
+      allow_credentials: false
+      max_age: 0
     rate_limit_backend:
       selected: memory
     rate_limits:
