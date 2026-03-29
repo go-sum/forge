@@ -108,6 +108,50 @@ func TestSessionManagerPendingFlowRoundTripAndClear(t *testing.T) {
 	}
 }
 
+func TestSessionManagerDisplayNameRoundTrip(t *testing.T) {
+	manager, err := NewSessionStore(SessionConfig{
+		Name:       "test-session",
+		AuthKey:    strings.Repeat("a", 32),
+		EncryptKey: strings.Repeat("b", 32),
+		MaxAge:     3600,
+	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	if err := manager.SetUserID(rec, req, "user-123"); err != nil {
+		t.Fatalf("SetUserID() error = %v", err)
+	}
+	if err := manager.SetDisplayName(rec, req, "Ada Lovelace"); err != nil {
+		t.Fatalf("SetDisplayName() error = %v", err)
+	}
+
+	// Use only the last Set-Cookie header — simulates browser behaviour where the
+	// most recent Set-Cookie for a given name overwrites the previous value.
+	cookies := rec.Result().Cookies()
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(cookies[len(cookies)-1])
+	name, err := manager.GetDisplayName(req)
+	if err != nil || name != "Ada Lovelace" {
+		t.Fatalf("GetDisplayName() name=%q err=%v", name, err)
+	}
+}
+
+func TestSessionManagerGetDisplayNameMissingReturnsError(t *testing.T) {
+	manager, err := NewSessionStore(SessionConfig{
+		AuthKey:    strings.Repeat("a", 32),
+		EncryptKey: strings.Repeat("b", 32),
+	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+	if _, err := manager.GetDisplayName(httptest.NewRequest(http.MethodGet, "/", nil)); !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("GetDisplayName() err = %v, want ErrNotAuthenticated", err)
+	}
+}
+
 func TestNewSessionStoreRejectsInvalidKeys(t *testing.T) {
 	tests := []struct {
 		name       string

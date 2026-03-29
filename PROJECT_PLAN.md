@@ -104,6 +104,32 @@ and examples in `internal/` should follow.
 
 ---
 
+## Verification Expectations
+
+Every phase should include the appropriate level of verification:
+
+- Unit tests for all new package APIs.
+- Route and middleware tests for application wiring.
+- CLI tests for build-time tooling such as docs generation.
+- Config parsing tests for new YAML/env-driven capabilities.
+- At least one end-to-end integration path for each new subsystem once it is
+  wired into the starter.
+
+---
+
+## Current Defaults and Assumptions
+
+- Reusable package design takes priority over app-only implementation shortcuts.
+- The starter remains server-rendered and HTMX-first; no SPA runtime is planned.
+- The existing asset pipeline remains Go-driven and Node-free.
+- Theme switching, toast rendering, asset hashing, sprite generation, and core
+  security middleware are considered existing capabilities, not missing features.
+- Email starts with development-safe providers first; external provider support
+  is a follow-up, not a prerequisite.
+- Locale work initially targets formatting primitives only, not translated copy.
+
+---
+
 ## TASKS
 
 Status markers: `[ ]` outstanding · `[x]` completed · `[~]` in progress

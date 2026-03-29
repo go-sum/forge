@@ -21,6 +21,8 @@ const sessionKeyUserID = "user_id"
 
 const sessionKeyPendingFlow = "pending_flow"
 
+const sessionKeyDisplayName = "display_name"
+
 // SessionConfig holds cookie store configuration.
 type SessionConfig struct {
 	Name       string
@@ -93,6 +95,34 @@ func (m *SessionManager) GetUserID(r *http.Request) (string, error) {
 		return "", ErrNotAuthenticated
 	}
 	return userID, nil
+}
+
+// SetDisplayName stores the user's display name in the session cookie.
+func (m *SessionManager) SetDisplayName(w http.ResponseWriter, r *http.Request, name string) error {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return err
+	}
+	session.Values[sessionKeyDisplayName] = name
+	return session.Save(r, w)
+}
+
+// GetDisplayName reads the display name from the session cookie.
+// Returns ("", ErrNotAuthenticated) when no display name is present.
+func (m *SessionManager) GetDisplayName(r *http.Request) (string, error) {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return "", ErrNotAuthenticated
+	}
+	v, ok := session.Values[sessionKeyDisplayName]
+	if !ok {
+		return "", ErrNotAuthenticated
+	}
+	name, ok := v.(string)
+	if !ok || name == "" {
+		return "", ErrNotAuthenticated
+	}
+	return name, nil
 }
 
 // SetPendingFlow stores the browser-bound verification flow in the session cookie.

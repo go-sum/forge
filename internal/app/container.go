@@ -13,6 +13,7 @@ import (
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
+	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
@@ -32,6 +33,7 @@ type Container struct {
 	Assets       *assets.Assets
 	Web          *echo.Echo
 	ServerConfig server.Config
+	RateLimiters *appserver.RateLimiters
 	PublicDir    string // filesystem path to built public assets, e.g. "public"
 	Sessions     *session.SessionManager
 	Validator    *validate.Validator

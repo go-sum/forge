@@ -137,7 +137,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	if repo.getByIDCalls != 0 {
 		t.Fatalf("GetByID() calls = %d, want 0 for public page", repo.getByIDCalls)
 	}
-	if !strings.Contains(rec.Body.String(), "My Account") {
+	if !strings.Contains(rec.Body.String(), "Account") {
 		t.Fatalf("body missing generic auth label: %s", rec.Body.String())
 	}
 }

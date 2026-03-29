@@ -106,6 +106,68 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	}
 }
 
+func TestLoadSessionSetsDisplayNameWhenPresentInSession(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	sessions, err := session.NewSessionStore(testSessionConfig())
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
+		t.Fatalf("SetUserID() error = %v", err)
+	}
+	if err := sessions.SetDisplayName(rec, req, "Ada Lovelace"); err != nil {
+		t.Fatalf("SetDisplayName() error = %v", err)
+	}
+	// Use only the last Set-Cookie header — simulates browser behaviour where the
+	// most recent Set-Cookie for a given name overwrites the previous value.
+	cookies := rec.Result().Cookies()
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(cookies[len(cookies)-1])
+	c := e.NewContext(req, httptest.NewRecorder())
+
+	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+		if got, _ := c.Get(testContextKeys.DisplayName).(string); got != "Ada Lovelace" {
+			t.Fatalf("display name = %q, want %q", got, "Ada Lovelace")
+		}
+		return nil
+	})(c)
+
+	if err != nil {
+		t.Fatalf("LoadSession() error = %v", err)
+	}
+}
+
+func TestLoadSessionDoesNotSetDisplayNameWhenAbsentFromSession(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	sessions, err := session.NewSessionStore(testSessionConfig())
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
+		t.Fatalf("SetUserID() error = %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	for _, cookie := range rec.Result().Cookies() {
+		req.AddCookie(cookie)
+	}
+	c := e.NewContext(req, httptest.NewRecorder())
+
+	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+		if got := c.Get(testContextKeys.DisplayName); got != nil {
+			t.Fatalf("display name = %v, want nil", got)
+		}
+		return nil
+	})(c)
+
+	if err != nil {
+		t.Fatalf("LoadSession() error = %v", err)
+	}
+}
+
 func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 	tests := []struct {
 		name       string

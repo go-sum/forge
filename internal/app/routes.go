@@ -31,12 +31,13 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) err
 	publicPost := c.Web.Group("") // (cross-origin-guarded public POST)
 	publicPost.Use(
 		appserver.CrossOriginGuard(c.Config),
-		appserver.RateLimitMiddleware(c.Config, "auth"),
+		c.RateLimiters.Middleware(c.Config, "auth"),
 	)
 
 	authGuarded := c.Web.Group("") // (requires session)
 	authGuarded.Use(
-		authadapter.RequireAuthPath(func() string {
+		c.RateLimiters.Middleware(c.Config, "server"),
+		authui.RequireAuthPath(func() string {
 			return route.Reverse(c.Web.Router().Routes(), "signin.get")
 		}, authKeys),
 	)

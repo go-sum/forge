@@ -120,6 +120,7 @@ func (c *Container) initWeb() {
 		Port:            strconv.Itoa(cfg.App.Server.Port),
 		GracefulTimeout: time.Duration(cfg.App.Server.GracefulTimeout) * time.Second,
 	}
+	c.RateLimiters = appserver.NewRateLimiters(cfg)
 	c.Web = server.New()
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }

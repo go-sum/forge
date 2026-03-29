@@ -30,20 +30,26 @@ type ServerConfig struct {
 }
 
 type SecurityConfig struct {
-	ExternalOrigin string                     `koanf:"external_origin" validate:"required,url"`
-	Origin         OriginConfig               `koanf:"origin"`
-	FetchMetadata  FetchMetadataConfig        `koanf:"fetch_metadata"`
-	Headers        HeadersConfig              `koanf:"headers"`
-	CSRF           CSRFConfig                 `koanf:"csrf"`
-	RateLimits     map[string]RateLimitConfig `koanf:"rate_limits"`
+	ExternalOrigin   string                     `koanf:"external_origin" validate:"required,url"`
+	Origin           OriginConfig               `koanf:"origin"`
+	FetchMetadata    FetchMetadataConfig        `koanf:"fetch_metadata"`
+	Headers          HeadersConfig              `koanf:"headers"`
+	CSRF             CSRFConfig                 `koanf:"csrf"`
+	RateLimitBackend RateLimitBackendConfig     `koanf:"rate_limit_backend"`
+	RateLimits       map[string]RateLimitConfig `koanf:"rate_limits"`
 }
 
 // RateLimitConfig configures the IP-based rate limiter applied to high-risk
 // unauthenticated mutation routes (e.g. /signin, /signup).
 // Rate 0 disables rate limiting entirely.
 type RateLimitConfig struct {
-	Rate  float64 `koanf:"rate"`  // requests per second (token bucket refill)
-	Burst int     `koanf:"burst"` // maximum burst size above the steady rate
+	Rate      float64 `koanf:"rate"`       // requests per second (token bucket refill)
+	Burst     int     `koanf:"burst"`      // maximum burst size above the steady rate
+	ExpiresIn int     `koanf:"expires_in"` // seconds; 0 → store default (180s)
+}
+
+type RateLimitBackendConfig struct {
+	Selected string `koanf:"selected" validate:"omitempty,oneof=memory"`
 }
 
 type OriginConfig struct {

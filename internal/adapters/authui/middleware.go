@@ -27,6 +27,9 @@ func LoadSession(sessions *session.SessionManager, keys ContextKeys) echo.Middle
 		return func(c *echo.Context) error {
 			if userID, err := sessions.GetUserID(c.Request()); err == nil && userID != "" {
 				c.Set(keys.UserID, userID)
+				if name, err := sessions.GetDisplayName(c.Request()); err == nil && name != "" {
+					c.Set(keys.DisplayName, name)
+				}
 			}
 			return next(c)
 		}

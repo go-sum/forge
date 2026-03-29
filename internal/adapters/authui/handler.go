@@ -235,6 +235,9 @@ func (h *Handler) Verify(c *echo.Context) error {
 	if err := h.sessions.SetUserID(c.Response(), c.Request(), result.User.ID.String()); err != nil {
 		return apperr.Internal(err)
 	}
+	if err := h.sessions.SetDisplayName(c.Response(), c.Request(), result.User.DisplayName); err != nil {
+		return apperr.Internal(err)
+	}
 	if err := h.sessions.ClearPendingFlow(c.Response(), c.Request()); err != nil {
 		return apperr.Internal(err)
 	}

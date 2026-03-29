@@ -107,6 +107,10 @@ No migration files — pgschema computes diffs declaratively. Extensions (`pgcry
 
 Secrets via env vars: `encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}`
 
+All duration-valued config fields (`expires_in`, `ttl`, `max_age`, `timeout`, etc.)
+ALWAYS use **integer seconds**. NEVER use `time.Duration` string values (`"3m"`, `"1h"`) in YAML.
+If required, convert to `time.Duration` at the adapter boundary: `time.Duration(n) * time.Second`.
+
 ---
 
 ## Development Phase Guide

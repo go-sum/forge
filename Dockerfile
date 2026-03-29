@@ -21,7 +21,7 @@ ARG TAILWIND_VERSION
 ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
 
-RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git
+RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git bash
 
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
