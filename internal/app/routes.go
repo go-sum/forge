@@ -6,6 +6,7 @@ import (
 	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
+	"github.com/go-sum/server/middleware/etag"
 	"github.com/go-sum/server/route"
 	sitehandlers "github.com/go-sum/site/handlers"
 
@@ -73,7 +74,11 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) err
 	usersPost := adminGuardedPost.Group("/users")
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: h.UserList})
 	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "user.edit", Handler: h.UserEditForm})
-	route.Add(usersGroup, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: h.UserRow})
+	// short-circuit repeat requests with 304 when the rendered output is unchanged.
+	cachedFragments := usersGroup.Group("")
+	cachedFragments.Use(etag.Middleware())
+	// user.row is a read-only HTMX fragment — wrap it in ETag middleware
+	route.Add(cachedFragments, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: h.UserRow})
 	route.Add(usersPost, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "user.update", Handler: h.UserUpdate})
 	route.Add(usersPost, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "user.delete", Handler: h.UserDelete})
 	// site

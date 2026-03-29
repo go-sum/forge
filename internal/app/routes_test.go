@@ -185,6 +185,167 @@ func (r *routesTestUserRepo) Count(context.Context) (int64, error) {
 
 var _ repository.UserRepository = (*routesTestUserRepo)(nil)
 
+// newTestApp builds a minimal application container with fake repositories
+// suitable for route integration tests. The returned Echo instance has all
+// routes registered and is ready for ServeHTTP calls.
+func newTestApp(t *testing.T) (*echo.Echo, *session.SessionManager, *routesTestUserRepo) {
+	t.Helper()
+	const (
+		adminID   = "11111111-1111-1111-1111-111111111111"
+		regularID = "22222222-2222-2222-2222-222222222222"
+	)
+
+	e := echo.New()
+	cfg := &config.Config{
+		App: config.AppConfig{
+			Security: config.SecurityConfig{
+				ExternalOrigin: "http://localhost:3000",
+				CSRF: config.CSRFConfig{
+					FormField:  "_csrf",
+					HeaderName: "X-CSRF-Token",
+				},
+			},
+			Auth: config.AuthConfig{
+				Session: config.SessionConfig{
+					Name:       "_session",
+					AuthKey:    "12345678901234567890123456789012",
+					EncryptKey: "12345678901234567890123456789012",
+				},
+			},
+			Keys: config.ContextKeysConfig{
+				UserID:      "user_id",
+				UserRole:    "user_role",
+				DisplayName: "user_display_name",
+				CSRF:        "csrf",
+			},
+		},
+		Nav: config.NavConfig{
+			Brand: config.NavbarBrand{Label: "Starter", Href: "/"},
+		},
+	}
+
+	sessions, err := session.NewSessionStore(session.SessionConfig{
+		Name:       cfg.App.Auth.Session.Name,
+		AuthKey:    cfg.App.Auth.Session.AuthKey,
+		EncryptKey: cfg.App.Auth.Session.EncryptKey,
+	})
+	if err != nil {
+		t.Fatalf("NewSessionStore() error = %v", err)
+	}
+
+	repo := &routesTestUserRepo{
+		users: map[uuid.UUID]model.User{
+			uuid.MustParse(adminID): {
+				ID:          uuid.MustParse(adminID),
+				Email:       "admin@example.com",
+				DisplayName: "Admin User",
+				Role:        "admin",
+			},
+			uuid.MustParse(regularID): {
+				ID:          uuid.MustParse(regularID),
+				Email:       "user@example.com",
+				DisplayName: "Regular User",
+				Role:        "user",
+			},
+		},
+	}
+
+	container := &Container{
+		Config:       cfg,
+		Web:          e,
+		RateLimiters: appserver.NewRateLimiters(cfg),
+		Sessions:     sessions,
+		Validator:    validate.New(),
+		Repos:        &repository.Repositories{User: repo},
+	}
+
+	h := handler.New(
+		&service.Services{User: service.NewUserService(repo)},
+		container.Validator,
+		func(context.Context) error { return nil },
+		cfg,
+		func() echo.Routes { return e.Router().Routes() },
+	)
+	authH := authui.New(nil, sessions, container.Validator, authui.Config{
+		CSRFField:       cfg.App.Security.CSRF.FormField,
+		SigninPath:      "/signin",
+		SignupPath:      "/signup",
+		VerifyPath:      "/verify",
+		VerifyURL:       "http://localhost:3000/verify",
+		EmailChangePath: "/account/email",
+		HomePath:        "/",
+		RequestFn: func(ec *echo.Context) authui.Request {
+			req := view.NewRequest(ec, cfg)
+			return authui.Request{
+				CSRFToken: req.CSRFToken,
+				PageFn:    req.Page,
+			}
+		},
+	})
+
+	if err := RegisterRoutes(container, h, authH); err != nil {
+		t.Fatalf("RegisterRoutes() error = %v", err)
+	}
+
+	return e, sessions, repo
+}
+
+// adminCookie returns a session cookie for the admin user.
+func adminCookie(t *testing.T, sessions *session.SessionManager, adminID string) *http.Cookie {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if err := sessions.SetUserID(rec, req, adminID); err != nil {
+		t.Fatalf("SetUserID() error = %v", err)
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("SetUserID() produced no cookies")
+	}
+	return cookies[0]
+}
+
+// TestUserRowETagCachingCycle verifies the 200 → 304 caching cycle for the
+// GET /users/:id/row HTMX fragment endpoint.
+//
+// First request: expect 200 with an ETag header in the response.
+// Second request with matching If-None-Match: expect 304 with empty body.
+func TestUserRowETagCachingCycle(t *testing.T) {
+	const adminID = "11111111-1111-1111-1111-111111111111"
+	e, sessions, _ := newTestApp(t)
+	cookie := adminCookie(t, sessions, adminID)
+
+	path := "/users/" + adminID + "/row"
+
+	// First request — expect 200 with an ETag.
+	req1 := httptest.NewRequest(http.MethodGet, path, nil)
+	req1.AddCookie(cookie)
+	rec1 := httptest.NewRecorder()
+	e.ServeHTTP(rec1, req1)
+
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("first request: status = %d, want 200\nbody: %s", rec1.Code, rec1.Body.String())
+	}
+	etagVal := rec1.Header().Get("ETag")
+	if etagVal == "" {
+		t.Fatal("first request: ETag header not set")
+	}
+
+	// Second request with matching If-None-Match — expect 304.
+	req2 := httptest.NewRequest(http.MethodGet, path, nil)
+	req2.AddCookie(cookie)
+	req2.Header.Set("If-None-Match", etagVal)
+	rec2 := httptest.NewRecorder()
+	e.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusNotModified {
+		t.Errorf("second request: status = %d, want 304\nbody: %s", rec2.Code, rec2.Body.String())
+	}
+	if rec2.Body.Len() != 0 {
+		t.Errorf("second request: body should be empty for 304, got %q", rec2.Body.String())
+	}
+}
+
 func TestRegisterRoutes_AccessTiers(t *testing.T) {
 	const (
 		adminID   = "11111111-1111-1111-1111-111111111111"
