@@ -6,28 +6,32 @@ weight: 20
 
 # HTTP security primitives
 
-`github.com/go-sum/security` is a collection of reusable HTTP security primitives for Go web applications. Core primitives (`token`, `origin`, `fetchmeta`, `httpsec`, `headers`) are framework-agnostic. [Echo] middleware wrappers live in `csrf`, `ratelimit`, and `middleware`.
+`github.com/go-sum/security` is a collection of reusable HTTP security primitives for Go web applications. Core primitives (`token`, `origin`, `fetchmeta`, `httpsec`, `headers`) are framework-agnostic. [Echo] middleware wrappers live in `cors`, `csrf`, `ratelimit`, and `middleware`.
 
 ## Dependencies
 
 | Dependency | Version |
 |------------|---------|
 | [Echo] | v5.0 |
+| [x/time] | v0.14 |
 
 ## Features
 
 - HMAC-SHA256 signed, stateless, time-limited tokens with scope isolation
 - CSRF protection middleware for [Echo] with automatic token issuance and verification
-- Per-IP token bucket rate limiting with typed errors and custom identifier support
+- CORS middleware for [Echo] with exact, regex, and custom function origin matching
+- Per-IP token bucket rate limiting with typed errors, custom identifier support, and lazy stale-entry cleanup
 - Origin and Referer header validation with hostname normalization (RFC compliant)
 - W3C Fetch Metadata header validation (`Sec-Fetch-Site`, `Sec-Fetch-Mode`, `Sec-Fetch-Dest`)
 - Composed cross-origin guard middleware combining origin and fetch metadata checks
 - CSP directive source injection utility for Content-Security-Policy header management
+- HTTP method safety classification per RFC 9110
 
 ## Sub-packages at a Glance
 
 | Package | Import Path | Purpose |
 |---------|-------------|---------|
+| `cors` | `github.com/go-sum/security/cors` | [Echo] CORS middleware with exact, regex, and custom origin matching |
 | `csrf` | `github.com/go-sum/security/csrf` | [Echo] CSRF protection middleware using `token` |
 | `fetchmeta` | `github.com/go-sum/security/fetchmeta` | W3C Fetch Metadata header validation |
 | `headers` | `github.com/go-sum/security/headers` | CSP directive source injection |
@@ -36,6 +40,73 @@ weight: 20
 | `origin` | `github.com/go-sum/security/origin` | Origin/Referer header validation |
 | `ratelimit` | `github.com/go-sum/security/ratelimit` | [Echo] per-IP token bucket rate limiting |
 | `token` | `github.com/go-sum/security/token` | HMAC-SHA256 signed, stateless, time-limited tokens |
+
+---
+
+## cors
+
+[Echo] middleware providing CORS support with three origin-matching strategies: exact string list, compiled regexp set, and custom function. All preflight handling, `Vary: Origin`, `Access-Control-Allow-Credentials`, and `Access-Control-Max-Age` logic is delegated to Echo's built-in `CORSConfig`. This package adds regex origin matching and a unified `Config` surface over the three modes.
+
+### Types
+
+**`OriginMode`** (`int`) -- selects the origin-matching strategy.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `OriginModeExact` | `0` | Case-insensitive string comparison against `AllowOrigins`. Supports `"*"` wildcard. |
+| `OriginModeRegex` | `1` | Matches request Origin against compiled `RegexOrigins` patterns. |
+| `OriginModeFunc` | `2` | Delegates to `AllowOriginFunc` for custom validation logic. |
+
+**`Config`** -- middleware configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Skipper` | `func(c *echo.Context) bool` | Skip middleware when returning `true`. Defaults to never skip. |
+| `Mode` | `OriginMode` | Origin-matching strategy. See `OriginMode` constants. |
+| `AllowOrigins` | `[]string` | Allowed origins for `OriginModeExact`. Supports `"*"` for wildcard (cannot combine with `AllowCredentials`). |
+| `RegexOrigins` | `[]string` | Regexp patterns for `OriginModeRegex`. Compiled once at middleware creation time. |
+| `AllowOriginFunc` | `func(c *echo.Context, origin string) (string, bool, error)` | Custom origin validator for `OriginModeFunc`. Returns allowed origin, whether permitted, and any error. |
+| `AllowMethods` | `[]string` | HTTP methods permitted cross-origin. Defaults to GET, HEAD, PUT, PATCH, POST, DELETE. |
+| `AllowHeaders` | `[]string` | Request headers permitted cross-origin. Empty echoes back the browser's requested headers on preflight. |
+| `AllowCredentials` | `bool` | Permits cookies and authorization headers cross-origin. Cannot combine with `AllowOrigins = ["*"]`. |
+| `ExposeHeaders` | `[]string` | Response headers that browsers are permitted to read. |
+| `MaxAge` | `int` | Preflight cache duration in seconds. `0` omits the header; negative sends `"0"`. |
+
+### Functions
+
+**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware configured with `cfg`. Panics if `cfg` fails validation. Use `ToMiddleware` for non-panicking construction.
+
+### Methods
+
+**`(cfg Config) ToMiddleware() (echo.MiddlewareFunc, error)`** -- converts `Config` to an `echo.MiddlewareFunc`. Returns an error for invalid configuration (missing required fields, invalid regex patterns, unknown `OriginMode`). For `OriginModeRegex`, all patterns are compiled here; an invalid pattern causes an immediate error rather than a per-request panic.
+
+```go
+// Exact origin matching
+e.Use(cors.Middleware(cors.Config{
+    Mode:             cors.OriginModeExact,
+    AllowOrigins:     []string{"https://example.com", "https://admin.example.com"},
+    AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+    AllowHeaders:     []string{"Content-Type", "Authorization"},
+    AllowCredentials: true,
+    MaxAge:           3600,
+}))
+
+// Regex origin matching
+e.Use(cors.Middleware(cors.Config{
+    Mode:         cors.OriginModeRegex,
+    RegexOrigins: []string{`^https://.*\.example\.com$`},
+    MaxAge:       3600,
+}))
+
+// Custom function origin matching
+e.Use(cors.Middleware(cors.Config{
+    Mode: cors.OriginModeFunc,
+    AllowOriginFunc: func(c *echo.Context, origin string) (string, bool, error) {
+        // custom logic
+        return origin, true, nil
+    },
+}))
+```
 
 ---
 
@@ -178,6 +249,7 @@ Composed [Echo] middleware combining `origin` and `fetchmeta` for a complete cro
 
 Methods:
 
+- `Error() string` -- returns `Cause.Error()` if present, otherwise `Message`
 - `StatusCode() int` -- returns `Status`
 - `PublicMessage() string` -- returns `Message`
 - `Unwrap() error` -- returns `Cause`
@@ -256,33 +328,73 @@ if !result.Valid {
 
 ## ratelimit
 
-[Echo] middleware. Per-identifier token bucket using [Echo]'s built-in in-memory store.
+[Echo] middleware. Per-identifier token bucket rate limiting with an in-memory store and lazy stale-entry cleanup.
 
 ### Types
+
+**`Skipper`** (`func(c *echo.Context) bool`) -- defines a function to skip middleware. Returning `true` skips processing.
+
+**`BeforeFunc`** (`func(c *echo.Context)`) -- defines a function executed just before the middleware check.
+
+**`Store`** -- interface for custom rate limit backends.
+
+```go
+type Store interface {
+    Allow(identifier string) (bool, error)
+}
+```
 
 **`Config`** -- middleware configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Rate` | `float64` | Requests per second (refill rate) |
-| `Burst` | `int` | Max burst (default: `ceil(Rate)`) |
-| `IdentifierExtractor` | `func(c *echo.Context) (string, error)` | Rate-limit key; default: remote IP |
+| `Skipper` | `Skipper` | Skip middleware when returning `true`. Defaults to never skip. |
+| `BeforeFunc` | `BeforeFunc` | Function executed before the rate limit check. |
+| `IdentifierExtractor` | `func(c *echo.Context) (string, error)` | Rate-limit key extractor. Defaults to remote IP via `c.RealIP()`. |
+| `Store` | `Store` | Rate limit backend. Required -- use `NewMemoryStore` or `NewMemoryStoreWithConfig` to build one. |
+| `DenyHandler` | `func(c *echo.Context, identifier string, err error) error` | Called when the store denies a request. Defaults to returning a typed 429 error. |
+| `ErrorHandler` | `func(c *echo.Context, err error) error` | Called when `IdentifierExtractor` returns an error. Defaults to returning a typed 500 error. |
+
+**`MemoryStoreConfig`** -- construction parameters for `MemoryStore`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Rate` | `float64` | Requests per second (token bucket refill rate) |
+| `Burst` | `int` | Maximum burst size. `0` defaults to `ceil(Rate)` (min 1). |
+| `ExpiresIn` | `time.Duration` | Duration before stale visitors are eligible for cleanup. `0` defaults to 3 minutes. |
+
+**`MemoryStore`** -- in-process token-bucket store keyed by identifier. Stale entries are lazily swept when the time since the last cleanup exceeds `ExpiresIn`, preventing unbounded memory growth.
 
 ### Functions
 
-**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware that enforces per-identifier rate limits.
+**`Middleware(cfg Config) echo.MiddlewareFunc`** -- returns an [Echo] middleware that enforces per-identifier rate limits. Panics on invalid configuration (e.g. nil `Store`). Use `ToMiddleware` for non-panicking construction.
+
+**`NewMemoryStore(rate float64) *MemoryStore`** -- returns a `MemoryStore` with the given rate (req/s). Burst defaults to `ceil(rate)` (min 1); `ExpiresIn` defaults to 3 minutes.
+
+**`NewMemoryStoreWithConfig(cfg MemoryStoreConfig) *MemoryStore`** -- returns a `MemoryStore` configured with the provided `MemoryStoreConfig`.
+
+### Methods
+
+**`(cfg Config) ToMiddleware() (echo.MiddlewareFunc, error)`** -- converts `Config` to an `echo.MiddlewareFunc`. Returns an error for invalid configuration rather than panicking.
+
+**`(s *MemoryStore) Allow(identifier string) (bool, error)`** -- implements `Store`. Returns `true` if the identifier is within its rate limit.
 
 ### Behavior
 
 - Default extractor uses `c.RealIP()`, handling `X-Forwarded-For:IP:port` via `net.SplitHostPort`.
 - Requests exceeding the limit return a typed 429 error.
-- Each call to `Middleware()` creates an independent in-memory store -- different policies maintain separate per-IP buckets.
+- Each call to `Middleware()` creates an independent middleware instance -- different policies maintain separate per-IP buckets when using separate stores.
 - The error type implements `StatusCode() int` (429 or 500) and `PublicMessage() string`.
 
 ```go
+store := ratelimit.NewMemoryStoreWithConfig(ratelimit.MemoryStoreConfig{
+    Rate:      5.0,
+    Burst:     10,
+    ExpiresIn: 5 * time.Minute,
+})
+
 mw := ratelimit.Middleware(ratelimit.Config{
-    Rate:  5.0,
-    Burst: 10,
+    Store: store,
 })
 signinGroup.Use(mw)
 ```
@@ -293,7 +405,7 @@ signinGroup.Use(mw)
 
 HMAC-SHA256 signed, stateless tokens. No server-side state required.
 
-**Wire format** (48 bytes, base64url-encoded, no padding):
+**Wire format** (64 bytes, base64url-encoded, no padding):
 
 - Bytes 0--15: random nonce
 - Bytes 16--23: `iat` (unix seconds, big-endian int64)
@@ -346,9 +458,11 @@ if errors.Is(err, token.ErrInvalid) {
 | `token` | Timing safety | MAC verified before expiry check |
 | `csrf` | State-change protection | HMAC-signed tokens verified on unsafe methods |
 | `csrf` | Token refresh | Fresh token issued on every request |
+| `cors` | Cross-origin access control | Exact, regex, or custom origin matching delegated to Echo |
+| `cors` | Credential safety | `AllowCredentials` cannot combine with wildcard `"*"` origin |
 | `origin` | CORS defense | Origin/Referer validation with hostname normalization |
 | `fetchmeta` | Browser metadata | W3C `Sec-Fetch-*` header validation |
-| `ratelimit` | Brute-force defense | Per-IP token bucket (or custom identifier) |
+| `ratelimit` | Brute-force defense | Per-IP token bucket (or custom identifier) with stale-entry cleanup |
 | `middleware` | Composed defense | Origin + Fetch Metadata combined for unsafe requests |
 
 ---
@@ -384,24 +498,46 @@ func (h *Handler) EditForm(c *echo.Context) error {
 </div>
 ```
 
+### CORS for API Routes
+
+```go
+apiGroup := e.Group("/api")
+apiGroup.Use(cors.Middleware(cors.Config{
+    Mode:             cors.OriginModeExact,
+    AllowOrigins:     []string{"https://app.example.com"},
+    AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+    AllowHeaders:     []string{"Content-Type", "Authorization", "X-CSRF-Token"},
+    AllowCredentials: true,
+    MaxAge:           3600,
+}))
+```
+
 ### Rate Limiting by Named Policy
 
 ```go
-// Each policy maintains an independent per-IP bucket
+// Each policy uses an independent store with separate per-IP buckets
+signinStore := ratelimit.NewMemoryStoreWithConfig(ratelimit.MemoryStoreConfig{
+    Rate:  5.0,
+    Burst: 10,
+})
 signin := g.Group("/signin")
-signin.Use(server.RateLimitMiddleware(cfg, "signin"))  // 5 req/sec
+signin.Use(ratelimit.Middleware(ratelimit.Config{Store: signinStore}))
 signin.POST("", h.SignIn)
 
+apiStore := ratelimit.NewMemoryStoreWithConfig(ratelimit.MemoryStoreConfig{
+    Rate:  100.0,
+    Burst: 200,
+})
 api := g.Group("/api")
-api.Use(server.RateLimitMiddleware(cfg, "api"))        // 100 req/sec
+api.Use(ratelimit.Middleware(ratelimit.Config{Store: apiStore}))
 ```
 
 ### Custom Rate Limit Identifier (User ID)
 
 ```go
+store := ratelimit.NewMemoryStore(100)
 mw := ratelimit.Middleware(ratelimit.Config{
-    Rate:  100,
-    Burst: 200,
+    Store: store,
     IdentifierExtractor: func(c *echo.Context) (string, error) {
         uid, ok := c.Get("user_id").(string)
         if !ok || uid == "" {
@@ -445,6 +581,20 @@ app:
       key: "${CSRF_KEY}"         # 32+ byte secret from env var
       headerName: "X-CSRF-Token"
       formField: "_csrf"
+    cors:
+      mode: exact                # exact | regex | func
+      allowOrigins:
+        - "https://example.com"
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowHeaders:
+        - Content-Type
+        - Authorization
+      allowCredentials: true
+      maxAge: 3600
     origin:
       enabled: true
       requireHeader: true
@@ -472,3 +622,4 @@ app:
 Every package in this module imports only the Go standard library and external modules. There are no imports from application-specific `internal/` packages and no cross-imports between sibling `pkg/` packages. This means the entire `github.com/go-sum/security` module can be vendored into any [Echo] project without pulling in application-specific code.
 
 [Echo]: https://echo.labstack.com/
+[x/time]: https://pkg.go.dev/golang.org/x/time

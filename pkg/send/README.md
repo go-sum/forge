@@ -1,12 +1,12 @@
 ---
 title: Email delivery
-description: Provider-agnostic email delivery using a factory and adapter pattern.
+description: Provider-agnostic email delivery using a registry and adapter pattern.
 weight: 20
 ---
 
 # Email delivery
 
-`github.com/go-sum/send` is a provider-agnostic email delivery package built on a factory+adapter pattern. It ships with adapters for development, testing, and two production providers. The module is standalone -- it imports only the standard library and `net/http`, with no `internal/` or cross-`pkg/` dependencies.
+`github.com/go-sum/send` is a provider-agnostic email delivery package built on a registry+adapter pattern. It ships with adapters for development, testing, and two production providers. The module is standalone -- it imports only the standard library and `net/http`, with no `internal/` or cross-`pkg/` dependencies.
 
 ## External Services
 
@@ -18,24 +18,29 @@ weight: 20
 ## Features
 
 - Single `Sender` interface with one method -- minimal surface for loose coupling
-- Factory registry decouples adapter selection from instantiation
+- Thread-safe `Registry` decouples provider selection from instantiation
 - Built-in adapters for [Resend] and [MailChannels] HTTP APIs
-- No-op adapter for development -- logs all fields via `log/slog` without delivering
+- Log adapter for development -- logs all fields (including HTML) via `log/slog` without delivering
+- No-op adapter for silent discard -- logs fields at INFO level and returns `nil`
 - Thread-safe in-memory adapter for test assertions on outbound messages
 - `NewWithURL` constructors on HTTP adapters enable test injection via `httptest.Server`
 - Empty configuration defaults to the no-op adapter for safe local development
-- Custom adapter registration via `Register` for third-party providers
+- Custom provider registration via `Register` for third-party providers
+- `SendFrom` resolution per provider for retrieving the configured sender address
 
-## Package Structure
+## Sub-packages
 
 | Package | Import Path | Purpose |
 |---------|-------------|---------|
-| `send` (root) | `github.com/go-sum/send` | Factory, registry, public API, re-exported core types |
+| `send` (root) | `github.com/go-sum/send` | Registry, factory, public API, re-exported core types |
 | `core` | `github.com/go-sum/send/core` | Domain types: `Message` struct, `Sender` interface |
+| `log` | `github.com/go-sum/send/adapters/log` | Development adapter: logs all fields including HTML body |
 | `noop` | `github.com/go-sum/send/adapters/noop` | Development adapter: logs and discards |
 | `memory` | `github.com/go-sum/send/adapters/memory` | Test adapter: captures messages in-memory |
 | `resend` | `github.com/go-sum/send/adapters/resend` | [Resend] HTTP API adapter |
 | `mailchannels` | `github.com/go-sum/send/adapters/mailchannels` | [MailChannels] HTTP API adapter |
+
+---
 
 ## Core Types
 
@@ -61,45 +66,116 @@ type Sender interface {
 }
 ```
 
-## Factory API
+---
 
-### `Config`
+## Registry API
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `Adapter` | `string` | Adapter name: `"noop"`, `"memory"`, `"resend"`, or `"mailchannels"`. Empty defaults to `"noop"`. |
-| `SendFrom` | `string` | Default sender address passed to the adapter |
-| `APIKey` | `string` | API key for external adapters |
+### `ProviderName`
 
-### `AdapterConfig`
-
-Passed to factory functions when constructing an adapter.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `APIKey` | `string` | API key credential |
-| `SendFrom` | `string` | Default sender address |
-
-### Adapter Constants
+`ProviderName` (`string`) names a sender backend.
 
 | Constant | Value |
 |----------|-------|
-| `SendAdapterNoop` | `"noop"` |
-| `SendAdapterMemory` | `"memory"` |
-| `SendAdapterResend` | `"resend"` |
-| `SendAdapterMailchannels` | `"mailchannels"` |
+| `ProviderLog` | `"log"` |
+| `ProviderNoop` | `"noop"` |
+| `ProviderMemory` | `"memory"` |
+| `ProviderResend` | `"resend"` |
+| `ProviderMailchannels` | `"mailchannels"` |
 
-### Functions
+### `Config`
 
-**`InitSender(cfg Config) (Sender, error)`** -- looks up the registered factory for `cfg.Adapter` and returns a configured `Sender`. An empty `Adapter` defaults to `"noop"`. Returns an error if the adapter name is not registered.
+Top-level configuration that selects a provider and holds per-provider settings.
 
-**`Register(adapter SendAdapter, factory SenderFactory)`** -- adds or replaces a factory in the global registry. Use this to register third-party adapters not bundled with the package.
+| Field | Type | YAML Key | Description |
+|-------|------|----------|-------------|
+| `Selected` | `ProviderName` | `selected` | Provider to use. Empty defaults to `"noop"`. |
+| `Providers` | `ProvidersConfig` | `providers` | Per-provider configuration blocks. |
+
+Methods:
+
+- `SelectedProvider() ProviderName` -- returns `Selected`, defaulting to `ProviderNoop` when empty.
+
+### `ProvidersConfig`
+
+Holds configuration for all built-in providers.
+
+| Field | Type | YAML Key | Description |
+|-------|------|----------|-------------|
+| `Log` | `struct{}` | `log` | No configuration required. |
+| `Noop` | `struct{}` | `noop` | No configuration required. |
+| `Memory` | `struct{}` | `memory` | No configuration required. |
+| `Resend` | `HTTPProviderConfig` | `resend` | [Resend] credentials and sender address. |
+| `Mailchannels` | `HTTPProviderConfig` | `mailchannels` | [MailChannels] credentials and sender address. |
+
+### `HTTPProviderConfig`
+
+Carries the credentials and defaults for HTTP-backed providers.
+
+| Field | Type | YAML Key | Description |
+|-------|------|----------|-------------|
+| `APIKey` | `string` | `api_key` | API key credential (required for HTTP providers). |
+| `SendFrom` | `string` | `send_from` | Default sender address (required for HTTP providers). |
+
+### `Provider`
+
+Bundles the construction and config accessors for a provider.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Factory` | `Factory` | Constructs a `Sender` from the full `Config`. |
+| `SendFrom` | `SendFromResolver` | Returns the provider-level default sender address. May be `nil`. |
+
+### `Factory`
+
+```go
+type Factory func(Config) (Sender, error)
+```
+
+Constructs a `Sender` for the selected provider.
+
+### `SendFromResolver`
+
+```go
+type SendFromResolver func(Config) string
+```
+
+Returns the provider-level default sender address.
+
+### `Registry`
+
+Thread-safe store of provider factories by name.
+
+**`NewRegistry() *Registry`** -- returns a registry preloaded with all built-in providers (`log`, `noop`, `memory`, `resend`, `mailchannels`).
+
+**`(r *Registry) Register(name ProviderName, provider Provider)`** -- adds or replaces a provider in the registry.
+
+**`(r *Registry) New(cfg Config) (Sender, error)`** -- resolves `cfg.SelectedProvider()` in the registry, calls the provider's `Factory`, and returns the configured `Sender`. Returns an error if the provider name is not registered, the factory is `nil`, or the factory itself returns an error.
+
+**`(r *Registry) SendFrom(cfg Config) string`** -- resolves the default sender address for the selected provider. Returns an empty string if the provider is unknown or has no `SendFrom` resolver.
+
+### Package-Level Functions
+
+**`DefaultRegistry`** -- the package-level `*Registry` used by `New` and `Register`. Preloaded with all built-in providers.
+
+**`New(cfg Config) (Sender, error)`** -- constructs a configured `Sender` using `DefaultRegistry`. Equivalent to `DefaultRegistry.New(cfg)`.
+
+**`Register(name ProviderName, provider Provider)`** -- adds or replaces a provider in `DefaultRegistry`.
+
+---
 
 ## Adapters
 
+### log
+
+Logs all message fields (including HTML body) at INFO level via `log/slog` and returns `nil` without delivering. Use this adapter in development when you want to inspect the full email content in structured logs.
+
+**Constructor:** `func New() *Sender`
+
+No configuration required.
+
 ### noop
 
-Logs all message fields at INFO level via `log/slog` and returns `nil` without delivering. Serves as the default adapter when `Config.Adapter` is empty.
+Logs message fields (excluding HTML body) at INFO level via `log/slog` and returns `nil` without delivering. Serves as the default adapter when `Config.Selected` is empty.
 
 **Constructor:** `func New() *Sender`
 
@@ -111,15 +187,10 @@ Captures all sent messages in a thread-safe slice. Intended for test use only.
 
 **Constructor:** `func New() *Sender`
 
-**Fields:**
-
-| Name | Type | Description |
-|------|------|-------------|
-| `Messages` | `[]core.Message` | All messages passed to `Send`, in order |
-
 **Methods:**
 
-- `Send(ctx context.Context, msg Message) error` -- appends `msg` to `Messages`; always returns `nil`
+- `Send(ctx context.Context, msg Message) error` -- appends `msg` to the internal message list; always returns `nil`
+- `Sent() []core.Message` -- returns a copy of all captured messages; safe for concurrent access
 - `Reset()` -- clears all captured messages
 
 ### resend
@@ -152,26 +223,49 @@ Delivers email via the [MailChannels] HTTP API.
 - Falls back to `sendFrom` when `msg.From` is empty
 - Returns an error prefixed with `"mailchannels:"` on non-2xx responses or transport failures
 
+---
+
 ## Configuration
 
-| Adapter | `APIKey` | `SendFrom` | Notes |
-|---------|----------|------------|-------|
-| `noop` | -- | -- | Safe dev default; messages only logged |
+| Provider | `APIKey` | `SendFrom` | Notes |
+|----------|----------|------------|-------|
+| `log` | -- | -- | Logs all fields including HTML body |
+| `noop` | -- | -- | Safe dev default; messages logged without HTML body |
 | `memory` | -- | -- | Test use only; messages captured in-memory |
 | `resend` | Required | Required | [Resend] account key |
 | `mailchannels` | Required | Required | [MailChannels] API key |
 
+### YAML Example
+
+```yaml
+send:
+  selected: resend
+  providers:
+    resend:
+      api_key: ${RESEND_API_KEY}
+      send_from: "noreply@example.com"
+    mailchannels:
+      api_key: ${MAILCHANNELS_API_KEY}
+      send_from: "noreply@example.com"
+```
+
+---
+
 ## Usage
 
-### Init from config (production with Resend)
+### Production with Resend
 
 ```go
 import "github.com/go-sum/send"
 
-sender, err := send.InitSender(send.Config{
-    Adapter:  "resend",
-    SendFrom: "noreply@example.com",
-    APIKey:   os.Getenv("RESEND_API_KEY"),
+sender, err := send.New(send.Config{
+    Selected: send.ProviderResend,
+    Providers: send.ProvidersConfig{
+        Resend: send.HTTPProviderConfig{
+            APIKey:   os.Getenv("RESEND_API_KEY"),
+            SendFrom: "noreply@example.com",
+        },
+    },
 })
 if err != nil {
     return fmt.Errorf("email setup: %w", err)
@@ -190,8 +284,8 @@ err = sender.Send(ctx, send.Message{
 ```go
 import "github.com/go-sum/send"
 
-// Empty Adapter falls back to "noop" -- logs messages, delivers nothing.
-sender, err := send.InitSender(send.Config{})
+// Empty Selected falls back to "noop" -- logs messages, delivers nothing.
+sender, err := send.New(send.Config{})
 if err != nil {
     return fmt.Errorf("email setup: %w", err)
 }
@@ -224,25 +318,45 @@ func TestWelcomeEmail(t *testing.T) {
         t.Fatalf("unexpected error: %v", err)
     }
 
-    if len(mem.Messages) != 1 {
-        t.Fatalf("expected 1 message, got %d", len(mem.Messages))
+    sent := mem.Sent()
+    if len(sent) != 1 {
+        t.Fatalf("expected 1 message, got %d", len(sent))
     }
-    if mem.Messages[0].To != "alice@example.com" {
-        t.Errorf("expected To=alice@example.com, got %s", mem.Messages[0].To)
+    if sent[0].To != "alice@example.com" {
+        t.Errorf("expected To=alice@example.com, got %s", sent[0].To)
     }
-    if mem.Messages[0].Subject != "Welcome" {
-        t.Errorf("expected Subject=Welcome, got %s", mem.Messages[0].Subject)
+    if sent[0].Subject != "Welcome" {
+        t.Errorf("expected Subject=Welcome, got %s", sent[0].Subject)
     }
 
     // Reset for subsequent test phases.
     mem.Reset()
-    if len(mem.Messages) != 0 {
-        t.Fatalf("expected 0 messages after reset, got %d", len(mem.Messages))
+    if len(mem.Sent()) != 0 {
+        t.Fatalf("expected 0 messages after reset, got %d", len(mem.Sent()))
     }
 }
 ```
 
-### Custom adapter registration
+### Resolving the default sender address
+
+```go
+import "github.com/go-sum/send"
+
+cfg := send.Config{
+    Selected: send.ProviderResend,
+    Providers: send.ProvidersConfig{
+        Resend: send.HTTPProviderConfig{
+            APIKey:   os.Getenv("RESEND_API_KEY"),
+            SendFrom: "noreply@example.com",
+        },
+    },
+}
+
+// Retrieve the provider-level default sender address.
+from := send.DefaultRegistry.SendFrom(cfg) // "noreply@example.com"
+```
+
+### Custom provider registration
 
 ```go
 import (
@@ -262,27 +376,50 @@ func (s *sesSender) Send(ctx context.Context, msg core.Message) error {
     return nil
 }
 
-// 2. Register a factory before calling InitSender.
+// 2. Register a provider before calling New.
 func init() {
-    send.Register("ses", func(cfg send.AdapterConfig) (send.Sender, error) {
-        return &sesSender{region: "us-east-1"}, nil
+    send.Register("ses", send.Provider{
+        Factory: func(cfg send.Config) (send.Sender, error) {
+            return &sesSender{region: "us-east-1"}, nil
+        },
+        SendFrom: func(cfg send.Config) string {
+            return "noreply@example.com"
+        },
     })
 }
 
-// 3. Select the custom adapter via Config.
-sender, err := send.InitSender(send.Config{
-    Adapter:  "ses",
-    SendFrom: "noreply@example.com",
-    APIKey:   os.Getenv("AWS_SES_API_KEY"),
+// 3. Select the custom provider via Config.
+sender, err := send.New(send.Config{
+    Selected: "ses",
 })
 ```
 
+### Using a custom registry
+
+```go
+import "github.com/go-sum/send"
+
+// Create an isolated registry (does not affect DefaultRegistry).
+registry := send.NewRegistry()
+
+registry.Register("custom", send.Provider{
+    Factory: func(cfg send.Config) (send.Sender, error) {
+        return myCustomSender{}, nil
+    },
+})
+
+sender, err := registry.New(send.Config{Selected: "custom"})
+```
+
+---
+
 ## Design Notes
 
-- The factory registry pattern decouples adapter selection from instantiation. Application code depends only on `Config` and the `Sender` interface, never on concrete adapter types.
+- The registry pattern decouples provider selection from instantiation. Application code depends only on `Config` and the `Sender` interface, never on concrete adapter types.
 - The `Sender` interface has a single method -- this keeps the contract minimal and makes it trivial to implement custom adapters or test fakes.
-- The `memory` adapter is thread-safe via an internal mutex, so it can be used safely in concurrent test scenarios.
+- The `memory` adapter is thread-safe via an internal mutex, so it can be used safely in concurrent test scenarios. Messages are accessed via the `Sent()` method, which returns a defensive copy.
 - `NewWithURL` constructors on the `resend` and `mailchannels` adapters allow pointing the HTTP client at an `httptest.Server` for integration tests without hitting live APIs.
+- The `log` adapter differs from `noop` in that it also emits the HTML body to structured logs, making it useful when inspecting rendered email templates during development.
 - This module follows the `pkg/` leaf-node rule: it imports only the standard library and `net/http`. There are no imports from `internal/` or other `pkg/` packages.
 
 [Resend]: https://resend.com/

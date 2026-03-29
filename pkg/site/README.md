@@ -105,32 +105,32 @@ data, err := site.BuildSitemap(entries)
 
 ### YAML-Driven Configuration Types
 
-The following types support declarative sitemap configuration via YAML (deserialized with koanf tags). They are consumed by the `handlers` sub-package to resolve entries at request time.
+The following types support declarative sitemap configuration via YAML (deserialized with koanf tags). They are consumed by the `handlers` sub-package to resolve entries at request time. All structs carry [validator] tags for struct-level validation at config load time.
 
 **`SitemapConfig`** -- Top-level sitemap configuration holding route entries, static page entries, and defaults for change frequency and priority.
 
-| Field | Type | YAML Key | Description |
-|-------|------|----------|-------------|
-| `Routes` | `[]RouteEntry` | `routes` | Named application routes to include in the sitemap. |
-| `StaticPages` | `[]StaticEntry` | `static_pages` | Explicit static path entries to include. |
-| `DefaultChangeFreq` | `string` | `default_changefreq` | Fallback change frequency for entries that do not specify one. |
-| `DefaultPriority` | `float64` | `default_priority` | Fallback priority (`0.0`--`1.0`) for entries that do not specify one. |
+| Field | Type | YAML Key | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `Routes` | `[]RouteEntry` | `routes` | `omitempty,dive` | Named application routes to include in the sitemap. Each entry is validated recursively. |
+| `StaticPages` | `[]StaticEntry` | `static_pages` | `omitempty,dive` | Explicit static path entries to include. Each entry is validated recursively. |
+| `DefaultChangeFreq` | `string` | `default_changefreq` | `omitempty,oneof=always hourly daily weekly monthly yearly never` | Fallback change frequency for entries that do not specify one. |
+| `DefaultPriority` | `float64` | `default_priority` | `omitempty,min=0,max=1` | Fallback priority (`0.0`--`1.0`) for entries that do not specify one. |
 
 **`RouteEntry`** -- References a named [Echo] route for sitemap inclusion.
 
-| Field | Type | YAML Key | Description |
-|-------|------|----------|-------------|
-| `Name` | `string` | `name` | Registered [Echo] route name, e.g. `"home.show"` (required). |
-| `ChangeFreq` | `string` | `changefreq` | Overrides `DefaultChangeFreq` for this entry. |
-| `Priority` | `*float64` | `priority` | Overrides `DefaultPriority` for this entry. `nil` means use default. |
+| Field | Type | YAML Key | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `Name` | `string` | `name` | `required` | Registered [Echo] route name, e.g. `"home.show"`. |
+| `ChangeFreq` | `string` | `changefreq` | `omitempty,oneof=always hourly daily weekly monthly yearly never` | Overrides `DefaultChangeFreq` for this entry. |
+| `Priority` | `*float64` | `priority` | `omitempty,min=0,max=1` | Overrides `DefaultPriority` for this entry. `nil` means use default. |
 
 **`StaticEntry`** -- References an explicit absolute path for sitemap inclusion.
 
-| Field | Type | YAML Key | Description |
-|-------|------|----------|-------------|
-| `Path` | `string` | `path` | Absolute path, e.g. `"/about"` (required). The handler prepends the origin. |
-| `ChangeFreq` | `string` | `changefreq` | Overrides `DefaultChangeFreq` for this entry. |
-| `Priority` | `*float64` | `priority` | Overrides `DefaultPriority` for this entry. `nil` means use default. |
+| Field | Type | YAML Key | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `Path` | `string` | `path` | `required` | Absolute path, e.g. `"/about"`. The handler prepends the origin. |
+| `ChangeFreq` | `string` | `changefreq` | `omitempty,oneof=always hourly daily weekly monthly yearly never` | Overrides `DefaultChangeFreq` for this entry. |
+| `Priority` | `*float64` | `priority` | `omitempty,min=0,max=1` | Overrides `DefaultPriority` for this entry. `nil` means use default. |
 
 ## HTTP Handlers
 
@@ -154,18 +154,18 @@ Constructs a `Handler` from a `Config` and a lazy route accessor function. The `
 
 ### `Handler.RobotsTxt`
 
-Serves `robots.txt`. Automatically derives the `SitemapURL` from `Config.Origin + "/sitemap.xml"`.
+Serves `robots.txt` as `text/plain`. Automatically derives the `SitemapURL` from `Config.Origin + "/sitemap.xml"`.
 
 ### `Handler.SitemapXML`
 
-Serves `sitemap.xml`. Resolves named routes from the config against the live route table, prepends `Config.Origin` to build absolute `<loc>` URLs, and applies default change frequency and priority from `SitemapConfig`.
+Serves `sitemap.xml` as `application/xml; charset=utf-8`. Resolves named routes from the config against the live route table, prepends `Config.Origin` to build absolute `<loc>` URLs, and applies default change frequency and priority from `SitemapConfig`.
 
-### Cache Headers
+### Cache Headers and Content Types
 
-| Endpoint | Cache-Control | TTL |
-|----------|---------------|-----|
-| `/robots.txt` | `public, max-age=86400` | 24 hours |
-| `/sitemap.xml` | `public, max-age=3600` | 1 hour |
+| Endpoint | Content-Type | Cache-Control | TTL |
+|----------|-------------|---------------|-----|
+| `/robots.txt` | `text/plain` | `public, max-age=86400` | 24 hours |
+| `/sitemap.xml` | `application/xml; charset=utf-8` | `public, max-age=3600` | 1 hour |
 
 ## Configuration
 
@@ -222,6 +222,7 @@ The `func() echo.Routes` parameter is a closure evaluated lazily at request time
 
 ## Parameterized Route Exclusion
 
-Routes whose resolved paths contain `:` (such as `/users/:id` or `/posts/:slug/edit`) are automatically excluded from the generated sitemap. These routes require runtime parameters to produce valid URLs and cannot be enumerated statically. The handler silently skips them during sitemap generation, so it is safe to reference parameterized route names in configuration -- they simply produce no output.
+Routes whose resolved paths contain `:` (such as `/users/:id` or `/posts/:slug/edit`) are automatically excluded from the generated sitemap. These routes require runtime parameters to produce valid URLs and cannot be enumerated statically. Unknown route names are also silently skipped. The handler safely handles both cases during sitemap generation, so it is safe to reference parameterized or potentially missing route names in configuration -- they simply produce no output.
 
 [Echo]: https://echo.labstack.com/
+[validator]: https://github.com/go-playground/validator
