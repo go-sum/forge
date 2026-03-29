@@ -29,6 +29,8 @@ import (
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/logging"
 	"github.com/go-sum/server/validate"
+
+	"github.com/labstack/echo/v5"
 )
 
 const assetConfigPath = assetconfig.DefaultConfigPath
@@ -121,7 +123,13 @@ func (c *Container) initWeb() {
 		GracefulTimeout: time.Duration(cfg.App.Server.GracefulTimeout) * time.Second,
 	}
 	c.RateLimiters = appserver.NewRateLimiters(cfg)
-	c.Web = server.New()
+	c.Web = server.NewWithConfig(echo.Config{
+		HTTPErrorHandler: appserver.NewErrorHandler(appserver.ErrorHandlerConfig{
+			Debug:  cfg.IsDevelopment(),
+			Logger: slog.Default(),
+			Config: cfg,
+		}),
+	})
 	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
 }
 

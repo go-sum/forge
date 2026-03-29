@@ -4,17 +4,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/labstack/echo/v5"
 )
 
-func TestNewInitializesEcho(t *testing.T) {
-	e := New()
+func TestNewWithConfigInitializesEcho(t *testing.T) {
+	e := NewWithConfig(echo.Config{})
 	if e == nil {
-		t.Fatal("New() returned nil")
+		t.Fatal("NewWithConfig() returned nil")
 	}
 }
 
 func TestStartReturnsErrorForInvalidAddress(t *testing.T) {
-	e := New()
+	e := NewWithConfig(echo.Config{})
 	err := Start(e, Config{
 		Host:            "127.0.0.1",
 		Port:            "not-a-port",

@@ -3,7 +3,7 @@
 // or reorder middleware for this specific application.
 //
 // The separation from pkg/server is intentional:
-//   - pkg/server.New() creates a bare Echo instance (generic, extractable)
+//   - pkg/server.NewWithConfig() creates an Echo instance with construction-time hooks (generic, extractable)
 //   - internal/server.RegisterMiddleware() configures this app's specific middleware (edit freely)
 package server
 
@@ -19,17 +19,10 @@ import (
 )
 
 // RegisterMiddleware wires the application middleware stack onto e in the correct order.
+// The HTTPErrorHandler must be set at construction time via server.NewWithConfig.
 // processedCSP is the final CSP header value (with hashes already injected by the caller).
 // publicPrefix is the URL prefix for static assets, used to set long-lived cache headers.
-// cfg is forwarded to the error handler so error pages render the correct nav and
-// the CSRF token is stored under the same key that the view layer reads.
 func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, publicPrefix string) {
-	e.HTTPErrorHandler = NewErrorHandler(ErrorHandlerConfig{
-		Debug:  cfg.IsDevelopment(),
-		Logger: slog.Default(),
-		Config: cfg,
-	})
-
 	// Pre-routing: runs before the router dispatches the request.
 	e.Pre(middleware.RemoveTrailingSlash())
 	// Method override reads _method from POST bodies and promotes the request

@@ -17,7 +17,6 @@ import (
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
-	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/validate"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -62,6 +61,6 @@ func NewContainer() *Container {
 
 // Shutdown gracefully tears down all services held by the container.
 func (c *Container) Shutdown() {
-	database.Close(c.DB)
+	c.DB.Close()
 	slog.Info("container shutdown complete")
 }

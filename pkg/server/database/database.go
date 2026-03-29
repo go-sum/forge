@@ -44,14 +44,6 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func CheckHealth(ctx context.Context, pool *pgxpool.Pool) error {
-	return pool.Ping(ctx)
-}
-
-func Close(pool *pgxpool.Pool) {
-	pool.Close()
-}
-
 // IsUniqueViolation reports whether err is a PostgreSQL unique constraint
 // violation (SQLSTATE 23505). Use this to map database errors to domain errors
 // without duplicating the postgres error code string at each call site.

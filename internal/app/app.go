@@ -8,7 +8,6 @@ import (
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
-	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
@@ -26,7 +25,7 @@ func New() *App {
 	h := handler.New(
 		c.Services,
 		c.Validator,
-		func(ctx context.Context) error { return database.CheckHealth(ctx, c.DB) },
+		func(ctx context.Context) error { return c.DB.Ping(ctx) },
 		c.Config,
 		func() echo.Routes { return c.Web.Router().Routes() },
 	)
