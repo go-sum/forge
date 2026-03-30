@@ -13,13 +13,14 @@ ARG SQLC_VERSION=latest
 ARG GOLANGCI_LINT_VERSION=
 
 # ── Dev target ───────────────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-alpine AS dev
+FROM golang:${GO_VERSION}-alpine AS dev_target
 ARG AIR_VERSION
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
 ARG TAILWIND_VERSION
 ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
+ARG TARGETARCH
 
 RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git bash
 
@@ -57,7 +58,6 @@ COPY pkg/send/go.mod /app/pkg/send/
 COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
 COPY pkg/session/go.mod pkg/session/go.sum /app/pkg/session/
 COPY pkg/site/go.mod pkg/server/go.sum /app/pkg/site/
-COPY pkg/send/go.mod /app/pkg/send/
 RUN go mod download
 # Source mounted as volume — not copied
 CMD ["go", "run", "./cli", "dev"]
@@ -73,15 +73,18 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli build-assets --minify
 # ── Production target ───────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS builder_stage
 WORKDIR /app
-COPY go.mod go.sum go.work go.work.sum ./
-COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
-COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
-COPY pkg/security/go.mod pkg/security/go.sum /app/pkg/security/
-COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
-COPY pkg/site/go.mod pkg/server/go.sum /app/pkg/site/
-COPY pkg/send/go.mod /app/pkg/send/
+# go.prod.mod has no replace directives — pkg/ modules resolve from GitHub.
+# go.prod.sum locks exact checksums for a reproducible build.
+# To regenerate: GOWORK=off GOPRIVATE=github.com/go-sum/* go mod tidy -modfile=go.prod.mod
+COPY go.prod.mod go.mod
+COPY go.prod.sum go.sum
 RUN go mod download
-COPY . .
+COPY cmd/ ./cmd/
+COPY cli/ ./cli/
+COPY config/ ./config/
+RUN rm -f config/*.development.yaml
+COPY db/ ./db/
+COPY internal/ ./internal/
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 
 FROM alpine:${ALPINE_VERSION} AS production_target
@@ -89,5 +92,6 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder_stage /server /server
 COPY --from=assets_stage /app/public/ /public/
 COPY config/ /config/
+RUN rm -f /config/*.development.yaml
 EXPOSE 8080
 CMD ["/server"]

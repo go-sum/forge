@@ -21,7 +21,7 @@ func TestInitLoadsNavContentFile(t *testing.T) {
   env: development
   name: starter
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
   log:
     level: info
   server:
@@ -184,7 +184,7 @@ func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
   env: development
   name: starter
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
   log:
     level: info
   server:
@@ -281,7 +281,7 @@ func TestLoadFromLoadsNestedServiceProviderConfig(t *testing.T) {
   env: development
   name: starter
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
   log:
     level: info
   server:
@@ -395,7 +395,7 @@ func TestLoadFromLoadsCSRFSecurityTokenTTLSeconds(t *testing.T) {
   env: development
   name: starter
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
   log:
     level: info
   server:
@@ -492,7 +492,7 @@ func TestLoadFromRequiresServiceFile(t *testing.T) {
   env: development
   name: starter
   database:
-    url: postgres://postgres:postgres@app_data:5432/starter?sslmode=disable
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
   log:
     level: info
   server:

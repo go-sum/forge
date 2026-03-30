@@ -1,72 +1,179 @@
 #!/usr/bin/env bash
-# deploy.sh — platform-agnostic production deploy
+# deploy.sh — Self-hosted pull-and-run deployment
 #
-# Performs three steps in order:
-#   1. Build and push a versioned production Docker image.
-#   2. Apply the schema to the production database via pgschema (runs in the dev image).
-#   3. Print a reminder to restart the service (add your platform step here).
+# Clones the repository into a temporary directory, builds the production
+# Docker image, applies schema migrations, and starts (or restarts) the
+# production stack via docker-compose.yml.
 #
-# Only Docker is required on the host — all tools run inside containers.
+# Usage:
+#   ./scripts/deploy.sh              # deploy from main branch
+#   ./scripts/deploy.sh staging      # deploy from a specific branch
 #
-# Required environment variables:
-#   DATABASE_URL   Production database DSN, e.g. postgres://user:pass@host/db
-#   REGISTRY       Image registry prefix,  e.g. ghcr.io/my-org
+# Environment variables:
+#   DEPLOY_DIR    Persistent directory for compose state and .env
+#                 (default: /opt/forge)
+#   DEPLOY_REPO   Git clone URL (default: auto-detected from current repo)
 #
-# Optional environment variables:
-#   IMAGE_NAME   Image base name (default: starter)
-#   IMAGE_TAG    Image tag       (default: short git SHA)
-#   APP_NAME     Dev image name  (default: <directory>-dev, matching Makefile)
+# Prerequisites:
+#   - Docker and Docker Compose installed on the server
+#   - $DEPLOY_DIR/.env configured with production secrets
+#     (see .env.example)
 
 set -euo pipefail
 
-# ── Validation ────────────────────────────────────────────────────────────────
+BRANCH="${1:-main}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/forge}"
+COMPOSE_FILE="docker-compose.yml"
+ENV_FILE=".env"
+PROJECT_NAME="forge-prod"
+APP_SERVICE="app"
 
-: "${DATABASE_URL:?DATABASE_URL is required}"
-: "${REGISTRY:?REGISTRY is required}"
+# ── Validation ──────────────────────────────────────────────────────────────
 
-IMAGE_NAME="${IMAGE_NAME:-starter}"
-IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
-APP_NAME="${APP_NAME:-$(basename "$(pwd)")-dev}"
+command -v docker >/dev/null 2>&1 || {
+    echo "ERROR: docker is not installed" >&2
+    exit 1
+}
 
-FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+docker compose version >/dev/null 2>&1 || {
+    echo "ERROR: docker compose plugin is not available" >&2
+    exit 1
+}
 
-# ── Dev image availability ─────────────────────────────────────────────────────
-# pgschema lives inside the dev image. Mirrors the _ensure-available Makefile target.
+if [[ ! -f "${DEPLOY_DIR}/${ENV_FILE}" ]]; then
+    echo "ERROR: ${DEPLOY_DIR}/${ENV_FILE} not found." >&2
+    echo "       Copy .env.example and configure it:" >&2
+    echo "       mkdir -p ${DEPLOY_DIR}" >&2
+    echo "       cp .env.example ${DEPLOY_DIR}/${ENV_FILE}" >&2
+    exit 1
+fi
 
-docker image inspect "${APP_NAME}" > /dev/null 2>&1 || \
-    docker build --target dev -t "${APP_NAME}" .
+# ── Resolve repository URL ─────────────────────────────────────────────────
 
-# ── Step 1: Build and push ────────────────────────────────────────────────────
+if [[ -z "${DEPLOY_REPO:-}" ]]; then
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        DEPLOY_REPO="$(git remote get-url origin 2>/dev/null)" || true
+    fi
+fi
 
-echo "==> Building production image: ${FULL_IMAGE}"
-docker build --target production -t "${FULL_IMAGE}" .
+if [[ -z "${DEPLOY_REPO:-}" ]]; then
+    echo "ERROR: DEPLOY_REPO is required (no git origin found)" >&2
+    exit 1
+fi
 
-echo "==> Pushing image: ${FULL_IMAGE}"
-docker push "${FULL_IMAGE}"
+# ── Step 1: Clone into temp directory ───────────────────────────────────────
 
-# ── Step 2: Apply schema ──────────────────────────────────────────────────────
-# Runs pgschema inside the dev container — no host installation needed.
-# pgschema reads DATABASE_URL from the environment; no --dsn flag required.
-# No --network flag: the external production DB is reachable from the default bridge.
+TEMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TEMP_DIR}"' EXIT
 
-echo "==> Applying schema to production database"
+echo "==> Cloning ${DEPLOY_REPO} (branch: ${BRANCH})"
+git clone --depth 1 --branch "${BRANCH}" "${DEPLOY_REPO}" "${TEMP_DIR}/src"
+
+COMMIT_SHA="$(git -C "${TEMP_DIR}/src" rev-parse --short HEAD)"
+echo "    Commit: ${COMMIT_SHA}"
+
+# ── Step 2: Prepare deploy directory ────────────────────────────────────────
+
+mkdir -p "${DEPLOY_DIR}"
+
+# Copy compose file (base only — no override), db init scripts, and this script
+cp "${TEMP_DIR}/src/${COMPOSE_FILE}" "${DEPLOY_DIR}/${COMPOSE_FILE}"
+cp -r "${TEMP_DIR}/src/db" "${DEPLOY_DIR}/db"
+cp "${TEMP_DIR}/src/scripts/deploy.sh" "${DEPLOY_DIR}/deploy.sh"
+chmod +x "${DEPLOY_DIR}/deploy.sh"
+
+# ── Step 3: Build the production image ──────────────────────────────────────
+# Build runs from the cloned source (needs Dockerfile + full context).
+
+echo "==> Building production image (commit: ${COMMIT_SHA})"
+docker build \
+    --target production_target \
+    --tag forge:latest \
+    "${TEMP_DIR}/src"
+
+# ── Step 4: Detect initial vs update deployment ────────────────────────────
+
+COMPOSE="docker compose --project-directory ${DEPLOY_DIR} -p ${PROJECT_NAME} --env-file ${DEPLOY_DIR}/${ENV_FILE}"
+IS_INITIAL=false
+
+if ! ${COMPOSE} ps --status running -q db 2>/dev/null | grep -q .; then
+    IS_INITIAL=true
+    echo "==> Initial deployment detected"
+else
+    echo "==> Update deployment detected"
+fi
+
+# ── Step 5: Ensure database and KV are running ─────────────────────────────
+
+if [[ "${IS_INITIAL}" == "true" ]]; then
+    echo "==> Starting database and KV services"
+    ${COMPOSE} up -d --wait db kv
+else
+    echo "==> Database and KV already running"
+fi
+
+# ── Step 6: Apply schema ───────────────────────────────────────────────────
+# pgschema lives in the dev image (production image is minimal).
+# Build the dev image on demand, connect it to the prod network.
+
+DEV_IMAGE="${PROJECT_NAME}-dev"
+docker image inspect "${DEV_IMAGE}" >/dev/null 2>&1 || {
+    echo "==> Building dev image for schema migration"
+    docker build \
+        --target dev_target \
+        --tag "${DEV_IMAGE}" \
+        "${TEMP_DIR}/src"
+}
+
+PROD_DB_URL="$(grep '^DATABASE_URL=' "${DEPLOY_DIR}/${ENV_FILE}" | cut -d= -f2-)"
+NETWORK="${PROJECT_NAME}_app_network"
+
+echo "==> Applying schema"
 docker run --rm \
-    -v "$(pwd):/app" \
+    -v "${DEPLOY_DIR}:/app" \
     -w /app \
-    -e DATABASE_URL="${DATABASE_URL}" \
-    "${APP_NAME}" \
+    --network "${NETWORK}" \
+    -e DATABASE_URL="${PROD_DB_URL}" \
+    "${DEV_IMAGE}" \
     pgschema apply --file db/sql/schema.sql --auto-approve
 
-# ── Step 3: Restart ───────────────────────────────────────────────────────────
-# This step is intentionally left open — it depends on your hosting platform.
-# Examples:
-#   Self-hosted SSH:   ssh user@host "cd /app && docker compose pull && docker compose up -d"
-#   Docker Swarm:      docker service update --image "${FULL_IMAGE}" my_service
-#   Fly.io:            fly deploy --image "${FULL_IMAGE}"
-#
-# Add your restart command here or call it from the CI workflow after this script.
+# ── Step 7: Start or restart app ───────────────────────────────────────────
+
+if [[ "${IS_INITIAL}" == "true" ]]; then
+    echo "==> Starting app service"
+    ${COMPOSE} up -d "${APP_SERVICE}"
+else
+    echo "==> Restarting app service"
+    ${COMPOSE} up -d --force-recreate --no-deps "${APP_SERVICE}"
+fi
+
+# ── Step 8: Health check ───────────────────────────────────────────────────
+
+echo "==> Waiting for health check..."
+APP_PORT="$(grep '^APP_PORT=' "${DEPLOY_DIR}/${ENV_FILE}" | cut -d= -f2- || echo "8080")"
+APP_PORT="${APP_PORT:-8080}"
+MAX_ATTEMPTS=30
+ATTEMPT=0
+
+while [[ ${ATTEMPT} -lt ${MAX_ATTEMPTS} ]]; do
+    ATTEMPT=$((ATTEMPT + 1))
+    if curl -sf "http://localhost:${APP_PORT}" >/dev/null 2>&1; then
+        echo "    Health check passed (attempt ${ATTEMPT}/${MAX_ATTEMPTS})"
+        break
+    fi
+    if [[ ${ATTEMPT} -eq ${MAX_ATTEMPTS} ]]; then
+        echo "ERROR: Health check failed after ${MAX_ATTEMPTS} attempts" >&2
+        echo "==> Recent logs:"
+        ${COMPOSE} logs --tail=50 "${APP_SERVICE}"
+        exit 1
+    fi
+    sleep 2
+done
+
+# ── Done ───────────────────────────────────────────────────────────────────
 
 echo ""
-echo "==> Deploy complete."
-echo "    Image:    ${FULL_IMAGE}"
-echo "    Next:     restart your service to pull the new image."
+echo "==> Deployment complete"
+echo "    Branch:  ${BRANCH}"
+echo "    Commit:  ${COMMIT_SHA}"
+echo "    URL:     http://localhost:${APP_PORT}"

@@ -1,0 +1,87 @@
+# docker-compose.dev.yml — Dev and test overlays
+#
+# Merged explicitly via: docker compose -f docker-compose.yml -f docker-compose.dev.yml
+# Never present on production servers — bare `docker compose up` loads only the base.
+#
+# IMPORTANT: x- anchors are file-scoped in YAML and do not pull through from
+# docker-compose.yml. Keep these version pins in sync with the base file.
+
+x-pg-image: &pg-image postgres:16-alpine
+x-kv-image: &kv-image docker.dragonflydb.io/dragonflydb/dragonfly:latest
+
+x-pg-healthcheck: &pg-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 5
+
+x-kv-healthcheck: &kv-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 5
+
+services:
+  app:
+    build:
+      context: .
+      target: dev_target
+    image: forge-dev
+    volumes:
+      - .:/app
+    restart: "no"
+
+  schema_data:
+    profiles: [db]
+    image: *pg-image
+    environment:
+      POSTGRES_USER: ${PGSCHEMA_PLAN_USER}
+      POSTGRES_PASSWORD: ${PGSCHEMA_PLAN_PASSWORD}
+      POSTGRES_DB: ${PGSCHEMA_PLAN_DB}
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/init-plan:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSCHEMA_PLAN_USER}"]
+      <<: *pg-healthcheck
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  test_db:
+    profiles: [test]
+    image: *pg-image
+    environment:
+      POSTGRES_USER: ${PGTEST_USER}
+      POSTGRES_PASSWORD: ${PGTEST_PASSWORD}
+      POSTGRES_DB: ${PGTEST_DATABASE}
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/init-test:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGTEST_USER}"]
+      <<: *pg-healthcheck
+    networks:
+      - test_network
+
+  test_kv:
+    profiles: [test]
+    image: *kv-image
+    environment:
+      - DFLY_requirepass=${KVTEST_PASSWORD:-}
+    tmpfs:
+      - /data
+    mem_swappiness: 0
+    ulimits:
+      memlock: -1
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      <<: *kv-healthcheck
+    networks:
+      - test_network
+
+networks:
+  test_network:
+    driver: bridge
