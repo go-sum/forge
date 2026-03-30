@@ -182,13 +182,13 @@ func writeHealthConfig(t *testing.T, dsn string) string {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
+  auth: {}
 `,
 		"site.yaml": `site:
   title: starter

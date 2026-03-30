@@ -8,7 +8,8 @@ import (
 	"log/slog"
 
 	auth "github.com/go-sum/auth"
-	"github.com/go-sum/auth/session"
+	"github.com/go-sum/kv"
+	"github.com/go-sum/session"
 	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
@@ -34,7 +35,8 @@ type Container struct {
 	ServerConfig server.Config
 	RateLimiters *appserver.RateLimiters
 	PublicDir    string // filesystem path to built public assets, e.g. "public"
-	Sessions     *session.SessionManager
+	Sessions     session.Manager
+	KV           kv.Store
 	Validator    *validate.Validator
 	Repos        *repository.Repositories
 	Services     *service.Services
@@ -51,6 +53,7 @@ func NewContainer() *Container {
 	c.initSender()
 	c.initAssets()
 	c.initDatabase()
+	c.initKV()
 	c.initWeb()
 	c.initAuth()
 	c.initValidator()
@@ -61,6 +64,11 @@ func NewContainer() *Container {
 
 // Shutdown gracefully tears down all services held by the container.
 func (c *Container) Shutdown() {
+	if c.KV != nil {
+		if err := c.KV.Close(); err != nil {
+			slog.Error("kv close error", "error", err)
+		}
+	}
 	c.DB.Close()
 	slog.Info("container shutdown complete")
 }

@@ -17,6 +17,8 @@ type AppConfig struct {
 	Server    ServerConfig      `koanf:"server"`
 	Security  SecurityConfig    `koanf:"security"`
 	Database  DatabaseConfig    `koanf:"database"`
+	KV        KVConfig          `koanf:"kv"`
+	Session   SessionConfig     `koanf:"session"`
 	Auth      AuthConfig        `koanf:"auth"`
 	Log       LogConfig         `koanf:"log"`
 	CSPHashes CSPHashesConfig   `koanf:"csp_hashes"`
@@ -115,11 +117,29 @@ type DatabaseConfig struct {
 	URL string `koanf:"url" validate:"required"`
 }
 
-type AuthConfig struct {
-	Session SessionConfig `koanf:"session"`
+// KVConfig holds the key-value store configuration.
+type KVConfig struct {
+	Enabled bool         `koanf:"enabled"`
+	Store   string       `koanf:"store" validate:"omitempty,oneof=redis"`
+	Redis   RedisKVConfig `koanf:"redis"`
 }
 
+// RedisKVConfig holds Redis/Dragonfly connection parameters.
+type RedisKVConfig struct {
+	Addr         string `koanf:"addr"           validate:"required_if=Enabled true"`
+	Password     string `koanf:"password"`
+	DB           int    `koanf:"db"`
+	PoolSize     int    `koanf:"pool_size"`
+	MinIdleConns int    `koanf:"min_idle_conns"`
+	DialTimeout  int    `koanf:"dial_timeout"`  // seconds
+	ReadTimeout  int    `koanf:"read_timeout"`  // seconds
+	WriteTimeout int    `koanf:"write_timeout"` // seconds
+}
+
+type AuthConfig struct{}
+
 type SessionConfig struct {
+	Store      string `koanf:"store"       validate:"omitempty,oneof=cookie server"`
 	Name       string `koanf:"name"`
 	AuthKey    string `koanf:"auth_key"    validate:"required,min=32"`
 	EncryptKey string `koanf:"encrypt_key" validate:"required,min=16,max=32"`

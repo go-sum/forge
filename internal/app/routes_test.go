@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/auth/session"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
@@ -17,6 +16,7 @@ import (
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server/validate"
+	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -32,12 +32,10 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 					HeaderName: "X-CSRF-Token",
 				},
 			},
-			Auth: config.AuthConfig{
-				Session: config.SessionConfig{
-					Name:       "_session",
-					AuthKey:    "12345678901234567890123456789012",
-					EncryptKey: "12345678901234567890123456789012",
-				},
+			Session: config.SessionConfig{
+				Name:       "_session",
+				AuthKey:    "12345678901234567890123456789012",
+				EncryptKey: "12345678901234567890123456789012",
 			},
 			Keys: config.ContextKeysConfig{
 				UserID:      "user_id",
@@ -65,13 +63,13 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		},
 	}
 
-	sessions, err := session.NewSessionStore(session.SessionConfig{
-		Name:       cfg.App.Auth.Session.Name,
-		AuthKey:    cfg.App.Auth.Session.AuthKey,
-		EncryptKey: cfg.App.Auth.Session.EncryptKey,
+	sessions, err := session.NewManager(session.Config{
+		CookieName: cfg.App.Session.Name,
+		AuthKey:    cfg.App.Session.AuthKey,
+		EncryptKey: cfg.App.Session.EncryptKey,
 	})
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("NewManager() error = %v", err)
 	}
 
 	repo := &routesTestUserRepo{
@@ -120,8 +118,15 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	cookieRec := httptest.NewRecorder()
-	if err := sessions.SetUserID(cookieRec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
+	state, err := sessions.Load(req)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if err := state.Put("auth.user_id", "11111111-1111-1111-1111-111111111111"); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := sessions.Commit(cookieRec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	for _, cookie := range cookieRec.Result().Cookies() {
@@ -188,7 +193,7 @@ var _ repository.UserRepository = (*routesTestUserRepo)(nil)
 // newTestApp builds a minimal application container with fake repositories
 // suitable for route integration tests. The returned Echo instance has all
 // routes registered and is ready for ServeHTTP calls.
-func newTestApp(t *testing.T) (*echo.Echo, *session.SessionManager, *routesTestUserRepo) {
+func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo) {
 	t.Helper()
 	const (
 		adminID   = "11111111-1111-1111-1111-111111111111"
@@ -205,12 +210,10 @@ func newTestApp(t *testing.T) (*echo.Echo, *session.SessionManager, *routesTestU
 					HeaderName: "X-CSRF-Token",
 				},
 			},
-			Auth: config.AuthConfig{
-				Session: config.SessionConfig{
-					Name:       "_session",
-					AuthKey:    "12345678901234567890123456789012",
-					EncryptKey: "12345678901234567890123456789012",
-				},
+			Session: config.SessionConfig{
+				Name:       "_session",
+				AuthKey:    "12345678901234567890123456789012",
+				EncryptKey: "12345678901234567890123456789012",
 			},
 			Keys: config.ContextKeysConfig{
 				UserID:      "user_id",
@@ -224,13 +227,13 @@ func newTestApp(t *testing.T) (*echo.Echo, *session.SessionManager, *routesTestU
 		},
 	}
 
-	sessions, err := session.NewSessionStore(session.SessionConfig{
-		Name:       cfg.App.Auth.Session.Name,
-		AuthKey:    cfg.App.Auth.Session.AuthKey,
-		EncryptKey: cfg.App.Auth.Session.EncryptKey,
+	sessions, err := session.NewManager(session.Config{
+		CookieName: cfg.App.Session.Name,
+		AuthKey:    cfg.App.Session.AuthKey,
+		EncryptKey: cfg.App.Session.EncryptKey,
 	})
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("NewManager() error = %v", err)
 	}
 
 	repo := &routesTestUserRepo{
@@ -291,16 +294,23 @@ func newTestApp(t *testing.T) (*echo.Echo, *session.SessionManager, *routesTestU
 }
 
 // adminCookie returns a session cookie for the admin user.
-func adminCookie(t *testing.T, sessions *session.SessionManager, adminID string) *http.Cookie {
+func adminCookie(t *testing.T, mgr session.Manager, adminID string) *http.Cookie {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	if err := sessions.SetUserID(rec, req, adminID); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
+	state, err := mgr.Load(req)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if err := state.Put("auth.user_id", adminID); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := mgr.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 	cookies := rec.Result().Cookies()
 	if len(cookies) == 0 {
-		t.Fatal("SetUserID() produced no cookies")
+		t.Fatal("Commit() produced no cookies")
 	}
 	return cookies[0]
 }
@@ -374,12 +384,10 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 					HeaderName: "X-CSRF-Token",
 				},
 			},
-			Auth: config.AuthConfig{
-				Session: config.SessionConfig{
-					Name:       "_session",
-					AuthKey:    "12345678901234567890123456789012",
-					EncryptKey: "12345678901234567890123456789012",
-				},
+			Session: config.SessionConfig{
+				Name:       "_session",
+				AuthKey:    "12345678901234567890123456789012",
+				EncryptKey: "12345678901234567890123456789012",
 			},
 			Keys: config.ContextKeysConfig{
 				UserID:      "user_id",
@@ -393,13 +401,13 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		},
 	}
 
-	sessions, err := session.NewSessionStore(session.SessionConfig{
-		Name:       cfg.App.Auth.Session.Name,
-		AuthKey:    cfg.App.Auth.Session.AuthKey,
-		EncryptKey: cfg.App.Auth.Session.EncryptKey,
+	sessions, err := session.NewManager(session.Config{
+		CookieName: cfg.App.Session.Name,
+		AuthKey:    cfg.App.Session.AuthKey,
+		EncryptKey: cfg.App.Session.EncryptKey,
 	})
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("NewManager() error = %v", err)
 	}
 
 	repo := &routesTestUserRepo{
@@ -461,12 +469,19 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		t.Helper()
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		if err := sessions.SetUserID(rec, req, userID); err != nil {
-			t.Fatalf("SetUserID() error = %v", err)
+		state, err := sessions.Load(req)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if err := state.Put("auth.user_id", userID); err != nil {
+			t.Fatalf("Put() error = %v", err)
+		}
+		if err := sessions.Commit(rec, req, state); err != nil {
+			t.Fatalf("Commit() error = %v", err)
 		}
 		cookies := rec.Result().Cookies()
 		if len(cookies) == 0 {
-			t.Fatal("SetUserID() produced no cookies")
+			t.Fatal("Commit() produced no cookies")
 		}
 		return cookies[0]
 	}

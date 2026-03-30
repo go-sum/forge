@@ -10,7 +10,7 @@ import (
 
 	auth "github.com/go-sum/auth"
 	authsvc "github.com/go-sum/auth/service"
-	"github.com/go-sum/auth/session"
+	"github.com/go-sum/kv/redisstore"
 	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
 	icons "github.com/go-sum/componentry/icons"
@@ -19,7 +19,9 @@ import (
 	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters/authmail"
+	"github.com/go-sum/forge/internal/adapters/authsession"
 	"github.com/go-sum/forge/internal/health"
+	"github.com/go-sum/session"
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
@@ -101,6 +103,38 @@ func (c *Container) initDatabase() {
 	c.DB = pool
 }
 
+// KV store bootstrap.
+func (c *Container) initKV() {
+	if !c.Config.App.KV.Enabled {
+		slog.Info("kv store disabled")
+		return
+	}
+
+	cfg := c.Config.App.KV.Redis
+	store, err := redisstore.New(redisstore.Config{
+		Addr:         cfg.Addr,
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		PoolSize:     cfg.PoolSize,
+		MinIdleConns: cfg.MinIdleConns,
+		DialTimeout:  time.Duration(cfg.DialTimeout) * time.Second,
+		ReadTimeout:  time.Duration(cfg.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.WriteTimeout) * time.Second,
+	})
+	if err != nil {
+		panic(fmt.Sprintf("kv: %v", err))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := store.Ping(ctx); err != nil {
+		panic(fmt.Sprintf("kv: ping failed: %v", err))
+	}
+
+	slog.Info("kv store connected", "addr", cfg.Addr)
+	c.KV = store
+}
+
 // Web bootstrap.
 func (c *Container) initWeb() {
 	cfg := c.Config
@@ -116,7 +150,6 @@ func (c *Container) initWeb() {
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "style-src", styleSrcs)
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "font-src", fontCSP.FontSources)
 
-	publicPrefix := c.AssetPaths.URLPrefix()
 	c.ServerConfig = server.Config{
 		Host:            cfg.App.Server.Host,
 		Port:            strconv.Itoa(cfg.App.Server.Port),
@@ -130,22 +163,26 @@ func (c *Container) initWeb() {
 			Config: cfg,
 		}),
 	})
-	appserver.RegisterMiddleware(c.Web, cfg, processedCSP, publicPrefix)
+	appserver.RegisterMiddleware(c.Web, cfg, processedCSP)
 }
 
 // Session/auth bootstrap.
 func (c *Container) initAuth() {
-	sm, err := session.NewSessionStore(session.SessionConfig{
-		Name:       c.Config.App.Auth.Session.Name,
-		AuthKey:    c.Config.App.Auth.Session.AuthKey,
-		EncryptKey: c.Config.App.Auth.Session.EncryptKey,
-		MaxAge:     c.Config.App.Auth.Session.MaxAge,
-		Secure:     c.Config.App.Auth.Session.Secure,
+	cfg := c.Config.App.Session
+	mgr, err := session.NewManager(session.Config{
+		Store:      cfg.Store,
+		CookieName: cfg.Name,
+		AuthKey:    cfg.AuthKey,
+		EncryptKey: cfg.EncryptKey,
+		MaxAge:     cfg.MaxAge,
+		Secure:     cfg.Secure,
+		BlobStore:  authsession.WrapKV(c.KV),
 	})
 	if err != nil {
 		panic(fmt.Sprintf("session: %v", err))
 	}
-	c.Sessions = sm
+	c.Sessions = mgr
+	slog.Info("session manager initialized", "store", cfg.Store)
 }
 
 // Validation bootstrap.
@@ -175,8 +212,8 @@ func (c *Container) initServices() {
 			Method:   c.Config.Service.Auth.Methods.EmailTOTP,
 			Notifier: authmail.New(c.Sender, send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery)),
 			TokenCodec: authsvc.NewEncryptedTokenCodec(
-				c.Config.App.Auth.Session.AuthKey,
-				c.Config.App.Auth.Session.EncryptKey,
+				c.Config.App.Session.AuthKey,
+				c.Config.App.Session.EncryptKey,
 			),
 		},
 	)

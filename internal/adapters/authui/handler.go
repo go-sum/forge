@@ -6,12 +6,13 @@ import (
 	"net/http"
 
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/auth/session"
 	"github.com/go-sum/componentry/patterns/flash"
+	"github.com/go-sum/forge/internal/adapters/authsession"
 	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/patterns/redirect"
 	render "github.com/go-sum/componentry/render/echo"
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -29,7 +30,7 @@ type authService interface {
 // Handler holds auth transport dependencies for the Echo + componentry adapter.
 type Handler struct {
 	service          authService
-	sessions         *session.SessionManager
+	sessions         session.Manager
 	validator        form.StructValidator
 	signinPath       func() string
 	signupPath       func() string
@@ -65,7 +66,7 @@ type Config struct {
 // New constructs a Handler.
 func New(
 	svc authService,
-	sessions *session.SessionManager,
+	sessions session.Manager,
 	validator form.StructValidator,
 	cfg Config,
 ) *Handler {
@@ -126,7 +127,14 @@ func (h *Handler) Signin(c *echo.Context) error {
 	if err != nil {
 		return apperr.Internal(err)
 	}
-	if err := h.sessions.SetPendingFlow(c.Response(), c.Request(), flow); err != nil {
+	state, err := h.sessions.Load(c.Request())
+	if err != nil {
+		return apperr.Internal(err)
+	}
+	if err := authsession.SetPendingFlow(state, flow); err != nil {
+		return apperr.Internal(err)
+	}
+	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
 		return apperr.Internal(err)
 	}
 	if err := flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
@@ -164,7 +172,14 @@ func (h *Handler) Signup(c *echo.Context) error {
 		return apperr.Internal(err)
 	}
 
-	if err := h.sessions.SetPendingFlow(c.Response(), c.Request(), flow); err != nil {
+	state, err := h.sessions.Load(c.Request())
+	if err != nil {
+		return apperr.Internal(err)
+	}
+	if err := authsession.SetPendingFlow(state, flow); err != nil {
+		return apperr.Internal(err)
+	}
+	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
 		return apperr.Internal(err)
 	}
 	if err := flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
@@ -202,8 +217,12 @@ func (h *Handler) Verify(c *echo.Context) error {
 	if input.Token != "" {
 		result, err = h.service.VerifyToken(c.Request().Context(), input.Token, input)
 	} else {
-		flow, flowErr := h.sessions.GetPendingFlow(c.Request())
-		if flowErr != nil {
+		verifyState, loadErr := h.sessions.Load(c.Request())
+		if loadErr != nil {
+			return apperr.BadRequest("Your verification session is missing. Start again.")
+		}
+		flow, ok := authsession.GetPendingFlow(verifyState)
+		if !ok {
 			return apperr.BadRequest("Your verification session is missing. Start again.")
 		}
 		result, err = h.service.VerifyPendingFlow(c.Request().Context(), flow, input)
@@ -231,13 +250,14 @@ func (h *Handler) Verify(c *echo.Context) error {
 		}
 	}
 
-	if err := h.sessions.SetUserID(c.Response(), c.Request(), result.User.ID.String()); err != nil {
+	commitState, err := h.sessions.Load(c.Request())
+	if err != nil {
 		return apperr.Internal(err)
 	}
-	if err := h.sessions.SetDisplayName(c.Response(), c.Request(), result.User.DisplayName); err != nil {
+	if err := authsession.SetAuth(commitState, result.User.ID.String(), result.User.DisplayName); err != nil {
 		return apperr.Internal(err)
 	}
-	if err := h.sessions.ClearPendingFlow(c.Response(), c.Request()); err != nil {
+	if err := h.sessions.Commit(c.Response(), c.Request(), commitState); err != nil {
 		return apperr.Internal(err)
 	}
 	if result.Purpose == model.FlowPurposeEmailChange {
@@ -250,8 +270,12 @@ func (h *Handler) Verify(c *echo.Context) error {
 
 // ResendVerify starts a fresh verification cycle from the current pending flow.
 func (h *Handler) ResendVerify(c *echo.Context) error {
-	flow, err := h.sessions.GetPendingFlow(c.Request())
+	state, err := h.sessions.Load(c.Request())
 	if err != nil {
+		return apperr.BadRequest("Your verification session is missing. Start again.")
+	}
+	flow, ok := authsession.GetPendingFlow(state)
+	if !ok {
 		return apperr.BadRequest("Your verification session is missing. Start again.")
 	}
 
@@ -262,7 +286,10 @@ func (h *Handler) ResendVerify(c *echo.Context) error {
 		}
 		return redirect.New(c.Response(), c.Request()).To(h.startPathForPurpose(flow.Purpose)).Go()
 	}
-	if err := h.sessions.SetPendingFlow(c.Response(), c.Request(), nextFlow); err != nil {
+	if err := authsession.SetPendingFlow(state, nextFlow); err != nil {
+		return apperr.Internal(err)
+	}
+	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
 		return apperr.Internal(err)
 	}
 	if err := flash.Success(c.Response(), "A new verification code has been sent."); err != nil {
@@ -281,8 +308,12 @@ func (h *Handler) EmailChangePage(c *echo.Context) error {
 // BeginEmailChange starts an email-change verification flow.
 func (h *Handler) BeginEmailChange(c *echo.Context) error {
 	req := h.req(c)
-	userIDRaw, err := h.sessions.GetUserID(c.Request())
+	state, err := h.sessions.Load(c.Request())
 	if err != nil {
+		return apperr.Unauthorized("Please sign in again.")
+	}
+	userIDRaw, ok := authsession.GetUserID(state)
+	if !ok {
 		return apperr.Unauthorized("Please sign in again.")
 	}
 	userID, err := uuid.Parse(userIDRaw)
@@ -311,7 +342,10 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 		return apperr.Internal(err)
 	}
 
-	if err := h.sessions.SetPendingFlow(c.Response(), c.Request(), flow); err != nil {
+	if err := authsession.SetPendingFlow(state, flow); err != nil {
+		return apperr.Internal(err)
+	}
+	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
 		return apperr.Internal(err)
 	}
 	if err := flash.Success(c.Response(), "Check your new email address for the verification code."); err != nil {
@@ -322,7 +356,7 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 
 // Signout clears the session and redirects to the signin page.
 func (h *Handler) Signout(c *echo.Context) error {
-	if err := h.sessions.Clear(c.Response(), c.Request()); err != nil {
+	if err := h.sessions.Destroy(c.Response(), c.Request()); err != nil {
 		return apperr.Internal(err)
 	}
 	return redirect.New(c.Response(), c.Request()).To(h.signinPath()).Go()
@@ -338,8 +372,12 @@ func (h *Handler) verifyStateFromRequest(c *echo.Context) (model.VerifyPageState
 		return state, nil
 	}
 
-	flow, err := h.sessions.GetPendingFlow(c.Request())
+	state, err := h.sessions.Load(c.Request())
 	if err != nil {
+		return model.VerifyPageState{}, []string{"Start a signup, signin, or email-change flow first."}
+	}
+	flow, ok := authsession.GetPendingFlow(state)
+	if !ok {
 		return model.VerifyPageState{}, []string{"Start a signup, signin, or email-change flow first."}
 	}
 	return model.VerifyPageState{
@@ -351,14 +389,18 @@ func (h *Handler) verifyStateFromRequest(c *echo.Context) (model.VerifyPageState
 
 func (h *Handler) verifyStateFromPost(c *echo.Context, token string) (model.VerifyPageState, []string) {
 	if token != "" {
-		state, err := h.service.VerifyPageState(token)
+		pageState, err := h.service.VerifyPageState(token)
 		if err != nil {
 			return model.VerifyPageState{Token: token}, []string{"The verification link is invalid or expired."}
 		}
-		return state, nil
+		return pageState, nil
 	}
-	flow, err := h.sessions.GetPendingFlow(c.Request())
+	state, err := h.sessions.Load(c.Request())
 	if err != nil {
+		return model.VerifyPageState{}, []string{"Your verification session is missing. Start again."}
+	}
+	flow, ok := authsession.GetPendingFlow(state)
+	if !ok {
 		return model.VerifyPageState{}, []string{"Your verification session is missing. Start again."}
 	}
 	return model.VerifyPageState{

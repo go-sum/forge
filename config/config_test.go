@@ -58,13 +58,12 @@ func TestInitLoadsNavContentFile(t *testing.T) {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
 `,
 		"site.yaml": `site:
   title: starter
@@ -222,13 +221,12 @@ func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
 `,
 				"site.yaml": `site:
   title: starter
@@ -320,13 +318,12 @@ func TestLoadFromLoadsNestedServiceProviderConfig(t *testing.T) {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
 `,
 		"site.yaml": `site:
   title: starter
@@ -436,13 +433,12 @@ func TestLoadFromLoadsCSRFSecurityTokenTTLSeconds(t *testing.T) {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
 `,
 		"site.yaml": `site:
   title: starter
@@ -533,13 +529,12 @@ func TestLoadFromRequiresServiceFile(t *testing.T) {
   csp_hashes:
     always: []
     dev_only: []
-  auth:
-    session:
-      name: _session
-      auth_key: "12345678901234567890123456789012"
-      encrypt_key: "12345678901234567890123456789012"
-      max_age: 86400
-      secure: false
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
 `,
 		"site.yaml": `site:
   title: starter

@@ -26,21 +26,19 @@ RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git bash
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
 RUN git config --global --add safe.directory /app
-RUN ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
-    curl -fsSLo /usr/local/bin/pgschema \
-      "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${ARCH}" && \
+RUN curl -fsSLo /usr/local/bin/pgschema \
+      "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${TARGETARCH}" && \
     chmod +x /usr/local/bin/pgschema
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
     | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
-RUN ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+RUN TW_ARCH=$(echo "${TARGETARCH}" | sed 's/amd64/x64/') && \
     curl -fsSLo /usr/local/bin/tailwindcss \
-      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${ARCH}-musl" && \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}-musl" && \
     chmod +x /usr/local/bin/tailwindcss
-RUN ARCH="$(uname -m)" && \
-    case "$ARCH" in \
-      x86_64) HUGO_ARCH="Linux-64bit" ;; \
-      aarch64) HUGO_ARCH="linux-arm64" ;; \
-      *) echo "unsupported architecture: $ARCH" >&2; exit 1 ;; \
+RUN case "${TARGETARCH}" in \
+      amd64) HUGO_ARCH="Linux-64bit" ;; \
+      arm64) HUGO_ARCH="linux-arm64" ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
     curl -fsSLo /tmp/hugo.tar.gz \
       "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_${HUGO_ARCH}.tar.gz" && \
@@ -53,8 +51,11 @@ WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
 COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
+COPY pkg/kv/go.mod pkg/kv/go.sum /app/pkg/kv/
 COPY pkg/security/go.mod pkg/security/go.sum /app/pkg/security/
+COPY pkg/send/go.mod /app/pkg/send/
 COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/
+COPY pkg/session/go.mod pkg/session/go.sum /app/pkg/session/
 COPY pkg/site/go.mod pkg/server/go.sum /app/pkg/site/
 COPY pkg/send/go.mod /app/pkg/send/
 RUN go mod download
@@ -63,14 +64,14 @@ CMD ["go", "run", "./cli", "dev"]
 
 # ── Assets stage ─────────────────────────────────────────────────────────────
 # Builds the same asset pipeline used by dev so production does not drift.
-FROM dev AS assets
+FROM dev_target AS assets_stage
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
 RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli build-assets --minify
 
 # ── Production target ───────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-alpine AS builder
+FROM golang:${GO_VERSION}-alpine AS builder_stage
 WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
@@ -83,10 +84,10 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 
-FROM alpine:${ALPINE_VERSION} AS production
+FROM alpine:${ALPINE_VERSION} AS production_target
 RUN apk add --no-cache ca-certificates
-COPY --from=builder /server /server
-COPY --from=assets /app/public/ /public/
+COPY --from=builder_stage /server /server
+COPY --from=assets_stage /app/public/ /public/
 COPY config/ /config/
 EXPOSE 8080
 CMD ["/server"]

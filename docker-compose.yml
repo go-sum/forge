@@ -1,6 +1,12 @@
 x-pg-image: &pg-image postgres:16-alpine
+x-kv-image: &kv-image docker.dragonflydb.io/dragonflydb/dragonfly:latest
 
 x-pg-healthcheck: &pg-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 5
+
+x-kv-healthcheck: &kv-healthcheck
   interval: 5s
   timeout: 5s
   retries: 5
@@ -10,7 +16,7 @@ services:
     profiles: [dev]
     build:
       context: .
-      target: dev
+      target: dev_target
     ports:
       - "8080:8080"
     volumes:
@@ -20,8 +26,44 @@ services:
     depends_on:
       app_data:
         condition: service_healthy
+      app_kv:
+        condition: service_healthy
     networks:
       - app_network
+
+  app_kv:
+    profiles: [dev, db]
+    image: *kv-image
+    ports:
+      - "6379:6379"
+    environment:
+      - DFLY_requirepass=${KV_PASSWORD:-}
+    volumes:
+      - kv_data:/data
+    mem_swappiness: 0
+    ulimits:
+      memlock: -1
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      <<: *kv-healthcheck
+    networks:
+      - app_network
+
+  test_kv:
+    profiles: [test]
+    image: *kv-image
+    environment:
+      - DFLY_requirepass=${KVTEST_PASSWORD:-}
+    tmpfs:
+      - /data
+    mem_swappiness: 0
+    ulimits:
+      memlock: -1
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      <<: *kv-healthcheck
+    networks:
+      - test_network
 
   app_data:
     profiles: [dev, db]
@@ -80,6 +122,7 @@ services:
 
 volumes:
   postgres_data:
+  kv_data:
 
 networks:
   app_network:

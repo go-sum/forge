@@ -2,13 +2,13 @@ app:
   env: ${APP_ENV:-production}
   name: starter
 
-  auth:
-    session:
-      name: _session
-      auth_key: ${AUTH_SESSION_AUTH_KEY}
-      encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}
-      max_age: 86400
-      secure: true
+  session:
+    store: cookie
+    name: _session
+    auth_key: ${AUTH_SESSION_AUTH_KEY}
+    encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}
+    max_age: 86400
+    secure: true
 
   csp_hashes:
     always: []
@@ -16,6 +16,15 @@ app:
 
   database:
     url: ${DATABASE_URL}
+
+  kv:
+    enabled: false
+    store: redis
+    redis:
+      addr: ${KV_HOST:-localhost}:${KV_PORT:-6379}
+      password: ${KV_PASSWORD:-}
+      db: 0
+      pool_size: 10
 
   keys:
     user_id: user_id

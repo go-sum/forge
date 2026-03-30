@@ -90,13 +90,13 @@ dev: ## Start all services with hot-reload
 	$(D_COMPOSE) dev up --build
 
 docker-build: ## Build production Docker image
-	docker build --target production -t starter:latest .
+	docker build --target production_target -t starter:latest .
 
 deploy: _ensure-available ## Build, push, and migrate production (requires DATABASE_URL, REGISTRY; see scripts/deploy.sh)
 	./scripts/deploy.sh
 
 docker-dev: ## Build dev Docker image
-	docker build --target dev -t $(APP_NAME) .
+	docker build --target dev_target -t $(APP_NAME) .
 
 docker-down: ## Stop and remove containers
 	$(D_COMPOSE) dev down $(ARGS)
@@ -109,4 +109,4 @@ docker-up: ## Apply schema, then start containers in background
 
 _ensure-available:
 	@docker image inspect $(APP_NAME) > /dev/null 2>&1 || \
-	  docker build --target dev -t $(APP_NAME) .
+	  docker build --target dev_target -t $(APP_NAME) .

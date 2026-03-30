@@ -11,7 +11,6 @@ import (
 	"log/slog"
 
 	"github.com/go-sum/forge/config"
-	smw "github.com/go-sum/server/middleware"
 	"github.com/go-sum/server/middleware/override"
 
 	"github.com/labstack/echo/v5"
@@ -21,8 +20,7 @@ import (
 // RegisterMiddleware wires the application middleware stack onto e in the correct order.
 // The HTTPErrorHandler must be set at construction time via server.NewWithConfig.
 // processedCSP is the final CSP header value (with hashes already injected by the caller).
-// publicPrefix is the URL prefix for static assets, used to set long-lived cache headers.
-func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, publicPrefix string) {
+func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string) {
 	// Pre-routing: runs before the router dispatches the request.
 	e.Pre(middleware.RemoveTrailingSlash())
 	// Method override reads _method from POST bodies and promotes the request
@@ -72,6 +70,4 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string, p
 
 	// CSRF runs after the logger so all requests (including rejections) are logged.
 	e.Use(CSRFMiddleware(cfg))
-
-	e.Use(smw.StaticCacheControl(publicPrefix))
 }

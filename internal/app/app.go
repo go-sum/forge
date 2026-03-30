@@ -8,6 +8,7 @@ import (
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
+	smw "github.com/go-sum/server/middleware"
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
@@ -55,7 +56,9 @@ func New() *App {
 		},
 	)
 
-	c.Web.Static(c.AssetPaths.URLPrefix(), c.PublicDir)
+	staticGroup := c.Web.Group(c.AssetPaths.URLPrefix())
+	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
+	staticGroup.Static("", c.PublicDir)
 	if err := RegisterRoutes(c, h, authH); err != nil {
 		panic(fmt.Sprintf("routes: %v", err))
 	}

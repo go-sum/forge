@@ -8,4 +8,6 @@ use (
 	./pkg/security
 	./pkg/site
 	./pkg/send
+	./pkg/kv
+	./pkg/session
 )

@@ -2,17 +2,6 @@ module github.com/go-sum/forge
 
 go 1.26.0
 
-replace (
-	github.com/go-sum/auth => ./pkg/auth
-	github.com/go-sum/componentry => ./pkg/componentry
-	github.com/go-sum/kv => ./pkg/kv
-	github.com/go-sum/security => ./pkg/security
-	github.com/go-sum/send => ./pkg/send
-	github.com/go-sum/server => ./pkg/server
-	github.com/go-sum/session => ./pkg/session
-	github.com/go-sum/site => ./pkg/site
-)
-
 require (
 	github.com/evanw/esbuild v0.27.4
 	github.com/go-sum/auth v0.0.0

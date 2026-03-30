@@ -23,9 +23,11 @@ app:
     dev_only:
       - "'sha256-y933zYNvpVe5f9j5A+OKECUXiWo8bKB5Yp5sLDD3d0I='"  # air proxy hot-reload; run `make air-csp-hash` to update
 
-  auth:
-    session:
-      secure: false
+  session:
+    secure: false
+
+  kv:
+    enabled: true
 
   database:
     url: ${DATABASE_URL:-postgres://postgres:postgres@app_data:5432/starter?sslmode=disable}

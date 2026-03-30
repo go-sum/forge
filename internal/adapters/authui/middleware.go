@@ -6,9 +6,10 @@ import (
 
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
-	"github.com/go-sum/auth/session"
+	"github.com/go-sum/forge/internal/adapters/authsession"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -22,12 +23,16 @@ type ContextKeys struct {
 }
 
 // LoadSession reads the session non-destructively and sets the user ID in context.
-func LoadSession(sessions *session.SessionManager, keys ContextKeys) echo.MiddlewareFunc {
+func LoadSession(mgr session.Manager, keys ContextKeys) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			if userID, err := sessions.GetUserID(c.Request()); err == nil && userID != "" {
+			state, err := mgr.Load(c.Request())
+			if err != nil {
+				return next(c)
+			}
+			if userID, ok := authsession.GetUserID(state); ok {
 				c.Set(keys.UserID, userID)
-				if name, err := sessions.GetDisplayName(c.Request()); err == nil && name != "" {
+				if name, ok := authsession.GetDisplayName(state); ok {
 					c.Set(keys.DisplayName, name)
 				}
 			}

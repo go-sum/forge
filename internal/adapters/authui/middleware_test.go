@@ -10,8 +10,9 @@ import (
 
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
-	"github.com/go-sum/auth/session"
+	"github.com/go-sum/forge/internal/adapters/authsession"
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -79,14 +80,18 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 
 func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	e := echo.New()
+	mgr := testManager(t)
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
-	sessions, err := session.NewSessionStore(testSessionConfig())
+	state, err := mgr.Load(req)
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
-	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
+	if err := authsession.SetAuth(state, "11111111-1111-1111-1111-111111111111", ""); err != nil {
+		t.Fatalf("authsession.SetAuth() error = %v", err)
+	}
+	if err := mgr.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 	req = httptest.NewRequest(http.MethodGet, "/users", nil)
 	for _, cookie := range rec.Result().Cookies() {
@@ -94,7 +99,7 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
 		if got, _ := c.Get(testContextKeys.UserID).(string); got != "11111111-1111-1111-1111-111111111111" {
 			t.Fatalf("user ID = %q", got)
 		}
@@ -108,26 +113,26 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 
 func TestLoadSessionSetsDisplayNameWhenPresentInSession(t *testing.T) {
 	e := echo.New()
+	mgr := testManager(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	sessions, err := session.NewSessionStore(testSessionConfig())
+	state, err := mgr.Load(req)
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
-	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
+	if err := authsession.SetAuth(state, "11111111-1111-1111-1111-111111111111", "Ada Lovelace"); err != nil {
+		t.Fatalf("authsession.SetAuth() error = %v", err)
 	}
-	if err := sessions.SetDisplayName(rec, req, "Ada Lovelace"); err != nil {
-		t.Fatalf("SetDisplayName() error = %v", err)
+	if err := mgr.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
-	// Use only the last Set-Cookie header — simulates browser behaviour where the
-	// most recent Set-Cookie for a given name overwrites the previous value.
-	cookies := rec.Result().Cookies()
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(cookies[len(cookies)-1])
+	for _, cookie := range rec.Result().Cookies() {
+		req.AddCookie(cookie)
+	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
 		if got, _ := c.Get(testContextKeys.DisplayName).(string); got != "Ada Lovelace" {
 			t.Fatalf("display name = %q, want %q", got, "Ada Lovelace")
 		}
@@ -141,14 +146,19 @@ func TestLoadSessionSetsDisplayNameWhenPresentInSession(t *testing.T) {
 
 func TestLoadSessionDoesNotSetDisplayNameWhenAbsentFromSession(t *testing.T) {
 	e := echo.New()
+	mgr := testManager(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	sessions, err := session.NewSessionStore(testSessionConfig())
+	state, err := mgr.Load(req)
 	if err != nil {
-		t.Fatalf("NewSessionStore() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
-	if err := sessions.SetUserID(rec, req, "11111111-1111-1111-1111-111111111111"); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
+	// Set only the user ID, not the display name.
+	if err := state.Put("auth.user_id", "11111111-1111-1111-1111-111111111111"); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := mgr.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	for _, cookie := range rec.Result().Cookies() {
@@ -156,7 +166,7 @@ func TestLoadSessionDoesNotSetDisplayNameWhenAbsentFromSession(t *testing.T) {
 	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(sessions, testContextKeys)(func(c *echo.Context) error {
+	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
 		if got := c.Get(testContextKeys.DisplayName); got != nil {
 			t.Fatalf("display name = %v, want nil", got)
 		}
@@ -293,13 +303,18 @@ func (r middlewareUserRepo) GetByEmail(context.Context, string) (model.User, err
 
 var _ authrepo.UserReader = middlewareUserRepo{}
 
-func testSessionConfig() session.SessionConfig {
-	return session.SessionConfig{
-		Name:       "test-session",
+func testManager(t *testing.T) session.Manager {
+	t.Helper()
+	mgr, err := session.NewManager(session.Config{
+		CookieName: "test-session",
 		AuthKey:    strings.Repeat("a", 32),
 		EncryptKey: strings.Repeat("b", 32),
 		MaxAge:     3600,
+	})
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
 	}
+	return mgr
 }
 
 func assertMiddlewareAppErrorStatus(t *testing.T, err error, status int) {

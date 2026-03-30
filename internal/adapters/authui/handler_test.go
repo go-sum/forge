@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/auth/session"
+	"github.com/go-sum/forge/internal/adapters/authsession"
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/session"
 	servervalidate "github.com/go-sum/server/validate"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -94,8 +95,8 @@ func (f fakeAuthService) VerifyPageState(token string) (model.VerifyPageState, e
 }
 
 func newTestHandler(svc authService) *Handler {
-	sessions, err := session.NewSessionStore(session.SessionConfig{
-		Name:       "test-session",
+	mgr, err := session.NewManager(session.Config{
+		CookieName: "test-session",
 		AuthKey:    strings.Repeat("a", 32),
 		EncryptKey: strings.Repeat("b", 32),
 		MaxAge:     3600,
@@ -105,7 +106,7 @@ func newTestHandler(svc authService) *Handler {
 	}
 	return New(
 		svc,
-		sessions,
+		mgr,
 		servervalidate.New(),
 		Config{
 			SigninPath:       "/signin",
@@ -215,9 +216,13 @@ func TestSigninRedirectsToVerifyAndStoresPendingFlow(t *testing.T) {
 	for _, cookie := range rec.Result().Cookies() {
 		req.AddCookie(cookie)
 	}
-	flow, err := h.sessions.GetPendingFlow(req)
-	if err != nil || flow.Email != "ada@example.com" || flow.Purpose != model.FlowPurposeSignin {
-		t.Fatalf("flow=%#v err=%v", flow, err)
+	state, err := h.sessions.Load(req)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	flow, ok := authsession.GetPendingFlow(state)
+	if !ok || flow.Email != "ada@example.com" || flow.Purpose != model.FlowPurposeSignin {
+		t.Fatalf("flow=%#v ok=%v", flow, ok)
 	}
 }
 
@@ -282,9 +287,7 @@ func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify/resend", nil)
-	rec := httptest.NewRecorder()
-	if err := h.sessions.SetPendingFlow(rec, req, model.PendingFlow{
+	cookies := withPendingFlowSession(t, h, model.PendingFlow{
 		Purpose:     model.FlowPurposeSignup,
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
@@ -292,12 +295,10 @@ func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
 		Secret:      "OLDSECRET",
 		IssuedAt:    time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC),
 		ExpiresAt:   time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("SetPendingFlow() error = %v", err)
-	}
+	})
 
-	req = httptest.NewRequest(http.MethodPost, "/verify/resend", nil)
-	for _, cookie := range rec.Result().Cookies() {
+	req := httptest.NewRequest(http.MethodPost, "/verify/resend", nil)
+	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
 	resendRec := httptest.NewRecorder()
@@ -318,9 +319,13 @@ func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
 	for _, cookie := range resendRec.Result().Cookies() {
 		checkReq.AddCookie(cookie)
 	}
-	flow, err := h.sessions.GetPendingFlow(checkReq)
-	if err != nil || flow.Secret != "NEWSECRET" {
-		t.Fatalf("flow=%#v err=%v", flow, err)
+	state, err := h.sessions.Load(checkReq)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	flow, ok := authsession.GetPendingFlow(state)
+	if !ok || flow.Secret != "NEWSECRET" {
+		t.Fatalf("flow=%#v ok=%v", flow, ok)
 	}
 }
 
@@ -337,22 +342,17 @@ func TestVerifyRedirectsOnSuccess(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"123456"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	rec := httptest.NewRecorder()
-	if err := h.sessions.SetPendingFlow(rec, req, model.PendingFlow{
+	cookies := withPendingFlowSession(t, h, model.PendingFlow{
 		Purpose:   model.FlowPurposeSignin,
 		Email:     handlerTestUser.Email,
 		Secret:    "SECRET",
 		IssuedAt:  time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC),
 		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("SetPendingFlow() error = %v", err)
-	}
+	})
 
-	req = httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"123456"}}.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"123456"}}.Encode()))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range rec.Result().Cookies() {
+	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
 	verifyRec := httptest.NewRecorder()
@@ -390,16 +390,11 @@ func TestEmailChangeRedirectsToVerify(t *testing.T) {
 		},
 	})
 
+	cookies := withAuthSession(t, h, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
+
 	req := httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"new@example.com"}}.Encode()))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	rec := httptest.NewRecorder()
-	if err := h.sessions.SetUserID(rec, req, handlerTestUser.ID.String()); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"new@example.com"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range rec.Result().Cookies() {
+	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
 	changeRec := httptest.NewRecorder()
@@ -440,8 +435,32 @@ func withPendingFlowSession(t *testing.T, h *Handler, flow model.PendingFlow) []
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/verify", nil)
 	rec := httptest.NewRecorder()
-	if err := h.sessions.SetPendingFlow(rec, req, flow); err != nil {
-		t.Fatalf("SetPendingFlow() error = %v", err)
+	state, err := h.sessions.Load(req)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if err := authsession.SetPendingFlow(state, flow); err != nil {
+		t.Fatalf("authsession.SetPendingFlow() error = %v", err)
+	}
+	if err := h.sessions.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	return rec.Result().Cookies()
+}
+
+func withAuthSession(t *testing.T, h *Handler, userID, displayName string) []*http.Cookie {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	state, err := h.sessions.Load(req)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if err := authsession.SetAuth(state, userID, displayName); err != nil {
+		t.Fatalf("authsession.SetAuth() error = %v", err)
+	}
+	if err := h.sessions.Commit(rec, req, state); err != nil {
+		t.Fatalf("Commit() error = %v", err)
 	}
 	return rec.Result().Cookies()
 }
@@ -532,16 +551,11 @@ func TestEmailChangeRejectsConflictingEmail(t *testing.T) {
 		},
 	})
 
+	cookies := withAuthSession(t, h, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
+
 	req := httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"taken@example.com"}}.Encode()))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	rec := httptest.NewRecorder()
-	if err := h.sessions.SetUserID(rec, req, handlerTestUser.ID.String()); err != nil {
-		t.Fatalf("SetUserID() error = %v", err)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"taken@example.com"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range rec.Result().Cookies() {
+	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
 	changeRec := httptest.NewRecorder()
