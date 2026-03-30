@@ -3,19 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/go-sum/componentry/assetconfig"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
+	"github.com/go-sum/componentry/assetconfig"
 	"golang.org/x/sync/errgroup"
 )
-
-var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // fetchSVG fetches SVG bytes from base+file. Supports http/https URLs,
 // file:// URIs, and bare filesystem paths.
@@ -214,11 +211,4 @@ func buildSVGSprites(args []string) error {
 
 	fmt.Printf("Built %d sprite(s), %d total icons\n", builtSprites, totalIcons)
 	return nil
-}
-
-func runBuildSVGSprites() {
-	if err := buildSVGSprites(os.Args[2:]); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
 }

@@ -3,9 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"github.com/go-sum/componentry/assetconfig"
 	"strings"
 	"testing"
+
+	"github.com/go-sum/componentry/assetconfig"
 )
 
 func TestBuildJSBundlesSingleAppEntrypoint(t *testing.T) {
@@ -63,5 +64,56 @@ func TestBuildJSBundlesSingleAppEntrypoint(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(publicDir, "components.js")); !os.IsNotExist(err) {
 		t.Fatalf("stale public/js/components.js should have been removed, err=%v", err)
+	}
+}
+
+func TestBuildJSBundlesWithMinification(t *testing.T) {
+	tmpDir := t.TempDir()
+	sourceDir := filepath.Join(tmpDir, "static", "js")
+	publicDir := filepath.Join(tmpDir, "public", "js")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("mkdir source: %v", err)
+	}
+	if err := os.MkdirAll(publicDir, 0o755); err != nil {
+		t.Fatalf("mkdir public: %v", err)
+	}
+
+	// Source with whitespace and long identifiers that esbuild will minify.
+	appSource := "export function greetUser(userName) {\n  console.log('hello ' + userName)\n}\ngreetUser('world')\n"
+	if err := os.WriteFile(filepath.Join(sourceDir, "app.js"), []byte(appSource), 0o644); err != nil {
+		t.Fatalf("write app.js: %v", err)
+	}
+
+	cfg := assetconfig.JSConfig{
+		Bundles: []assetconfig.JSBundle{{
+			Entry:  filepath.Join(sourceDir, "app.js"),
+			Target: filepath.Join(publicDir, "app.min.js"),
+		}},
+	}
+
+	if err := buildJS(cfg, true); err != nil {
+		t.Fatalf("buildJS(minify=true) error = %v", err)
+	}
+
+	minified, err := os.ReadFile(filepath.Join(publicDir, "app.min.js"))
+	if err != nil {
+		t.Fatalf("read app.min.js: %v", err)
+	}
+
+	// Build without minification for size comparison.
+	cfg.Bundles[0].Target = filepath.Join(publicDir, "app.js")
+	if err := buildJS(cfg, false); err != nil {
+		t.Fatalf("buildJS(minify=false) error = %v", err)
+	}
+	unminified, err := os.ReadFile(filepath.Join(publicDir, "app.js"))
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+
+	if len(minified) >= len(unminified) {
+		t.Fatalf("minified output (%d bytes) should be smaller than unminified (%d bytes)", len(minified), len(unminified))
+	}
+	if !strings.Contains(string(minified), "hello") {
+		t.Fatalf("minified output missing string literal 'hello': %s", minified)
 	}
 }

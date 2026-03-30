@@ -1,18 +1,14 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/go-sum/componentry/assetconfig"
@@ -90,44 +86,6 @@ func resolveAssetBuildOptions(flags assetBuildFlags) (assetBuildOptions, error) 
 	}
 
 	return opts, nil
-}
-
-func runBuildAssets() {
-	flags, err := parseAssetBuildFlags(os.Args[2:])
-	if err != nil {
-		os.Exit(1)
-	}
-
-	opts, err := resolveAssetBuildOptions(flags)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-
-	if err := buildAssets(opts); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-}
-
-// runDev delegates all watching, rebuilding, and hot-reload to air.
-// air's pre_cmd in .air.toml runs build-assets before each server rebuild,
-// so CSS, JS, sprite, and config changes all trigger a consistent pipeline
-// and a server restart with freshly hashed assets.
-func runDev() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	airCmd := commandContext(ctx, "air", "-c", ".air.toml")
-	if err := airCmd.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, "error starting air:", err)
-		os.Exit(1)
-	}
-
-	if err := waitNamed("air", airCmd); err != nil && !errors.Is(err, context.Canceled) {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
 }
 
 func buildAssets(opts assetBuildOptions) error {
@@ -274,15 +232,6 @@ func downloadJS(dl assetconfig.JSDownload) (err error) {
 	return nil
 }
 
-// resolveVersion returns the version from the {NAME}_VERSION environment
-// variable (e.g. HTMX_VERSION), falling back to the value in .assets.yaml.
-func resolveVersion(name, defaultVersion string) string {
-	if v := strings.TrimSpace(os.Getenv(strings.ToUpper(name) + "_VERSION")); v != "" {
-		return v
-	}
-	return defaultVersion
-}
-
 func bundleJS(cfg assetconfig.JSBundle, minify bool) error {
 	if cfg.Entry == "" || cfg.Target == "" {
 		return nil
@@ -370,74 +319,4 @@ func buildCSS(cfg assetconfig.CSSConfig, minify bool) error {
 		return fmt.Errorf("%s: %w", cfg.Tool, err)
 	}
 	return nil
-}
-
-func buildDocs(paths assetconfig.Paths) error {
-	const docsSourceDir = ".docs"
-
-	publicRoot, err := filepath.Abs(paths.PublicRoot())
-	if err != nil {
-		return fmt.Errorf("resolve public root %s: %w", paths.PublicRoot(), err)
-	}
-	outputDir := filepath.Join(publicRoot, "doc")
-	if err := os.RemoveAll(outputDir); err != nil {
-		return fmt.Errorf("remove %s: %w", outputDir, err)
-	}
-	if err := os.MkdirAll(publicRoot, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", publicRoot, err)
-	}
-
-	args := []string{
-		"--source", docsSourceDir,
-		"--destination", outputDir,
-		"--quiet",
-	}
-	if err := command("hugo", args...).Run(); err != nil {
-		return fmt.Errorf("hugo: %w", err)
-	}
-	return nil
-}
-
-func command(name string, args ...string) *exec.Cmd {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd
-}
-
-func closeOnReturn(errp *error, closer io.Closer, subject string, args ...any) {
-	if closeErr := closer.Close(); closeErr != nil && *errp == nil {
-		*errp = fmt.Errorf("close "+subject+": %w", append(args, closeErr)...)
-	}
-}
-
-func commandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd
-}
-
-func waitNamed(name string, cmd *exec.Cmd) error {
-	if err := cmd.Wait(); err != nil {
-		if isExpectedExit(err) {
-			return nil
-		}
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	return nil
-}
-
-func isExpectedExit(err error) bool {
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		return false
-	}
-	status, ok := exitErr.Sys().(syscall.WaitStatus)
-	if !ok {
-		return false
-	}
-	return status.Signaled() && (status.Signal() == syscall.SIGTERM || status.Signal() == syscall.SIGKILL)
 }

@@ -39,10 +39,10 @@ clean: ## Remove build artifacts
 	rm -rf ./bin/server ./tmp ./public/css/app.css
 
 hash-air-csp: _ensure-available ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
-	$(D_RUN) $(APP_NAME) go run ./cli hash-air-csp
+	$(D_RUN) $(APP_NAME) go run ./cli/util hash-air-csp
 
 health: _ensure-available ## Run health checks (use ARGS='--verbose' or '--json')
-	$(call with-svc,$(D_COMPOSE) dev,db,$(RUN_APP) go run ./cli health $(ARGS))
+	$(call with-svc,$(D_COMPOSE) dev,db,$(RUN_APP) go run ./cli/util health $(ARGS))
 
 lint: _ensure-available ## Run golangci-lint
 	$(D_RUN) $(APP_NAME) ./scripts/workspace.sh exec golangci-lint run ./...
@@ -71,7 +71,7 @@ db-dump: _ensure-available ## Dump current live database schema to stdout for pr
 # ── Assets ────────────────────────────────────────────────────────────────────
 
 assets: _ensure-available ## Build all generated frontend assets
-	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(APP_NAME) go run ./cli build-assets --minify
+	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(APP_NAME) go run ./cli/build assets --minify
 
 # ── Package Sync & Release ────────────────────────────────────────────────────
 

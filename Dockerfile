@@ -60,7 +60,7 @@ COPY pkg/session/go.mod pkg/session/go.sum /app/pkg/session/
 COPY pkg/site/go.mod pkg/server/go.sum /app/pkg/site/
 RUN go mod download
 # Source mounted as volume — not copied
-CMD ["go", "run", "./cli", "dev"]
+CMD ["go", "run", "./cli/dev"]
 
 # ── Assets stage ─────────────────────────────────────────────────────────────
 # Builds the same asset pipeline used by dev so production does not drift.
@@ -68,7 +68,7 @@ FROM dev_target AS assets_stage
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
-RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli build-assets --minify
+RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify
 
 # ── Production target ───────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS builder_stage
