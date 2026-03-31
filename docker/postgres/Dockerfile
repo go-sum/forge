@@ -9,8 +9,7 @@ RUN apk update && apk add --no-cache \
       postgresql-${PG_VERSION}-client \
       postgresql-${PG_VERSION}-contrib \
       postgresql-${PG_VERSION}-oci-entrypoint \
-      gosu \
-      su-exec
+      gosu
 
 ENV PGDATA=/var/lib/postgresql/data
 ENV LANG=C.UTF-8
@@ -26,6 +25,6 @@ RUN mkdir -p /var/lib/postgresql/data /var/run/postgresql /var/lib/postgres/init
 VOLUME /var/lib/postgresql/data
 EXPOSE 5432
 
-# Start as root — the entrypoint handles chown and drops to postgres via su-exec.
+# Start as root — the entrypoint handles chown and drops to postgres via gosu.
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 CMD ["postgres"]

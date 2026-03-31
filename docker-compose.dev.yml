@@ -3,6 +3,7 @@
 # Merged explicitly via: docker compose -f docker-compose.yml -f docker-compose.dev.yml
 # Never present on production servers — bare `docker compose up` loads only the base.
 
+# anchors are file-scoped — these need to be redeclared here
 x-pg-healthcheck: &pg-healthcheck
   interval: 5s
   timeout: 5s
@@ -23,7 +24,19 @@ services:
       args:
         GO_VERSION: ${GO_VERSION}
         AIR_VERSION: ${AIR_VERSION}
+        SQLC_VERSION: ${SQLC_VERSION}
+        PGSCHEMA_VERSION: ${PGSCHEMA_VERSION}
+        TAILWIND_VERSION: ${TAILWIND_VERSION}
+        HUGO_VERSION: ${HUGO_VERSION}
+        GOLANGCI_LINT_VERSION: ${GOLANGCI_LINT_VERSION}
     image: forge-dev
+    read_only: false
+    tmpfs: !reset []
+    security_opt: !reset []
+    cap_drop: !reset []
+    pids_limit: 512
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
     restart: "no"

@@ -1,0 +1,23 @@
+# Version control
+.git
+
+# Secrets — MUST NOT enter build context
+.env
+.env.*
+!.env.example
+
+# Build artifacts and temp files
+bin/
+tmp/
+*.out
+coverage.*
+
+# IDE and tooling
+.claude*
+.vscode/
+.idea/
+
+# Documentation not needed in image
+*.md
+!db/**/*.md
+LICENSE

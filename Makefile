@@ -17,20 +17,15 @@ D_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --pr
 RUN_APP   := $(D_RUN) --network $(APP_NETWORK) $(TOOLS_NAME)
 RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(TOOLS_NAME)
 
-APP_BUILD_FLAGS := \
+# Build ARGs — Dockerfile stages only use what it declares.
+BUILD_FLAGS := \
     --file docker/app/Dockerfile \
     --build-arg GO_VERSION=$(GO_VERSION) \
-    --build-arg AIR_VERSION=$(AIR_VERSION)
-
-# dev_toolchain build flags — bookworm, all CLI/lint/test tools.
-TOOLS_BUILD_FLAGS := \
-    --file docker/app/Dockerfile \
-    --build-arg GO_VERSION=$(GO_VERSION) \
-    --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
-    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
-    --build-arg HUGO_VERSION=$(HUGO_VERSION) \
     --build-arg AIR_VERSION=$(AIR_VERSION) \
+    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
     --build-arg SQLC_VERSION=$(SQLC_VERSION) \
+    --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
+    --build-arg HUGO_VERSION=$(HUGO_VERSION) \
     --build-arg GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION)
 
 # Start $(2) via $(1) if not running, run $(3), stop any services we started.
@@ -39,12 +34,12 @@ define with-svc
 endef
 
 .PHONY: help \
-        build clean lint vet hash-air-csp test test-cover test-watch test-up \
+        build clean lint vet hash-air-csp health\
         db-apply db-gen db-plan db-dump \
-        assets health \
+        assets \
         package-list package-push package-release package-status package-sync \
-        dev ddev prod docker-build docker-dev docker-tools docker-down docker-logs docker-up \
-        deploy \
+        dev prod test \
+        docker-build docker-dev docker-down docker-logs docker-up \
         _ensure-available _ensure-tools
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
@@ -52,11 +47,11 @@ endef
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-build: _ensure-tools ## Build production binary
+build: _ensure-tools ## Build production binary into bin/
 	$(D_RUN) $(TOOLS_NAME) sh -c 'CGO_ENABLED=0 go build -o ./bin/server ./cmd/server'
 
 clean: ## Remove build artifacts
-	rm -rf ./bin/server ./tmp ./public/css/app.css
+	rm -rf ./bin ./tmp ./public/css/app.css
 
 hash-air-csp: _ensure-tools ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
 	$(D_RUN) $(TOOLS_NAME) go run ./cli/util hash-air-csp
@@ -121,19 +116,16 @@ dev: ## Start all services with hot-reload
 prod: docker-build ## Build and start the production stack locally
 	docker compose up -d
 
-deploy: ## Deploy production stack (run on server: make deploy BRANCH=main)
-	./scripts/deploy.sh $(BRANCH)
-
 docker-build: ## Build production Docker image
 	@GITHUB_ACCESS_TOKEN="$${GITHUB_ACCESS_TOKEN:-$$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}" && \
 	  export GITHUB_ACCESS_TOKEN && \
-	  docker build --target production_target $(TOOLS_BUILD_FLAGS) \
+	  docker build --target production_target $(BUILD_FLAGS) \
 	    --build-arg HTMX_VERSION=$(HTMX_VERSION) \
 	    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
 	    -t forge:latest .
 
 docker-dev: ## Build dev Docker images (wolfi app + bookworm toolchain)
-	docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
+	docker build --target dev_target $(BUILD_FLAGS) -t $(APP_NAME) .
 
 docker-down: ## Stop and remove containers
 	$(D_COMPOSE) dev down $(ARGS)
@@ -146,8 +138,8 @@ docker-up: ## Apply schema, then start containers in background
 
 _ensure-available:
 	@docker image inspect $(APP_NAME) > /dev/null 2>&1 || \
-	  docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
+	  docker build --target dev_target $(BUILD_FLAGS) -t $(APP_NAME) .
 
 _ensure-tools:
 	@docker image inspect $(TOOLS_NAME) > /dev/null 2>&1 || \
-	  docker build --target dev_toolchain $(TOOLS_BUILD_FLAGS) -t $(TOOLS_NAME) .
+	  docker build --target cli_toolchain $(BUILD_FLAGS) -t $(TOOLS_NAME) .
