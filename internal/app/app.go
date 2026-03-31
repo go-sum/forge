@@ -56,7 +56,7 @@ func New() *App {
 		},
 	)
 
-	staticGroup := c.Web.Group(c.AssetPaths.URLPrefix())
+	staticGroup := c.Web.Group(c.PublicPrefix)
 	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
 	staticGroup.Static("", c.PublicDir)
 	if err := RegisterRoutes(c, h, authH); err != nil {

@@ -32,6 +32,10 @@ app:
     display_name: user_display_name
     csrf: csrf
 
+  assets:
+    public_dir: ${PUBLIC_DIR:-public}
+    public_prefix: ${PUBLIC_PREFIX:-/public}
+
   log:
     level: info
 

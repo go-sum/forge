@@ -20,6 +20,7 @@ type AppConfig struct {
 	KV        KVConfig          `koanf:"kv"`
 	Session   SessionConfig     `koanf:"session"`
 	Auth      AuthConfig        `koanf:"auth"`
+	Assets    AssetsConfig      `koanf:"assets"`
 	Log       LogConfig         `koanf:"log"`
 	CSPHashes CSPHashesConfig   `koanf:"csp_hashes"`
 	Keys      ContextKeysConfig `koanf:"keys"`
@@ -134,6 +135,11 @@ type RedisKVConfig struct {
 	DialTimeout  int    `koanf:"dial_timeout"`  // seconds
 	ReadTimeout  int    `koanf:"read_timeout"`  // seconds
 	WriteTimeout int    `koanf:"write_timeout"` // seconds
+}
+
+type AssetsConfig struct {
+	PublicDir    string `koanf:"public_dir"`
+	PublicPrefix string `koanf:"public_prefix"`
 }
 
 type AuthConfig struct{}

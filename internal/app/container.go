@@ -10,7 +10,6 @@ import (
 	auth "github.com/go-sum/auth"
 	"github.com/go-sum/kv"
 	"github.com/go-sum/session"
-	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
@@ -28,7 +27,7 @@ import (
 // in dependency order and are safe to read concurrently after construction.
 type Container struct {
 	Config       *config.Config
-	AssetPaths   assetconfig.Paths
+	PublicPrefix string // URL prefix for static assets, e.g. "/public"
 	DB           *pgxpool.Pool
 	Assets       *assets.Assets
 	Web          *echo.Echo

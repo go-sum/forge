@@ -22,8 +22,8 @@ endef
         build clean lint vet hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets health \
-        package-sync package-release prod-sync \
-        dev ddev docker-build docker-dev docker-down docker-logs docker-up \
+        package-list package-sync package-release package-status prod-sync \
+        dev ddev prod docker-build docker-dev docker-down docker-logs docker-up \
         deploy \
         _ensure-available
 
@@ -75,18 +75,26 @@ assets: _ensure-available ## Build all generated frontend assets
 
 # ── Package Sync & Release ────────────────────────────────────────────────────
 
+package-list: _ensure-available ## List all discovered packages
+	$(D_RUN) $(APP_NAME) go run ./cli/package list
+
 package-sync: _ensure-available ## Sync a package subtree to its mirror repo (PACKAGE=auth)
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-sync PACKAGE=auth" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) ./scripts/package-sync.sh "$(PACKAGE)"
+	$(D_RUN) $(APP_NAME) go run ./cli/package sync "$(PACKAGE)"
 
-package-release: _ensure-available ## Release a versioned package to its mirror repo (PACKAGE=auth VERSION=v0.1.0)
-	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth VERSION=v0.1.0" >&2; exit 1; }
-	@test -n "$(VERSION)" || { echo "error: VERSION is required  e.g. make package-release PACKAGE=auth VERSION=v0.1.0" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) ./scripts/package-release.sh "$(PACKAGE)" "$(VERSION)"
+package-release: _ensure-available ## Release a package (PACKAGE=auth [VERSION=v0.1.0])
+	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth" >&2; exit 1; }
+	$(D_RUN) $(APP_NAME) go run ./cli/package release "$(PACKAGE)" $(if $(VERSION),"$(VERSION)")
 
-prod-sync: ## Regenerate go.prod.mod + go.prod.sum from go.mod (requires local GitHub credentials)
-	cp go.mod go.prod.mod
-	GOWORK=off go mod edit \
+package-status: _ensure-available ## Show sync status for a package (PACKAGE=auth)
+	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-status PACKAGE=auth" >&2; exit 1; }
+	$(D_RUN) $(APP_NAME) go run ./cli/package status "$(PACKAGE)"
+
+prod-sync: _ensure-available ## Regenerate go.prod.mod + go.prod.sum from go.mod
+	$(D_RUN) $(APP_NAME) sh -c '\
+	  git config --global url."https://x-access-token:$${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" && \
+	  cp go.mod go.prod.mod && \
+	  GOWORK=off go mod edit \
 	    -dropreplace=github.com/go-sum/auth \
 	    -dropreplace=github.com/go-sum/componentry \
 	    -dropreplace=github.com/go-sum/kv \
@@ -95,19 +103,26 @@ prod-sync: ## Regenerate go.prod.mod + go.prod.sum from go.mod (requires local G
 	    -dropreplace=github.com/go-sum/server \
 	    -dropreplace=github.com/go-sum/session \
 	    -dropreplace=github.com/go-sum/site \
-	    -modfile=go.prod.mod
-	GOWORK=off GOPRIVATE=github.com/go-sum/* go mod tidy -modfile=go.prod.mod
+	    -modfile=go.prod.mod && \
+	  GOWORK=off GONOSUMDB=github.com/go-sum/* GOPRIVATE=github.com/go-sum/* go mod tidy -modfile=go.prod.mod'
 
 # ── Docker & Dev ──────────────────────────────────────────────────────────────
 
 dev: ## Start all services with hot-reload
 	$(D_COMPOSE) dev up --build
 
+prod: docker-build ## Build and start the production stack locally
+	docker compose up -d
+
 deploy: ## Deploy production stack (run on server: make deploy BRANCH=main)
 	./scripts/deploy.sh $(BRANCH)
 
 docker-build: ## Build production Docker image
-	docker build --target production_target -t starter:latest .
+	@GITHUB_ACCESS_TOKEN="$${GITHUB_ACCESS_TOKEN:-$$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}" && \
+	  export GITHUB_ACCESS_TOKEN && \
+	  docker build --target production_target \
+	    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
+	    -t forge:latest .
 
 docker-dev: ## Build dev Docker image
 	docker build --target dev_target -t $(APP_NAME) .

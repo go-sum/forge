@@ -11,7 +11,6 @@ import (
 	auth "github.com/go-sum/auth"
 	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/kv/redisstore"
-	"github.com/go-sum/componentry/assetconfig"
 	"github.com/go-sum/componentry/assets"
 	icons "github.com/go-sum/componentry/icons"
 	install "github.com/go-sum/componentry/install"
@@ -35,7 +34,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-const assetConfigPath = assetconfig.DefaultConfigPath
+const (
+	defaultPublicDir    = "public"
+	defaultPublicPrefix = "/public"
+)
+
 
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
@@ -69,13 +72,15 @@ func (c *Container) initSender() {
 
 // Assets bootstrap.
 func (c *Container) initAssets() {
-	assetCfg, err := assetconfig.Load(assetConfigPath)
-	if err != nil {
-		panic(fmt.Sprintf("asset config: %v", err))
+	publicDir := c.Config.App.Assets.PublicDir
+	if publicDir == "" {
+		publicDir = defaultPublicDir
+	}
+	publicPrefix := c.Config.App.Assets.PublicPrefix
+	if publicPrefix == "" {
+		publicPrefix = defaultPublicPrefix
 	}
 
-	publicDir := assetCfg.Paths.PublicRoot()
-	publicPrefix := assetCfg.Paths.URLPrefix()
 	if err := assets.Init(publicDir, publicPrefix); err != nil {
 		panic(fmt.Sprintf("assets: %v", err))
 	}
@@ -86,8 +91,8 @@ func (c *Container) initAssets() {
 	})
 
 	c.Assets = assets.Default
-	c.AssetPaths = assetCfg.Paths
 	c.PublicDir = publicDir
+	c.PublicPrefix = publicPrefix
 }
 
 // Database bootstrap.
