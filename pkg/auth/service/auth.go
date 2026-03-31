@@ -90,12 +90,7 @@ func (s *AuthService) BeginSignup(ctx context.Context, input model.BeginSignupIn
 		return model.PendingFlow{}, fmt.Errorf("lookup signup email: %w", err)
 	}
 
-	role := input.Role
-	if role == "" {
-		role = model.RoleUser
-	}
-
-	flow, code, err := s.newPendingFlow(model.FlowPurposeSignup, input.Email, input.DisplayName, role, uuid.Nil)
+	flow, code, err := s.newPendingFlow(model.FlowPurposeSignup, input.Email, input.DisplayName, model.RoleUser, uuid.Nil)
 	if err != nil {
 		return model.PendingFlow{}, err
 	}
@@ -172,7 +167,6 @@ func (s *AuthService) ResendPendingFlow(ctx context.Context, flow model.PendingF
 		return s.BeginSignup(ctx, model.BeginSignupInput{
 			Email:       flow.Email,
 			DisplayName: flow.DisplayName,
-			Role:        flow.Role,
 		}, verifyPath)
 	case model.FlowPurposeSignin:
 		return s.BeginSignin(ctx, model.BeginSigninInput{
@@ -300,7 +294,7 @@ func (s *AuthService) finishVerification(ctx context.Context, flow model.Pending
 }
 
 func (s *AuthService) finishSignup(ctx context.Context, flow model.PendingFlow) (model.VerifyResult, error) {
-	user, err := s.users.Create(ctx, flow.Email, flow.DisplayName, defaultRole(flow.Role), true)
+	user, err := s.users.Create(ctx, flow.Email, flow.DisplayName, model.RoleUser, true)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
 			existing, getErr := s.users.GetByEmail(ctx, flow.Email)
@@ -387,13 +381,6 @@ func (s *AuthService) validateCode(secret string, issuedAt, expiresAt time.Time,
 		return nil
 	}
 	return model.ErrInvalidVerificationCode
-}
-
-func defaultRole(role string) string {
-	if role == "" {
-		return model.RoleUser
-	}
-	return role
 }
 
 func randomSecret() (string, error) {

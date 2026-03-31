@@ -39,7 +39,6 @@ type User struct {
 type BeginSignupInput struct {
 	Email       string `form:"email"         validate:"required,email,max=255"`
 	DisplayName string `form:"display_name"  validate:"required,min=1,max=255"`
-	Role        string `form:"role"          validate:"omitempty,oneof=user admin"`
 }
 
 // BeginSigninInput carries the email address for starting a signin verification flow.

@@ -141,6 +141,52 @@ func TestBeginSignupRejectsDuplicateEmail(t *testing.T) {
 	}
 }
 
+func TestSignupAlwaysCreatesRoleUser(t *testing.T) {
+	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
+	var capturedRole string
+	created := model.User{
+		ID:          uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		Email:       "new@example.com",
+		DisplayName: "New User",
+		Role:        model.RoleUser,
+		Verified:    true,
+	}
+	svc := testService(t, fakeUserStore{
+		getByEmailFn: func(_ context.Context, _ string) (model.User, error) {
+			return model.User{}, model.ErrUserNotFound
+		},
+		createFn: func(_ context.Context, _, _, role string, _ bool) (model.User, error) {
+			capturedRole = role
+			return created, nil
+		},
+	}, &capturingNotifier{}, now)
+
+	flow, err := svc.BeginSignup(context.Background(), model.BeginSignupInput{
+		Email:       "new@example.com",
+		DisplayName: "New User",
+	}, "https://example.com/verify")
+	if err != nil {
+		t.Fatalf("BeginSignup() error = %v", err)
+	}
+
+	code, err := svc.generateCode(flow.Secret, flow.IssuedAt)
+	if err != nil {
+		t.Fatalf("generateCode() error = %v", err)
+	}
+
+	result, err := svc.VerifyPendingFlow(context.Background(), flow, model.VerifyInput{Code: code})
+	if err != nil {
+		t.Fatalf("VerifyPendingFlow() error = %v", err)
+	}
+
+	if capturedRole != model.RoleUser {
+		t.Errorf("users.Create received role = %q, want %q", capturedRole, model.RoleUser)
+	}
+	if result.User.Role != model.RoleUser {
+		t.Errorf("result.User.Role = %q, want %q", result.User.Role, model.RoleUser)
+	}
+}
+
 func TestBeginSigninSuppressesDeliveryForUnknownEmail(t *testing.T) {
 	now := time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC)
 	notifier := &capturingNotifier{}
