@@ -1,20 +1,24 @@
+# check=skip=InvalidDefaultArgInFrom
 # ── Version pins ─────────────────────────────────────────────────────────────
-# All version strings live here. Update once; every stage picks up the change.
-ARG GO_VERSION=1.26
-ARG DEBIAN_VERSION=bookworm
-ARG DEBIAN_STATIC=debian12
-ARG PGSCHEMA_VERSION=1.7.4
-ARG TAILWIND_VERSION=4.1.3
-ARG HTMX_VERSION=2.0.4
-ARG HUGO_VERSION=0.159.1
+# Version strings are passed as --build-arg from .versions (project root).
+# Build via Makefile (make docker-dev / make docker-build) to ensure all
+# args are forwarded automatically.
+ARG GO_VERSION
+ARG PGSCHEMA_VERSION
+ARG TAILWIND_VERSION
+ARG HTMX_VERSION
+ARG HUGO_VERSION
 # Dev-only tools. Pin to a semver (e.g. v1.61.7) to improve reproducibility.
-ARG AIR_VERSION=latest
-ARG SQLC_VERSION=latest
+ARG AIR_VERSION
+ARG SQLC_VERSION
 # empty = latest; set to e.g. v2.1.6 to pin
-ARG GOLANGCI_LINT_VERSION=
+ARG GOLANGCI_LINT_VERSION
+
+# ── Go toolchain (pinned version from official image) ────────────────────────
+FROM golang:${GO_VERSION}-bookworm AS go_toolchain
 
 # ── Dev target ───────────────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-bookworm AS dev_target
+FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
 ARG AIR_VERSION
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
@@ -23,9 +27,20 @@ ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
 ARG TARGETARCH
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl gcc git bash ca-certificates libgit2-dev pkg-config && \
-    rm -rf /var/lib/apt/lists/*
+COPY --from=go_toolchain /usr/local/go /usr/local/go
+
+RUN apk update && apk add --no-cache \
+      bash \
+      ca-certificates-bundle \
+      curl \
+      gcc \
+      git \
+      glibc-dev \
+      libgit2-dev \
+      pkgconf
+
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
 
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
@@ -74,7 +89,11 @@ COPY . .
 RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify
 
 # ── Production target ───────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-bookworm AS builder_stage
+FROM cgr.dev/chainguard/wolfi-base:latest AS builder_stage
+COPY --from=go_toolchain /usr/local/go /usr/local/go
+RUN apk update && apk add --no-cache ca-certificates-bundle git
+ENV PATH="/usr/local/go/bin:${PATH}"
+
 WORKDIR /app
 # go.prod.mod has no replace directives — pkg/ modules resolve from GitHub.
 # go.prod.sum locks exact checksums for a reproducible build.
@@ -100,8 +119,7 @@ COPY internal/ ./internal/
 RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
     CGO_ENABLED=0 go build -o /server ./cmd/server
 
-ARG DEBIAN_STATIC
-FROM gcr.io/distroless/static-${DEBIAN_STATIC}:nonroot AS production_target
+FROM cgr.dev/chainguard/static:latest AS production_target
 WORKDIR /
 ENV PUBLIC_DIR=public \
     PUBLIC_PREFIX=/public

@@ -1,3 +1,6 @@
+include .versions
+export
+
 PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
 DATABASE_URL    ?= postgres://postgres:postgres@db:5432/starter?sslmode=disable
@@ -12,6 +15,18 @@ D_RUN     := docker run --rm -v $(PWD):/app -w /app --env-file .env
 D_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name $(PROJECT_NAME) --profile
 RUN_APP   := $(D_RUN) --network $(APP_NETWORK) $(APP_NAME)
 RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(APP_NAME)
+
+# Common flags for all app Docker builds — file path + dev-stage tool versions.
+# docker-build adds --build-arg HTMX_VERSION on top (assets stage only).
+APP_BUILD_FLAGS := \
+    --file docker/app/Dockerfile \
+    --build-arg GO_VERSION=$(GO_VERSION) \
+    --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
+    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
+    --build-arg HUGO_VERSION=$(HUGO_VERSION) \
+    --build-arg AIR_VERSION=$(AIR_VERSION) \
+    --build-arg SQLC_VERSION=$(SQLC_VERSION) \
+    --build-arg GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION)
 
 # Start $(2) via $(1) if not running, run $(3), stop any services we started.
 define with-svc
@@ -120,12 +135,13 @@ deploy: ## Deploy production stack (run on server: make deploy BRANCH=main)
 docker-build: ## Build production Docker image
 	@GITHUB_ACCESS_TOKEN="$${GITHUB_ACCESS_TOKEN:-$$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}" && \
 	  export GITHUB_ACCESS_TOKEN && \
-	  docker build --target production_target \
+	  docker build --target production_target $(APP_BUILD_FLAGS) \
+	    --build-arg HTMX_VERSION=$(HTMX_VERSION) \
 	    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
 	    -t forge:latest .
 
 docker-dev: ## Build dev Docker image
-	docker build --target dev_target -t $(APP_NAME) .
+	docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
 
 docker-down: ## Stop and remove containers
 	$(D_COMPOSE) dev down $(ARGS)
@@ -138,4 +154,4 @@ docker-up: ## Apply schema, then start containers in background
 
 _ensure-available:
 	@docker image inspect $(APP_NAME) > /dev/null 2>&1 || \
-	  docker build --target dev_target -t $(APP_NAME) .
+	  docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
