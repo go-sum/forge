@@ -1,7 +1,8 @@
 # ── Version pins ─────────────────────────────────────────────────────────────
 # All version strings live here. Update once; every stage picks up the change.
 ARG GO_VERSION=1.26
-ARG ALPINE_VERSION=3.20
+ARG DEBIAN_VERSION=bookworm
+ARG DEBIAN_STATIC=debian12
 ARG PGSCHEMA_VERSION=1.7.4
 ARG TAILWIND_VERSION=4.1.3
 ARG HTMX_VERSION=2.0.4
@@ -13,7 +14,7 @@ ARG SQLC_VERSION=latest
 ARG GOLANGCI_LINT_VERSION=
 
 # ── Dev target ───────────────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-alpine AS dev_target
+FROM golang:${GO_VERSION}-bookworm AS dev_target
 ARG AIR_VERSION
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
@@ -22,7 +23,9 @@ ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
 ARG TARGETARCH
 
-RUN apk add --no-cache curl libstdc++ gcc musl-dev openssl git bash
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl gcc git bash ca-certificates libgit2-dev pkg-config && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
@@ -34,7 +37,7 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/ins
     | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
 RUN TW_ARCH=$(echo "${TARGETARCH}" | sed 's/amd64/x64/') && \
     curl -fsSLo /usr/local/bin/tailwindcss \
-      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}-musl" && \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}" && \
     chmod +x /usr/local/bin/tailwindcss
 RUN case "${TARGETARCH}" in \
       amd64) HUGO_ARCH="Linux-64bit" ;; \
@@ -71,27 +74,39 @@ COPY . .
 RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify
 
 # ── Production target ───────────────────────────────────────────────────────
-FROM golang:${GO_VERSION}-alpine AS builder_stage
+FROM golang:${GO_VERSION}-bookworm AS builder_stage
 WORKDIR /app
 # go.prod.mod has no replace directives — pkg/ modules resolve from GitHub.
 # go.prod.sum locks exact checksums for a reproducible build.
-# To regenerate: GOWORK=off GOPRIVATE=github.com/go-sum/* go mod tidy -modfile=go.prod.mod
+# To regenerate: make prod-sync
 COPY go.prod.mod go.mod
 COPY go.prod.sum go.sum
-RUN go mod download
+# Private modules require GITHUB_ACCESS_TOKEN passed as a build secret.
+# Usage: docker build --secret id=github_token,env=GITHUB_ACCESS_TOKEN ...
+# The .netrc file persists auth across RUN steps but never reaches the final image.
+RUN --mount=type=secret,id=github_token \
+    TOKEN="$(cat /run/secrets/github_token 2>/dev/null)" && \
+    if [ -n "${TOKEN}" ]; then \
+      printf "machine github.com\nlogin x-access-token\npassword %s\n" "${TOKEN}" > /root/.netrc && \
+      chmod 600 /root/.netrc; \
+    fi && \
+    GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' go mod download
 COPY cmd/ ./cmd/
 COPY cli/ ./cli/
 COPY config/ ./config/
 RUN rm -f config/*.development.yaml
 COPY db/ ./db/
 COPY internal/ ./internal/
-RUN CGO_ENABLED=0 go build -o /server ./cmd/server
+RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
+    CGO_ENABLED=0 go build -o /server ./cmd/server
 
-FROM alpine:${ALPINE_VERSION} AS production_target
-RUN apk add --no-cache ca-certificates
-COPY --from=builder_stage /server /server
-COPY --from=assets_stage /app/public/ /public/
-COPY config/ /config/
-RUN rm -f /config/*.development.yaml
+ARG DEBIAN_STATIC
+FROM gcr.io/distroless/static-${DEBIAN_STATIC}:nonroot AS production_target
+WORKDIR /
+ENV PUBLIC_DIR=public \
+    PUBLIC_PREFIX=/public
+COPY --from=builder_stage --chown=nonroot:nonroot /server /server
+COPY --from=assets_stage --chown=nonroot:nonroot /app/public/ /public/
+COPY --from=builder_stage --chown=nonroot:nonroot /app/config/ /config/
 EXPOSE 8080
 CMD ["/server"]

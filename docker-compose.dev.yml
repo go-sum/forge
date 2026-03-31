@@ -6,8 +6,8 @@
 # IMPORTANT: x- anchors are file-scoped in YAML and do not pull through from
 # docker-compose.yml. Keep these version pins in sync with the base file.
 
-x-pg-image: &pg-image postgres:16-alpine
-x-kv-image: &kv-image docker.dragonflydb.io/dragonflydb/dragonfly:latest
+x-pg-image: &pg-image postgres:18-alpine
+x-kv-image: &kv-image docker.dragonflydb.io/dragonflydb/dragonfly:v1.37.0
 
 x-pg-healthcheck: &pg-healthcheck
   interval: 5s

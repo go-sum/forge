@@ -1,7 +1,7 @@
 -- Schema: starter application
 -- This file is the single source of truth for the database schema.
 -- pgschema uses this file to compute schema diffs (make db-plan / make db-apply).
--- Note: extensions (pgcrypto, citext) are managed separately via db/init/01-extensions.sql
+-- Note: extensions (citext) are managed separately via db/init/01-extensions.sql
 
 -- ─── Trigger function ───────────────────────────────────────────────────────
 -- Automatically sets updated_at = NOW() on any UPDATE row.
@@ -15,7 +15,7 @@ $$ LANGUAGE plpgsql;
 
 -- ─── Users ──────────────────────────────────────────────────────────────────
 CREATE TABLE users (
-    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    id            UUID         PRIMARY KEY DEFAULT uuidv7(),
     -- CITEXT enforces case-insensitive uniqueness: user@example.com == User@Example.com
     email         CITEXT       NOT NULL UNIQUE,
     display_name  VARCHAR(255) NOT NULL,
