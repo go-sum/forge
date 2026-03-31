@@ -17,8 +17,9 @@ ARG GOLANGCI_LINT_VERSION
 # ── Go toolchain (pinned version from official image) ────────────────────────
 FROM golang:${GO_VERSION}-bookworm AS go_toolchain
 
-# ── Dev target ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
+# ── Dev toolchain (bookworm — compatible libgit2 for git2go/v34) ─────────────
+# Used for all Makefile tool commands: lint, test, build, db-*, assets, package-*.
+FROM go_toolchain AS dev_toolchain
 ARG AIR_VERSION
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
@@ -27,17 +28,10 @@ ARG HUGO_VERSION
 ARG GOLANGCI_LINT_VERSION
 ARG TARGETARCH
 
-COPY --from=go_toolchain /usr/local/go /usr/local/go
-
-RUN apk update && apk add --no-cache \
-      bash \
-      ca-certificates-bundle \
-      curl \
-      gcc \
-      git \
-      glibc-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
       libgit2-dev \
-      pkgconf
+      pkgconf \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
@@ -67,6 +61,24 @@ RUN case "${TARGETARCH}" in \
     rm -f /tmp/hugo.tar.gz
 
 WORKDIR /app
+
+# ── Dev target (wolfi — minimal hot-reload container) ────────────────────────
+# Used only for `make dev` via docker compose. Contains just Go + air.
+# All Makefile tool commands run in dev_toolchain (forge-tools) instead.
+FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
+ARG AIR_VERSION
+ARG TARGETARCH
+
+COPY --from=go_toolchain /usr/local/go /usr/local/go
+RUN apk update && apk add --no-cache bash ca-certificates-bundle curl git
+
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+
+RUN go install github.com/air-verse/air@${AIR_VERSION}
+RUN git config --global --add safe.directory /app
+
+WORKDIR /app
 COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
 COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
@@ -82,13 +94,14 @@ CMD ["go", "run", "./cli/dev"]
 
 # ── Assets stage ─────────────────────────────────────────────────────────────
 # Builds the same asset pipeline used by dev so production does not drift.
-FROM dev_target AS assets_stage
+# Must use dev_toolchain — tailwindcss and hugo live there.
+FROM dev_toolchain AS assets_stage
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
 RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify
 
-# ── Production target ───────────────────────────────────────────────────────
+# ── Builder stage ────────────────────────────────────────────────────────────
 FROM cgr.dev/chainguard/wolfi-base:latest AS builder_stage
 COPY --from=go_toolchain /usr/local/go /usr/local/go
 RUN apk update && apk add --no-cache ca-certificates-bundle git
@@ -97,7 +110,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 WORKDIR /app
 # go.prod.mod has no replace directives — pkg/ modules resolve from GitHub.
 # go.prod.sum locks exact checksums for a reproducible build.
-# To regenerate: make prod-sync
+# To regenerate: make package-sync
 COPY go.prod.mod go.mod
 COPY go.prod.sum go.sum
 # Private modules require GITHUB_ACCESS_TOKEN passed as a build secret.
@@ -119,6 +132,7 @@ COPY internal/ ./internal/
 RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
     CGO_ENABLED=0 go build -o /server ./cmd/server
 
+# ── Production target ───────────────────────────────────────────────────────
 FROM cgr.dev/chainguard/static:latest AS production_target
 WORKDIR /
 ENV PUBLIC_DIR=public \

@@ -45,6 +45,7 @@ func main() {
 		newPushCmd(cfg),
 		newReleaseCmd(cfg),
 		newStatusCmd(cfg),
+		newSyncCmd(cfg),
 	)
 
 	if err := root.Execute(); err != nil {

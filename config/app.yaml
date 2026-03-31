@@ -45,7 +45,7 @@ app:
     graceful_timeout: 10
 
   security:
-    external_origin: https://example.com
+    external_origin: ${EXTERNAL_ORIGIN}
     origin:
       enabled: true
       require_header: true

@@ -22,12 +22,7 @@ services:
       dockerfile: docker/app/Dockerfile
       args:
         GO_VERSION: ${GO_VERSION}
-        PGSCHEMA_VERSION: ${PGSCHEMA_VERSION}
-        TAILWIND_VERSION: ${TAILWIND_VERSION}
-        HUGO_VERSION: ${HUGO_VERSION}
         AIR_VERSION: ${AIR_VERSION}
-        SQLC_VERSION: ${SQLC_VERSION}
-        GOLANGCI_LINT_VERSION: ${GOLANGCI_LINT_VERSION}
     image: forge-dev
     volumes:
       - .:/app

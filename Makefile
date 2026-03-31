@@ -3,6 +3,7 @@ export
 
 PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
+TOOLS_NAME      := $(PROJECT_NAME)-tools
 DATABASE_URL    ?= postgres://postgres:postgres@db:5432/starter?sslmode=disable
 COVERAGE_FILE   ?= coverage.out
 PACKAGE         ?=
@@ -13,12 +14,16 @@ TEST_NETWORK := $(PROJECT_NAME)_test_network
 
 D_RUN     := docker run --rm -v $(PWD):/app -w /app --env-file .env
 D_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name $(PROJECT_NAME) --profile
-RUN_APP   := $(D_RUN) --network $(APP_NETWORK) $(APP_NAME)
-RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(APP_NAME)
+RUN_APP   := $(D_RUN) --network $(APP_NETWORK) $(TOOLS_NAME)
+RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(TOOLS_NAME)
 
-# Common flags for all app Docker builds — file path + dev-stage tool versions.
-# docker-build adds --build-arg HTMX_VERSION on top (assets stage only).
 APP_BUILD_FLAGS := \
+    --file docker/app/Dockerfile \
+    --build-arg GO_VERSION=$(GO_VERSION) \
+    --build-arg AIR_VERSION=$(AIR_VERSION)
+
+# dev_toolchain build flags — bookworm, all CLI/lint/test tools.
+TOOLS_BUILD_FLAGS := \
     --file docker/app/Dockerfile \
     --build-arg GO_VERSION=$(GO_VERSION) \
     --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
@@ -37,88 +42,75 @@ endef
         build clean lint vet hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets health \
-        package-list package-push package-release package-status prod-sync \
-        dev ddev prod docker-build docker-dev docker-down docker-logs docker-up \
+        package-list package-push package-release package-status package-sync \
+        dev ddev prod docker-build docker-dev docker-tools docker-down docker-logs docker-up \
         deploy \
-        _ensure-available
+        _ensure-available _ensure-tools
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-build: _ensure-available ## Build production binary
-	$(D_RUN) $(APP_NAME) sh -c 'CGO_ENABLED=0 go build -o ./bin/server ./cmd/server'
+build: _ensure-tools ## Build production binary
+	$(D_RUN) $(TOOLS_NAME) sh -c 'CGO_ENABLED=0 go build -o ./bin/server ./cmd/server'
 
 clean: ## Remove build artifacts
 	rm -rf ./bin/server ./tmp ./public/css/app.css
 
-hash-air-csp: _ensure-available ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
-	$(D_RUN) $(APP_NAME) go run ./cli/util hash-air-csp
+hash-air-csp: _ensure-tools ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/util hash-air-csp
 
-health: _ensure-available ## Run health checks (use ARGS='--verbose' or '--json')
+health: _ensure-tools ## Run health checks (use ARGS='--verbose' or '--json')
 	$(call with-svc,$(D_COMPOSE) dev,db,$(RUN_APP) go run ./cli/util health $(ARGS))
 
-lint: _ensure-available ## Run golangci-lint
-	$(D_RUN) $(APP_NAME) ./scripts/workspace.sh exec golangci-lint run ./...
-	$(D_RUN) $(APP_NAME) ./scripts/workspace.sh exec go vet ./...
+lint: _ensure-tools ## Run golangci-lint
+	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec golangci-lint run ./...
+	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec go vet ./...
 
-test: _ensure-available ## Run tests (auto-starts/stops test_db + test_kv)
+test: _ensure-tools ## Run tests (auto-starts/stops test_db + test_kv)
 	$(call with-svc,$(D_COMPOSE) test,test_db test_kv,$(RUN_TEST) ./scripts/workspace.sh exec go test -v -race -count=1 ./...)
-
-test-up: ## Start the ephemeral test database and KV store manually
-	$(D_COMPOSE) test up -d --wait test_db test_kv
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-db-apply: _ensure-available ## Apply schema.sql to the database (auto-starts/stops schema_data)
+db-apply: _ensure-tools ## Apply schema.sql to the database (auto-starts/stops schema_data)
 	$(call with-svc,$(D_COMPOSE) db,schema_data,$(RUN_APP) pgschema apply --file db/sql/schema.sql --auto-approve)
 
-db-gen: _ensure-available ## Regenerate sqlc Go code from SQL queries
-	$(D_RUN) $(APP_NAME) sqlc generate -f .sqlc.yaml
+db-gen: _ensure-tools ## Regenerate sqlc Go code from SQL queries
+	$(D_RUN) $(TOOLS_NAME) sqlc generate -f .sqlc.yaml
 
-db-plan: _ensure-available ## Preview schema changes only (auto-starts/stops schema_data)
+db-plan: _ensure-tools ## Preview schema changes only (auto-starts/stops schema_data)
 	$(call with-svc,$(D_COMPOSE) db,schema_data,$(RUN_APP) pgschema plan --file db/sql/schema.sql --output-human stdout)
 
-db-dump: _ensure-available ## Dump current live database schema to stdout for preview
+db-dump: _ensure-tools ## Dump current live database schema to stdout for preview
 	$(call with-svc,$(D_COMPOSE) db,db,$(RUN_APP) pgschema dump)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 
-assets: _ensure-available ## Build all generated frontend assets
-	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(APP_NAME) go run ./cli/build assets --minify
+assets: _ensure-tools ## Build all generated frontend assets
+	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(TOOLS_NAME) go run ./cli/build assets --minify
 
 # ── Package Sync & Release ────────────────────────────────────────────────────
 
-package-list: _ensure-available ## List all discovered packages
-	$(D_RUN) $(APP_NAME) go run ./cli/package list
+package-list: _ensure-tools ## List all discovered packages
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/package list
 
-package-push: _ensure-available ## Push a package subtree to its mirror repo (PACKAGE=auth)
+package-push: _ensure-tools ## Push a package subtree to its mirror repo (PACKAGE=auth)
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-push PACKAGE=auth" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) go run ./cli/package push "$(PACKAGE)"
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/package push "$(PACKAGE)"
 
-package-release: _ensure-available ## Release a package (PACKAGE=auth [VERSION=v0.1.0])
+package-release: _ensure-tools ## Release a package (PACKAGE=auth [VERSION=v0.1.0])
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) go run ./cli/package release "$(PACKAGE)" $(if $(VERSION),"$(VERSION)")
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/package release "$(PACKAGE)" $(if $(VERSION),"$(VERSION)")
 
-package-status: _ensure-available ## Show sync status for a package (PACKAGE=auth)
+package-status: _ensure-tools ## Show sync status for a package (PACKAGE=auth)
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-status PACKAGE=auth" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) go run ./cli/package status "$(PACKAGE)"
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/package status "$(PACKAGE)"
 
-prod-sync: _ensure-available ## Regenerate go.prod.mod + go.prod.sum from go.mod
-	$(D_RUN) $(APP_NAME) sh -c '\
+package-sync: _ensure-tools ## Regenerate go.prod.mod + go.prod.sum from go.mod
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/package sync
+	$(D_RUN) $(TOOLS_NAME) sh -c '\
 	  git config --global url."https://x-access-token:$${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" && \
-	  cp go.mod go.prod.mod && \
-	  GOWORK=off go mod edit \
-	    -dropreplace=github.com/go-sum/auth \
-	    -dropreplace=github.com/go-sum/componentry \
-	    -dropreplace=github.com/go-sum/kv \
-	    -dropreplace=github.com/go-sum/security \
-	    -dropreplace=github.com/go-sum/send \
-	    -dropreplace=github.com/go-sum/server \
-	    -dropreplace=github.com/go-sum/session \
-	    -dropreplace=github.com/go-sum/site \
-	    -modfile=go.prod.mod && \
 	  GOWORK=off GONOSUMDB=github.com/go-sum/* GOPRIVATE=github.com/go-sum/* go mod tidy -modfile=go.prod.mod'
 
 # ── Docker & Dev ──────────────────────────────────────────────────────────────
@@ -135,12 +127,12 @@ deploy: ## Deploy production stack (run on server: make deploy BRANCH=main)
 docker-build: ## Build production Docker image
 	@GITHUB_ACCESS_TOKEN="$${GITHUB_ACCESS_TOKEN:-$$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}" && \
 	  export GITHUB_ACCESS_TOKEN && \
-	  docker build --target production_target $(APP_BUILD_FLAGS) \
+	  docker build --target production_target $(TOOLS_BUILD_FLAGS) \
 	    --build-arg HTMX_VERSION=$(HTMX_VERSION) \
 	    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
 	    -t forge:latest .
 
-docker-dev: ## Build dev Docker image
+docker-dev: ## Build dev Docker images (wolfi app + bookworm toolchain)
 	docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
 
 docker-down: ## Stop and remove containers
@@ -155,3 +147,7 @@ docker-up: ## Apply schema, then start containers in background
 _ensure-available:
 	@docker image inspect $(APP_NAME) > /dev/null 2>&1 || \
 	  docker build --target dev_target $(APP_BUILD_FLAGS) -t $(APP_NAME) .
+
+_ensure-tools:
+	@docker image inspect $(TOOLS_NAME) > /dev/null 2>&1 || \
+	  docker build --target dev_toolchain $(TOOLS_BUILD_FLAGS) -t $(TOOLS_NAME) .
