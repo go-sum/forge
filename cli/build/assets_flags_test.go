@@ -2,102 +2,96 @@ package main
 
 import "testing"
 
-func TestResolveAssetBuildOptions(t *testing.T) {
+func TestResolveAssetsOpts(t *testing.T) {
+	const defaultConfig = ".assets.yaml"
+
 	tests := []struct {
-		name    string
-		args    []string
-		want    assetBuildOptions
-		wantErr string
+		name   string
+		css    bool
+		js     bool
+		fonts  bool
+		want   assetBuildOptions
 	}{
 		{
-			name: "default build enables every asset group",
+			name: "no flags defaults to all asset types",
 			want: assetBuildOptions{
-				ConfigPath:   ".assets.yaml",
-				BuildCSS:     true,
-				BuildDocs:    true,
-				BuildFonts:   true,
-				BuildJS:      true,
-				BuildSprites: true,
+				ConfigPath: defaultConfig,
+				BuildCSS:   true,
+				BuildJS:    true,
+				BuildFonts: true,
 			},
 		},
 		{
-			name: "docs only disables unrelated assets and fonts",
-			args: []string{"--docs-only"},
+			name: "css only",
+			css:  true,
 			want: assetBuildOptions{
-				ConfigPath:   ".assets.yaml",
-				BuildCSS:     false,
-				BuildDocs:    true,
-				BuildFonts:   false,
-				BuildJS:      false,
-				BuildSprites: false,
+				ConfigPath: defaultConfig,
+				BuildCSS:   true,
+				BuildJS:    false,
+				BuildFonts: false,
 			},
 		},
 		{
-			name: "css only disables unrelated assets and fonts",
-			args: []string{"--css-only"},
+			name: "js only",
+			js:   true,
 			want: assetBuildOptions{
-				ConfigPath:   ".assets.yaml",
-				BuildCSS:     true,
-				BuildDocs:    false,
-				BuildFonts:   false,
-				BuildJS:      false,
-				BuildSprites: false,
+				ConfigPath: defaultConfig,
+				BuildCSS:   false,
+				BuildJS:    true,
+				BuildFonts: false,
 			},
 		},
 		{
-			name: "js only disables unrelated assets and fonts",
-			args: []string{"--js-only"},
+			name:  "fonts only",
+			fonts: true,
 			want: assetBuildOptions{
-				ConfigPath:   ".assets.yaml",
-				BuildCSS:     false,
-				BuildDocs:    false,
-				BuildFonts:   false,
-				BuildJS:      true,
-				BuildSprites: false,
+				ConfigPath: defaultConfig,
+				BuildCSS:   false,
+				BuildJS:    false,
+				BuildFonts: true,
 			},
 		},
 		{
-			name: "sprites only disables unrelated assets and fonts",
-			args: []string{"--sprites-only"},
+			name: "css and js combined",
+			css:  true,
+			js:   true,
 			want: assetBuildOptions{
-				ConfigPath:   ".assets.yaml",
-				BuildCSS:     false,
-				BuildDocs:    false,
-				BuildFonts:   false,
-				BuildJS:      false,
-				BuildSprites: true,
+				ConfigPath: defaultConfig,
+				BuildCSS:   true,
+				BuildJS:    true,
+				BuildFonts: false,
 			},
 		},
 		{
-			name:    "only flags remain mutually exclusive",
-			args:    []string{"--docs-only", "--css-only"},
-			wantErr: "choose at most one of --css-only, --docs-only, --js-only, --sprites-only",
+			name:  "all three explicit equals default",
+			css:   true,
+			js:    true,
+			fonts: true,
+			want: assetBuildOptions{
+				ConfigPath: defaultConfig,
+				BuildCSS:   true,
+				BuildJS:    true,
+				BuildFonts: true,
+			},
+		},
+		{
+			name: "minify flag is preserved",
+			want: assetBuildOptions{
+				ConfigPath: defaultConfig,
+				Minify:     true,
+				BuildCSS:   true,
+				BuildJS:    true,
+				BuildFonts: true,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flags, err := parseAssetBuildFlags(tt.args)
-			if err != nil {
-				t.Fatalf("parseAssetBuildFlags() error = %v", err)
-			}
-
-			got, err := resolveAssetBuildOptions(flags)
-			if tt.wantErr != "" {
-				if err == nil {
-					t.Fatalf("resolveAssetBuildOptions() error = nil, want %q", tt.wantErr)
-				}
-				if err.Error() != tt.wantErr {
-					t.Fatalf("resolveAssetBuildOptions() error = %q, want %q", err.Error(), tt.wantErr)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("resolveAssetBuildOptions() error = %v", err)
-			}
-
+			minify := tt.want.Minify
+			got := resolveAssetsOpts(defaultConfig, minify, tt.css, tt.js, tt.fonts)
 			if got != tt.want {
-				t.Fatalf("resolveAssetBuildOptions() = %#v, want %#v", got, tt.want)
+				t.Fatalf("resolveAssetsOpts() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}

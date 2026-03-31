@@ -105,7 +105,9 @@ FROM cli_toolchain AS assets_stage
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
-RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify
+RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify && \
+    go run ./cli/build docs && \
+    go run ./cli/build sprites
 
 # ── App healthcheck binary ──────────────────────────────────────────────────
 # Tiny static binary for Docker HEALTHCHECK in the distroless production image.

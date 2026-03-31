@@ -84,6 +84,8 @@ db-dump: _ensure-tools ## Dump current live database schema to stdout for previe
 
 assets: _ensure-tools ## Build all generated frontend assets
 	$(D_RUN) -e HTMX_VERSION=$(HTMX_VERSION) $(TOOLS_NAME) go run ./cli/build assets --minify
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/build docs
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/build sprites
 
 # ── Package Sync & Release ────────────────────────────────────────────────────
 

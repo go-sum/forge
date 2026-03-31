@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-sum/componentry/assetconfig"
+	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -176,18 +176,27 @@ func allRemoteSources(sources []assetconfig.SourcesConfig) bool {
 	return len(sources) > 0
 }
 
-func buildSVGSprites(args []string) error {
-	fs := flag.NewFlagSet("build-sprites", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+func newSpritesCmd() *cobra.Command {
+	var configPath, spriteName string
+	var dryRun bool
 
-	configPath := fs.String("config", assetconfig.DefaultConfigPath, "path to assets config file")
-	spriteName := fs.String("sprite", "", "build only this named sprite (default: all enabled)")
-	dryRun := fs.Bool("dry-run", false, "print output without writing files")
-	if err := fs.Parse(args); err != nil {
-		return err
+	cmd := &cobra.Command{
+		Use:   "sprites",
+		Short: "Build SVG sprite sheets",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSpritesCmd(configPath, spriteName, dryRun)
+		},
 	}
 
-	cfg, err := assetconfig.Load(*configPath)
+	cmd.Flags().StringVar(&configPath, "config", assetconfig.DefaultConfigPath, "path to assets config file")
+	cmd.Flags().StringVar(&spriteName, "sprite", "", "build only this named sprite (default: all enabled)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print output without writing files")
+
+	return cmd
+}
+
+func runSpritesCmd(configPath, spriteName string, dryRun bool) error {
+	cfg, err := assetconfig.Load(configPath)
 	if err != nil {
 		return err
 	}
@@ -197,10 +206,10 @@ func buildSVGSprites(args []string) error {
 		if !sprite.Enabled {
 			continue
 		}
-		if *spriteName != "" && name != *spriteName {
+		if spriteName != "" && name != spriteName {
 			continue
 		}
-		if err := buildSprite(name, sprite, *dryRun); err != nil {
+		if err := buildSprite(name, sprite, dryRun); err != nil {
 			return err
 		}
 		builtSprites++

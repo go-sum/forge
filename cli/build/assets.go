@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,80 +11,52 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/go-sum/componentry/assetconfig"
+	"github.com/spf13/cobra"
 )
 
 type assetBuildOptions struct {
 	ConfigPath   string
 	Minify       bool
 	BuildCSS     bool
-	BuildDocs    bool
 	BuildFonts   bool
 	BuildJS      bool
-	BuildSprites bool
 }
 
-type assetBuildFlags struct {
-	ConfigPath  string
-	Minify      bool
-	CSSOnly     bool
-	DocsOnly    bool
-	JSOnly      bool
-	SpritesOnly bool
+// resolveAssetsOpts builds the options struct from individual flag values.
+// If none of css, js, fonts are true, all three default to true.
+func resolveAssetsOpts(configPath string, minify, css, js, fonts bool) assetBuildOptions {
+	if !css && !js && !fonts {
+		css, js, fonts = true, true, true
+	}
+	return assetBuildOptions{
+		ConfigPath: configPath,
+		Minify:     minify,
+		BuildCSS:   css,
+		BuildJS:    js,
+		BuildFonts: fonts,
+	}
 }
 
-func parseAssetBuildFlags(args []string) (assetBuildFlags, error) {
-	fs := flag.NewFlagSet("build-assets", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+func newAssetsCmd() *cobra.Command {
+	var configPath string
+	var minify, css, js, fonts bool
 
-	configPath := fs.String("config", assetconfig.DefaultConfigPath, "path to assets config file")
-	minify := fs.Bool("minify", false, "minify compiled CSS and JS")
-	cssOnly := fs.Bool("css-only", false, "build only CSS")
-	docsOnly := fs.Bool("docs-only", false, "build only docs")
-	jsOnly := fs.Bool("js-only", false, "build only JS assets")
-	spritesOnly := fs.Bool("sprites-only", false, "build only SVG sprites")
-	if err := fs.Parse(args); err != nil {
-		return assetBuildFlags{}, err
+	cmd := &cobra.Command{
+		Use:   "assets",
+		Short: "Build CSS, JS, and font assets",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := resolveAssetsOpts(configPath, minify, css, js, fonts)
+			return buildAssets(opts)
+		},
 	}
 
-	return assetBuildFlags{
-		ConfigPath:  *configPath,
-		Minify:      *minify,
-		CSSOnly:     *cssOnly,
-		DocsOnly:    *docsOnly,
-		JSOnly:      *jsOnly,
-		SpritesOnly: *spritesOnly,
-	}, nil
-}
+	cmd.Flags().StringVar(&configPath, "config", assetconfig.DefaultConfigPath, "path to assets config file")
+	cmd.Flags().BoolVar(&minify, "minify", false, "minify compiled CSS and JS")
+	cmd.Flags().BoolVar(&css, "css", false, "build CSS (default: all asset types)")
+	cmd.Flags().BoolVar(&js, "js", false, "build JS (default: all asset types)")
+	cmd.Flags().BoolVar(&fonts, "fonts", false, "build fonts (default: all asset types)")
 
-func resolveAssetBuildOptions(flags assetBuildFlags) (assetBuildOptions, error) {
-	opts := assetBuildOptions{
-		ConfigPath:   flags.ConfigPath,
-		Minify:       flags.Minify,
-		BuildCSS:     true,
-		BuildDocs:    true,
-		BuildFonts:   true,
-		BuildJS:      true,
-		BuildSprites: true,
-	}
-
-	selected := 0
-	for _, only := range []bool{flags.CSSOnly, flags.DocsOnly, flags.JSOnly, flags.SpritesOnly} {
-		if only {
-			selected++
-		}
-	}
-	if selected > 1 {
-		return assetBuildOptions{}, errors.New("choose at most one of --css-only, --docs-only, --js-only, --sprites-only")
-	}
-	if selected == 1 {
-		opts.BuildCSS = flags.CSSOnly
-		opts.BuildDocs = flags.DocsOnly
-		opts.BuildFonts = false
-		opts.BuildJS = flags.JSOnly
-		opts.BuildSprites = flags.SpritesOnly
-	}
-
-	return opts, nil
+	return cmd
 }
 
 func buildAssets(opts assetBuildOptions) error {
@@ -104,18 +75,8 @@ func buildAssets(opts assetBuildOptions) error {
 			return err
 		}
 	}
-	if opts.BuildSprites {
-		if err := buildSVGSprites([]string{"--config", opts.ConfigPath}); err != nil {
-			return err
-		}
-	}
 	if opts.BuildCSS {
 		if err := buildCSSAll(cfg.CSS, opts.Minify); err != nil {
-			return err
-		}
-	}
-	if opts.BuildDocs {
-		if err := buildDocs(cfg.Paths); err != nil {
 			return err
 		}
 	}

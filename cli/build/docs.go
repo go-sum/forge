@@ -6,7 +6,28 @@ import (
 	"path/filepath"
 
 	"github.com/go-sum/componentry/assetconfig"
+	"github.com/spf13/cobra"
 )
+
+func newDocsCmd() *cobra.Command {
+	var configPath string
+
+	cmd := &cobra.Command{
+		Use:   "docs",
+		Short: "Build Hugo documentation",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := assetconfig.Load(configPath)
+			if err != nil {
+				return err
+			}
+			return buildDocs(cfg.Paths)
+		},
+	}
+
+	cmd.Flags().StringVar(&configPath, "config", assetconfig.DefaultConfigPath, "path to assets config file")
+
+	return cmd
+}
 
 func buildDocs(paths assetconfig.Paths) error {
 	const docsSourceDir = ".docs"
