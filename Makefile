@@ -37,7 +37,7 @@ endef
         build clean lint vet hash-air-csp test test-cover test-watch test-up \
         db-apply db-gen db-plan db-dump \
         assets health \
-        package-list package-sync package-release package-status prod-sync \
+        package-list package-push package-release package-status prod-sync \
         dev ddev prod docker-build docker-dev docker-down docker-logs docker-up \
         deploy \
         _ensure-available
@@ -93,9 +93,9 @@ assets: _ensure-available ## Build all generated frontend assets
 package-list: _ensure-available ## List all discovered packages
 	$(D_RUN) $(APP_NAME) go run ./cli/package list
 
-package-sync: _ensure-available ## Sync a package subtree to its mirror repo (PACKAGE=auth)
-	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-sync PACKAGE=auth" >&2; exit 1; }
-	$(D_RUN) $(APP_NAME) go run ./cli/package sync "$(PACKAGE)"
+package-push: _ensure-available ## Push a package subtree to its mirror repo (PACKAGE=auth)
+	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-push PACKAGE=auth" >&2; exit 1; }
+	$(D_RUN) $(APP_NAME) go run ./cli/package push "$(PACKAGE)"
 
 package-release: _ensure-available ## Release a package (PACKAGE=auth [VERSION=v0.1.0])
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth" >&2; exit 1; }

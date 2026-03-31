@@ -42,7 +42,7 @@ func main() {
 
 	root.AddCommand(
 		newListCmd(cfg),
-		newSyncCmd(cfg),
+		newPushCmd(cfg),
 		newReleaseCmd(cfg),
 		newStatusCmd(cfg),
 	)

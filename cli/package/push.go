@@ -7,9 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSyncCmd(cfg *config) *cobra.Command {
+func newPushCmd(cfg *config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync <name|all>",
+		Use:   "push <name|all>",
 		Short: "Subtree split and push a package to its mirror repo",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
