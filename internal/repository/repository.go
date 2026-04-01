@@ -23,6 +23,7 @@ type UserRepository interface {
 	UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Count(ctx context.Context) (int64, error)
+	HasAdmin(ctx context.Context) (bool, error)
 }
 
 // Repositories is the composition root for all data access.

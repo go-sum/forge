@@ -75,6 +75,10 @@ func (r fakeUserRepo) Count(ctx context.Context) (int64, error) {
 	return 0, errors.New("unexpected Count call")
 }
 
+func (fakeUserRepo) HasAdmin(context.Context) (bool, error) {
+	return false, errors.New("unexpected HasAdmin call")
+}
+
 func TestUserServiceListCapsPerPageAndComputesOffset(t *testing.T) {
 	svc := NewUserService(fakeUserRepo{
 		listFn: func(_ context.Context, limit, offset int32) ([]model.User, error) {

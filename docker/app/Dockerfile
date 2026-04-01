@@ -146,13 +146,15 @@ RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
 
 # ──────────────────────────────────────────────────────── production_target ───
 FROM cgr.dev/chainguard/static:latest AS production_target
-WORKDIR /
-ENV PUBLIC_DIR=public \
+ARG APP_FOLDER=/opt/server
+WORKDIR ${APP_FOLDER}
+ENV APP_FOLDER=${APP_FOLDER} \
+    PUBLIC_DIR=${APP_FOLDER}/public \
     PUBLIC_PREFIX=/public
-COPY --from=production_builder --chown=nonroot:nonroot /bin/server /bin/server
-COPY --from=healthcheck_builder --chown=nonroot:nonroot /healthcheck /healthcheck
-COPY --from=assets_builder --chown=nonroot:nonroot /app/public/ /public/
-COPY --from=production_builder --chown=nonroot:nonroot /app/config/ /config/
+COPY --from=production_builder  --chown=nonroot:nonroot /bin/server       ${APP_FOLDER}/server
+COPY --from=healthcheck_builder --chown=nonroot:nonroot /healthcheck       /opt/healthcheck
+COPY --from=assets_builder      --chown=nonroot:nonroot /app/public/       ${APP_FOLDER}/public/
+COPY --from=production_builder  --chown=nonroot:nonroot /app/config/*.yaml ${APP_FOLDER}/config/
 USER nonroot
 EXPOSE 8080
-CMD ["/bin/server"]
+CMD ["/opt/server/server"]

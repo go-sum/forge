@@ -39,6 +39,7 @@ endef
         package-list package-push package-release package-status package-sync \
         dev prod test \
         docker-build docker-dev docker-down docker-logs docker-up \
+        init-admin \
         _ensure-available _ensure-tools
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
@@ -78,6 +79,10 @@ db-plan: _ensure-tools ## Preview schema changes only (auto-starts/stops schema_
 
 db-dump: _ensure-tools ## Dump current live database schema to stdout for preview
 	$(call with-svc,$(D_COMPOSE) db,db,$(RUN_APP) pgschema dump)
+
+init-admin: _ensure-tools ## Bootstrap first admin — EMAIL=user@example.com (one-time, fails if admin exists)
+	@test -n "$(EMAIL)" || { echo "error: EMAIL is required  e.g. make init-admin EMAIL=user@example.com" >&2; exit 1; }
+	docker run --rm -it -v $(PWD):/app -w /app --env-file .env --network $(APP_NETWORK) $(TOOLS_NAME) go run ./cli/create admin "$(EMAIL)"
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 

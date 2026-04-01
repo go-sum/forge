@@ -118,6 +118,10 @@ func (r *userRepository) Count(ctx context.Context) (int64, error) {
 	return r.q.CountUsers(ctx)
 }
 
+func (r *userRepository) HasAdmin(ctx context.Context) (bool, error) {
+	return r.q.HasAdminUser(ctx)
+}
+
 // mapUserErr translates Postgres unique constraint violations to domain errors.
 func mapUserErr(err error) error {
 	if database.IsUniqueViolation(err) {

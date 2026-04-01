@@ -188,6 +188,10 @@ func (r *routesTestUserRepo) Count(context.Context) (int64, error) {
 	return int64(len(r.users)), nil
 }
 
+func (r *routesTestUserRepo) HasAdmin(context.Context) (bool, error) {
+	return false, nil
+}
+
 var _ repository.UserRepository = (*routesTestUserRepo)(nil)
 
 // newTestApp builds a minimal application container with fake repositories

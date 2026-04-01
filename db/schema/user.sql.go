@@ -113,6 +113,17 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const hasAdminUser = `-- name: HasAdminUser :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin')
+`
+
+func (q *Queries) HasAdminUser(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAdminUser)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
 ORDER BY created_at DESC

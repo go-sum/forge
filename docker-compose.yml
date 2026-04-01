@@ -36,7 +36,7 @@ services:
       kv:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/healthcheck"]
+      test: ["CMD", "/opt/healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 3

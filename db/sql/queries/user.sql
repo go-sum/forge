@@ -46,3 +46,6 @@ WHERE id = $1;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
+
+-- name: HasAdminUser :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin');
