@@ -27,10 +27,9 @@ BUILD_FLAGS := \
     --build-arg SQLC_VERSION=$(SQLC_VERSION) \
     --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
 
-# Start $(2) via $(1) if not running, run $(3), stop any services we started.
-define with-svc
-@_b=$$($(1) ps --status running --services 2>/dev/null | tr '\n' ' '); $(1) ps --status running -q $(2) 2>/dev/null | grep -q . || { $(1) up -d --wait $(2) && _new=1; }; $(3); _e=$$?; [ -n "$$_new" ] && { _stop=""; for _s in $$($(1) ps --status running --services 2>/dev/null); do case " $$_b " in *" $$_s "*) ;; *) _stop="$$_stop $$_s";; esac; done; [ -n "$$_stop" ] && $(1) rm -fs $$_stop; }; exit $$_e
-endef
+# Host OS/arch for cross-compiling CLI tools inside containers.
+HOST_GOOS   := $(shell uname -s | tr A-Z a-z)
+HOST_GOARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
 .PHONY: help \
         build clean lint vet hash-air-csp \
@@ -61,21 +60,21 @@ lint: _ensure-tools ## Run golangci-lint
 	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec go vet ./...
 
 test: _ensure-tools ## Run tests (auto-starts/stops test_db + test_kv)
-	$(call with-svc,$(D_COMPOSE) test,test_db test_kv,$(RUN_TEST) ./scripts/workspace.sh exec go test -v -race -count=1 ./...)
+	./bin/compose run "$(D_COMPOSE) test" "test_db test_kv" "$(RUN_TEST) ./scripts/workspace.sh exec go test -v -race -count=1 ./..."
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
 db-apply: _ensure-tools ## Apply schema.sql to the database (auto-starts/stops schema_data)
-	$(call with-svc,$(D_COMPOSE) db,schema_data,$(RUN_APP) pgschema apply --file db/sql/schema.sql --auto-approve)
+	./bin/compose run "$(D_COMPOSE) db" "schema_data" "$(RUN_APP) pgschema apply --file db/sql/schema.sql --auto-approve"
 
 db-gen: _ensure-tools ## Regenerate sqlc Go code from SQL queries
 	$(D_RUN) $(TOOLS_NAME) sqlc generate -f .sqlc.yaml
 
 db-plan: _ensure-tools ## Preview schema changes only (auto-starts/stops schema_data)
-	$(call with-svc,$(D_COMPOSE) db,schema_data,$(RUN_APP) pgschema plan --file db/sql/schema.sql --output-human stdout)
+	./bin/compose run "$(D_COMPOSE) db" "schema_data" "$(RUN_APP) pgschema plan --file db/sql/schema.sql --output-human stdout"
 
 db-dump: _ensure-tools ## Dump current live database schema to stdout for preview
-	$(call with-svc,$(D_COMPOSE) db,db,$(RUN_APP) pgschema dump)
+	./bin/compose run "$(D_COMPOSE) db" "db" "$(RUN_APP) pgschema dump"
 
 init-admin: _ensure-tools ## Bootstrap first admin — EMAIL=user@example.com (one-time, fails if admin exists)
 	@test -n "$(EMAIL)" || { echo "error: EMAIL is required  e.g. make init-admin EMAIL=user@example.com" >&2; exit 1; }
@@ -146,3 +145,4 @@ _ensure-available:
 _ensure-tools:
 	@docker image inspect $(TOOLS_NAME) > /dev/null 2>&1 || \
 	  docker build --target cli_toolchain $(BUILD_FLAGS) -t $(TOOLS_NAME) .
+	@test -x bin/compose || { $(D_RUN) -e CGO_ENABLED=0 -e GOOS=$(HOST_GOOS) -e GOARCH=$(HOST_GOARCH) $(TOOLS_NAME) go build -o ./bin/compose ./cli/compose && chmod +x bin/compose; }
