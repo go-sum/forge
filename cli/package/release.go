@@ -36,24 +36,40 @@ After a successful release, go.mod is updated with the new version.`,
 			}
 
 			goModPath := filepath.Join(cfg.repoRoot, "go.mod")
-			version, err := resolveReleaseVersion(goModPath, pkg.Module, explicit)
-			if err != nil {
-				return err
-			}
-
 			ctx := context.Background()
 
 			if err := ensureRepoExists(ctx, gh, pkg); err != nil {
 				return err
 			}
 
-			fmt.Fprintf(logWriter, "Releasing %s to %s/%s as %s\n", pkg.Prefix, cfg.owner, pkg.MirrorRepo, version)
-
 			sha, err := splitSubtree(cfg.repoRoot, pkg.Prefix)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(logWriter, "  split SHA: %s\n", sha)
+
+			// When no explicit version is given, skip if nothing has been pushed since the last release.
+			if explicit == "" {
+				currentVersion, err := readGoModVersion(goModPath, pkg.Module)
+				if err != nil {
+					return err
+				}
+				remoteTagSHA, err := gh.getRef(ctx, pkg.MirrorRepo, "tags/"+currentVersion)
+				if err != nil {
+					return err
+				}
+				if remoteTagSHA == sha {
+					fmt.Fprintf(logWriter, "No changes since %s, skipping %s\n", currentVersion, pkg.Name)
+					return nil
+				}
+			}
+
+			version, err := resolveReleaseVersion(goModPath, pkg.Module, explicit)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(logWriter, "Releasing %s to %s/%s as %s\n", pkg.Prefix, cfg.owner, pkg.MirrorRepo, version)
 
 			refs := []string{"refs/heads/main", "refs/tags/" + version}
 			if err := pushGit(cfg.repoRoot, gh.token, cfg.owner, pkg.MirrorRepo, sha, refs, cfg.dryRun); err != nil {

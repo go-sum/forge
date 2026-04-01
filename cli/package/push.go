@@ -38,6 +38,15 @@ func newPushCmd(cfg *config) *cobra.Command {
 				}
 				fmt.Fprintf(logWriter, "  split SHA: %s\n", sha)
 
+				remoteSHA, err := gh.getRef(ctx, pkg.MirrorRepo, "heads/main")
+				if err != nil {
+					return err
+				}
+				if remoteSHA == sha {
+					fmt.Fprintf(logWriter, "  already in sync, skipping\n")
+					continue
+				}
+
 				if err := pushGit(cfg.repoRoot, gh.token, cfg.owner, pkg.MirrorRepo, sha,
 					[]string{"refs/heads/main"}, cfg.dryRun); err != nil {
 					return err
