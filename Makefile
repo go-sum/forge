@@ -5,7 +5,6 @@ PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
 TOOLS_NAME      := $(PROJECT_NAME)-tools
 DATABASE_URL    ?= postgres://postgres:postgres@db:5432/starter?sslmode=disable
-COVERAGE_FILE   ?= coverage.out
 PACKAGE         ?=
 VERSION         ?=
 
@@ -20,13 +19,13 @@ RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(TOOLS_NAME)
 # Build ARGs — Dockerfile stages only use what it declares.
 BUILD_FLAGS := \
     --file docker/app/Dockerfile \
-    --build-arg GO_VERSION=$(GO_VERSION) \
     --build-arg AIR_VERSION=$(AIR_VERSION) \
-    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
-    --build-arg SQLC_VERSION=$(SQLC_VERSION) \
-    --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
+    --build-arg GO_VERSION=$(GO_VERSION) \
+    --build-arg GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION) \
     --build-arg HUGO_VERSION=$(HUGO_VERSION) \
-    --build-arg GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION)
+    --build-arg PGSCHEMA_VERSION=$(PGSCHEMA_VERSION) \
+    --build-arg SQLC_VERSION=$(SQLC_VERSION) \
+    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION) \
 
 # Start $(2) via $(1) if not running, run $(3), stop any services we started.
 define with-svc

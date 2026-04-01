@@ -1,24 +1,21 @@
 # check=skip=InvalidDefaultArgInFrom
-# ── Version pins ─────────────────────────────────────────────────────────────
+# ── Version pins ──────────────────────────────────────────────────────────────
 # Version strings are passed as --build-arg from .versions (project root).
 # Build via Makefile (make docker-dev / make docker-build) to ensure all
 # args are forwarded automatically.
+ARG AIR_VERSION
 ARG GO_VERSION
-ARG PGSCHEMA_VERSION
-ARG TAILWIND_VERSION
+ARG GOLANGCI_LINT_VERSION
 ARG HTMX_VERSION
 ARG HUGO_VERSION
-# Dev-only tools. Pin to a semver (e.g. v1.61.7) to improve reproducibility.
-ARG AIR_VERSION
+ARG PGSCHEMA_VERSION
 ARG SQLC_VERSION
-# empty = latest; set to e.g. v2.1.6 to pin
-ARG GOLANGCI_LINT_VERSION
+ARG TAILWIND_VERSION
 
-# ── Go toolchain (pinned version from official image) ────────────────────────
+# ───────────────────────────────────────────────────────────── go_toolchain ───
 FROM golang:${GO_VERSION}-bookworm AS go_toolchain
 
-# ── Dev toolchain (bookworm — Go + air + tailwindcss) ────────────
-# Used by dev_target (hot-reload) and as the base for cli_toolchain.
+# ──────────────────────────────────────────────────────────── dev_toolchain ───
 FROM go_toolchain AS dev_toolchain
 ARG AIR_VERSION
 ARG TAILWIND_VERSION
@@ -29,15 +26,18 @@ ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
 
 RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN git config --global --add safe.directory /app
-RUN TW_ARCH=$(echo "${TARGETARCH}" | sed 's/amd64/x64/') && \
+RUN case "${TARGETARCH}" in \
+      amd64) TW_ARCH="x64" ;; \
+      arm64) TW_ARCH="arm64" ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
     curl -fsSLo /usr/local/bin/tailwindcss \
       "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}" && \
     chmod +x /usr/local/bin/tailwindcss
 
 WORKDIR /app
 
-# ── CLI toolchain (bookworm — sqlc, pgschema, lint, hugo, libgit2) ──
-# Used for cli tool commands: lint, test, build, db-*, assets, package-*.
+# ──────────────────────────────────────────────────────────── cli_toolchain ───
 FROM dev_toolchain AS cli_toolchain
 ARG SQLC_VERSION
 ARG PGSCHEMA_VERSION
@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libgit2-dev pkgconf \
     && rm -rf /var/lib/apt/lists/*
 
-RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
+RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${SQLC_VERSION}
 RUN curl -fsSLo /usr/local/bin/pgschema \
       "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${TARGETARCH}" && \
     chmod +x /usr/local/bin/pgschema
@@ -67,9 +67,8 @@ RUN case "${TARGETARCH}" in \
     chmod +x /usr/local/bin/hugo && \
     rm -f /tmp/hugo.tar.gz
 
-# ── Dev target (wolfi — minimal hot-reload container) ────────────────────────
-# Used only for `make dev` via docker compose. Contains Go + air + tailwindcss.
-# Heavy CLI tools (sqlc, pgschema, hugo, lint) run in cli_toolchain instead.
+# ===================================================================== dev ====
+# ─────────────────────────────────────────────────────────────── dev_target ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
 ARG AIR_VERSION
 ARG TARGETARCH
@@ -98,10 +97,9 @@ RUN go mod download
 # Source mounted as volume — not copied
 CMD ["go", "run", "./cli/dev"]
 
-# ── Assets stage ─────────────────────────────────────────────────────────────
-# Builds the same asset pipeline used by dev so production does not drift.
-# Uses cli_toolchain — needs both tailwindcss and hugo.
-FROM cli_toolchain AS assets_stage
+# =============================================================== production ===
+# ─────────────────────────────────────────────────────────── assets_builder ───
+FROM cli_toolchain AS assets_builder
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
@@ -109,15 +107,14 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify && \
     go run ./cli/build docs && \
     go run ./cli/build sprites
 
-# ── App healthcheck binary ──────────────────────────────────────────────────
-# Tiny static binary for Docker HEALTHCHECK in the distroless production image.
+# ────────────────────────────────────────────────────── healthcheck_builder ───
 FROM golang:${GO_VERSION}-bookworm AS healthcheck_builder
 WORKDIR /build
 COPY docker/app/healthcheck.go .
 RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o /healthcheck healthcheck.go
 
-# ── Builder stage ────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/wolfi-base:latest AS builder_stage
+# ─────────────────────────────────────────────────────── production_builder ───
+FROM cgr.dev/chainguard/wolfi-base:latest AS production_builder
 COPY --from=go_toolchain /usr/local/go /usr/local/go
 RUN apk update && apk add --no-cache ca-certificates-bundle git
 ENV PATH="/usr/local/go/bin:${PATH}"
@@ -147,15 +144,15 @@ COPY internal/ ./internal/
 RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
     CGO_ENABLED=0 go build -o /bin/server ./cmd/server
 
-# ── Production target ───────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────── production_target ───
 FROM cgr.dev/chainguard/static:latest AS production_target
 WORKDIR /
 ENV PUBLIC_DIR=public \
     PUBLIC_PREFIX=/public
-COPY --from=builder_stage --chown=nonroot:nonroot /bin/server /bin/server
+COPY --from=production_builder --chown=nonroot:nonroot /bin/server /bin/server
 COPY --from=healthcheck_builder --chown=nonroot:nonroot /healthcheck /healthcheck
-COPY --from=assets_stage --chown=nonroot:nonroot /app/public/ /public/
-COPY --from=builder_stage --chown=nonroot:nonroot /app/config/ /config/
+COPY --from=assets_builder --chown=nonroot:nonroot /app/public/ /public/
+COPY --from=production_builder --chown=nonroot:nonroot /app/config/ /config/
 USER nonroot
 EXPOSE 8080
 CMD ["/bin/server"]
