@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	ErrUserNotFound       = authmodel.ErrUserNotFound
-	ErrEmailTaken         = authmodel.ErrEmailTaken
-	ErrInvalidCredentials = authmodel.ErrInvalidCredentials
-	ErrForbidden          = errors.New("forbidden")
+	ErrEmailTaken               = authmodel.ErrEmailTaken
+	ErrForbidden                = errors.New("forbidden")
+	ErrInvalidCredentials       = authmodel.ErrInvalidCredentials
+	ErrRequiredRelationsMissing = errors.New("required relations missing")
+	ErrUserNotFound             = authmodel.ErrUserNotFound
 )

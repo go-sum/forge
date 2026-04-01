@@ -1,14 +1,12 @@
 package app
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
-	smw "github.com/go-sum/server/middleware"
 	"github.com/go-sum/server/route"
 
 	"github.com/labstack/echo/v5"
@@ -22,13 +20,20 @@ type App struct {
 // New initializes the application container and registers all HTTP routes.
 func New() *App {
 	c := NewContainer()
+	availabilityH := handler.NewAvailability(c.checkHealth(), c.StartupError)
+
+	if c.StartupError != nil {
+		if err := RegisterStartupRoutes(c, availabilityH); err != nil {
+			panic(fmt.Sprintf("routes: %v", err))
+		}
+		return &App{container: c}
+	}
 
 	h := handler.New(
-		c.Services,
-		c.Validator,
-		func(ctx context.Context) error { return c.DB.Ping(ctx) },
 		c.Config,
 		func() echo.Routes { return c.Web.Router().Routes() },
+		c.Services,
+		c.Validator,
 	)
 
 	authH := authui.New(
@@ -56,10 +61,7 @@ func New() *App {
 		},
 	)
 
-	staticGroup := c.Web.Group(c.PublicPrefix)
-	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
-	staticGroup.Static("", c.PublicDir)
-	if err := RegisterRoutes(c, h, authH); err != nil {
+	if err := RegisterRoutes(c, h, availabilityH, authH); err != nil {
 		panic(fmt.Sprintf("routes: %v", err))
 	}
 	return &App{container: c}

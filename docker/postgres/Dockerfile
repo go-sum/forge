@@ -13,6 +13,7 @@ RUN apk update && apk add --no-cache \
 
 ENV PGDATA=/var/lib/postgresql/data
 ENV LANG=C.UTF-8
+ENV POSTGRES_INITDB_ARGS="--locale=C"
 
 # Wolfi installs extension .so files in /usr/lib/postgresql<ver>/ but
 # PostgreSQL expects them in /usr/lib/postgresql<ver>/lib/.

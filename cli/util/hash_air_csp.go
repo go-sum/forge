@@ -8,32 +8,40 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
-func runHashAirCSP() {
+func newHashAirCSPCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "hash-air-csp",
+		Short: "Recompute CSP hash for air's proxy script and update config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runHashAirCSP()
+		},
+	}
+}
+
+func runHashAirCSP() error {
 	airPath, err := exec.LookPath("air")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "air not found in PATH:", err)
-		os.Exit(1)
+		return fmt.Errorf("air not found in PATH: %w", err)
 	}
 
 	ver, err := airVersion(airPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to read air version:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read air version: %w", err)
 	}
 
 	modCache, err := goModCache()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to read GOMODCACHE:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read GOMODCACHE: %w", err)
 	}
 
 	proxyJS := modCache + "/github.com/air-verse/air@" + ver + "/runner/proxy.js"
 	data, err := os.ReadFile(proxyJS)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to read proxy.js:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read proxy.js: %w", err)
 	}
 
 	sum := sha256.Sum256(data)
@@ -44,14 +52,14 @@ func runHashAirCSP() {
 	const cfgPath = "config/app.development.yaml"
 	updated, err := updateConfig(cfgPath, hash)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to update config:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to update config: %w", err)
 	}
 	if updated {
 		fmt.Println("Updated", cfgPath)
 	} else {
 		fmt.Println("Already up to date:", cfgPath)
 	}
+	return nil
 }
 
 // airVersion reads the embedded module metadata from the air binary and

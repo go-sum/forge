@@ -108,10 +108,13 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify && \
     go run ./cli/build sprites
 
 # ────────────────────────────────────────────────────── healthcheck_builder ───
+# healthcheck.go uses only stdlib — no workspace modules needed.
 FROM golang:${GO_VERSION}-bookworm AS healthcheck_builder
+ARG GO_VERSION
 WORKDIR /build
-COPY docker/app/healthcheck.go .
-RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o /healthcheck healthcheck.go
+COPY docker/app/healthcheck.go main.go
+RUN printf 'module healthcheck\ngo %s\n' "${GO_VERSION}" > go.mod && \
+    CGO_ENABLED=0 go build -ldflags='-s -w' -o /healthcheck .
 
 # ─────────────────────────────────────────────────────── production_builder ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS production_builder

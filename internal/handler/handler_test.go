@@ -83,20 +83,16 @@ func (f fakeUserService) Delete(ctx context.Context, id uuid.UUID) error {
 	return errors.New("unexpected Delete call")
 }
 
-func newTestHandler(userSvc userService, checkHealth func(context.Context) error) *Handler {
-	if checkHealth == nil {
-		checkHealth = func(context.Context) error { return nil }
-	}
+func newTestHandler(userSvc userService, _ ...func(context.Context) error) *Handler {
 	e := echo.New()
 	registerTestRoutes(e)
 	return &Handler{
 		services: handlerServices{
 			User: userSvc,
 		},
-		validator:   validate.New(),
-		checkHealth: checkHealth,
-		cfg:         &config.Config{App: config.AppConfig{Keys: testKeys}},
-		routes:      func() echo.Routes { return e.Router().Routes() },
+		validator: validate.New(),
+		cfg:       &config.Config{App: config.AppConfig{Keys: testKeys}},
+		routes:    func() echo.Routes { return e.Router().Routes() },
 	}
 }
 

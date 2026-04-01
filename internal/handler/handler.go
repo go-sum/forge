@@ -34,11 +34,10 @@ type handlerServices struct {
 
 // Handler holds the transport layer's dependencies.
 type Handler struct {
-	services    handlerServices
-	validator   form.StructValidator
-	checkHealth func(context.Context) error
-	cfg         *config.Config
-	routes      func() echo.Routes // lazy accessor; evaluated at request time
+	cfg       *config.Config
+	routes    func() echo.Routes // lazy accessor; evaluated at request time
+	services  handlerServices
+	validator form.StructValidator
 }
 
 // New constructs a Handler with all required dependencies.
@@ -47,21 +46,19 @@ type Handler struct {
 // routes is a lazy accessor for the registered Echo routes, used by handlers
 // that need to resolve named routes to URLs (e.g. sitemap generation).
 func New(
-	services *service.Services,
-	validator form.StructValidator,
-	checkHealth func(context.Context) error,
 	cfg *config.Config,
 	routes func() echo.Routes,
+	services *service.Services,
+	validator form.StructValidator,
 ) *Handler {
 	return &Handler{
+		cfg:    cfg,
+		routes: routes,
 		services: handlerServices{
 			User:    services.User,
 			Contact: services.Contact,
 		},
-		validator:   validator,
-		checkHealth: checkHealth,
-		cfg:         cfg,
-		routes:      routes,
+		validator: validator,
 	}
 }
 

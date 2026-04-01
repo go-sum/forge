@@ -1,0 +1,46 @@
+package handler
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"github.com/go-sum/forge/internal/model"
+	"github.com/go-sum/server/apperr"
+
+	"github.com/labstack/echo/v5"
+)
+
+// AvailabilityHandler serves the app's health endpoint and degraded startup routes.
+type AvailabilityHandler struct {
+	checkHealth func(context.Context) error
+	message     string
+	cause       error
+}
+
+func NewAvailability(checkHealth func(context.Context) error, cause error) *AvailabilityHandler {
+	return &AvailabilityHandler{
+		checkHealth: checkHealth,
+		message:     startupPublicMessage(cause),
+		cause:       cause,
+	}
+}
+
+func (h *AvailabilityHandler) Health(c *echo.Context) error {
+	status, code := "ok", http.StatusOK
+	if err := h.checkHealth(c.Request().Context()); err != nil {
+		status, code = "error", http.StatusServiceUnavailable
+	}
+	return c.JSON(code, map[string]string{"status": status})
+}
+
+func (h *AvailabilityHandler) Unavailable(*echo.Context) error {
+	return apperr.Unavailable(h.message, h.cause)
+}
+
+func startupPublicMessage(err error) string {
+	if errors.Is(err, model.ErrRequiredRelationsMissing) {
+		return "The app is starting, but some services are not ready yet. Setup needs to be completed before proceeding."
+	}
+	return "Waiting for services to start."
+}

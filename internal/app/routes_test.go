@@ -92,9 +92,10 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		Repos:        &repository.Repositories{User: repo},
 	}
 
-	h := handler.New(&service.Services{}, container.Validator, func(context.Context) error { return nil }, cfg, func() echo.Routes {
+	h := handler.New(cfg, func() echo.Routes {
 		return e.Router().Routes()
-	})
+	}, &service.Services{}, container.Validator)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
@@ -112,7 +113,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		},
 	})
 
-	if err := RegisterRoutes(container, h, authH); err != nil {
+	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -267,12 +268,12 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 	}
 
 	h := handler.New(
-		&service.Services{User: service.NewUserService(repo)},
-		container.Validator,
-		func(context.Context) error { return nil },
 		cfg,
 		func() echo.Routes { return e.Router().Routes() },
+		&service.Services{User: service.NewUserService(repo)},
+		container.Validator,
 	)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
@@ -290,7 +291,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 		},
 	})
 
-	if err := RegisterRoutes(container, h, authH); err != nil {
+	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -441,12 +442,12 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 	}
 
 	h := handler.New(
-		&service.Services{User: service.NewUserService(repo)},
-		container.Validator,
-		func(context.Context) error { return nil },
 		cfg,
 		func() echo.Routes { return e.Router().Routes() },
+		&service.Services{User: service.NewUserService(repo)},
+		container.Validator,
 	)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
@@ -464,7 +465,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		},
 	})
 
-	if err := RegisterRoutes(container, h, authH); err != nil {
+	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 

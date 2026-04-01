@@ -33,7 +33,7 @@ define with-svc
 endef
 
 .PHONY: help \
-        build clean lint vet hash-air-csp health\
+        build clean lint vet hash-air-csp \
         db-apply db-gen db-plan db-dump \
         assets \
         package-list package-push package-release package-status package-sync \
@@ -55,9 +55,6 @@ clean: ## Remove build artifacts
 
 hash-air-csp: _ensure-tools ## Recompute CSP hash for air's proxy script and update config/app.development.yaml
 	$(D_RUN) $(TOOLS_NAME) go run ./cli/util hash-air-csp
-
-health: _ensure-tools ## Run health checks (use ARGS='--verbose' or '--json')
-	$(call with-svc,$(D_COMPOSE) dev,db,$(RUN_APP) go run ./cli/util health $(ARGS))
 
 lint: _ensure-tools ## Run golangci-lint
 	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec golangci-lint run ./...

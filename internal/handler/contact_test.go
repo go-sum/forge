@@ -30,11 +30,10 @@ func newContactHandler(svc contactService) *Handler {
 	e := echo.New()
 	registerTestRoutes(e)
 	return &Handler{
-		services:    handlerServices{Contact: svc},
-		validator:   validate.New(),
-		checkHealth: func(context.Context) error { return nil },
-		cfg:         &config.Config{App: config.AppConfig{Keys: testKeys}},
-		routes:      func() echo.Routes { return e.Router().Routes() },
+		services:  handlerServices{Contact: svc},
+		validator: validate.New(),
+		cfg:       &config.Config{App: config.AppConfig{Keys: testKeys}},
+		routes:    func() echo.Routes { return e.Router().Routes() },
 	}
 }
 

@@ -8,19 +8,32 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	root := &cobra.Command{
+		Use:           "dev",
+		Short:         "Start the development server via air",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
 
-	airCmd := commandContext(ctx, "air", "-c", ".air.toml")
-	if err := airCmd.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, "error starting air:", err)
-		os.Exit(1)
+			airCmd := commandContext(ctx, "air", "-c", ".air.toml")
+			if err := airCmd.Start(); err != nil {
+				return fmt.Errorf("starting air: %w", err)
+			}
+
+			if err := waitNamed("air", airCmd); err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
+			return nil
+		},
 	}
-
-	if err := waitNamed("air", airCmd); err != nil && !errors.Is(err, context.Canceled) {
+	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

@@ -17,7 +17,11 @@ import (
 
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
 // This is the single source of truth for HTTP route registration.
-func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) error {
+func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.AvailabilityHandler, authH *authui.Handler) error {
+	staticGroup := c.Web.Group(c.PublicPrefix)
+	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
+	staticGroup.Static("", c.PublicDir)
+
 	authKeys := authui.ContextKeys{
 		UserID:      c.Config.App.Keys.UserID,
 		UserRole:    c.Config.App.Keys.UserRole,
@@ -91,8 +95,21 @@ func RegisterRoutes(c *Container, h *handler.Handler, authH *authui.Handler) err
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/robots.txt", Name: "robots.show", Handler: siteH.RobotsTxt})
 	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/sitemap.xml", Name: "sitemap.show", Handler: siteH.SitemapXML})
 	// extras
-	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: h.HealthCheck})
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: availabilityH.Health})
 	route.Add(authGuarded, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "components.list", Handler: h.ComponentExamples})
 
+	return nil
+}
+
+// RegisterStartupRoutes binds a degraded route set used when startup fails
+// before the full application can be wired.
+func RegisterStartupRoutes(c *Container, availabilityH *handler.AvailabilityHandler) error {
+	staticGroup := c.Web.Group(c.PublicPrefix)
+	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
+	staticGroup.Static("", c.PublicDir)
+
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: availabilityH.Unavailable})
+	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: availabilityH.Health})
+	route.Add(c.Web, echo.Route{Method: echo.RouteAny, Path: "/*", Handler: availabilityH.Unavailable})
 	return nil
 }

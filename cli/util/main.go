@@ -3,22 +3,20 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: util <command>")
-		fmt.Fprintln(os.Stderr, "commands: hash-air-csp, health")
-		os.Exit(1)
+	root := &cobra.Command{
+		Use:           "util",
+		Short:         "Development utilities",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-
-	switch os.Args[1] {
-	case "hash-air-csp":
-		runHashAirCSP()
-	case "health":
-		runHealth()
-	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
+	root.AddCommand(newHashAirCSPCmd())
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }

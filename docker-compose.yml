@@ -90,6 +90,10 @@ services:
       - DFLY_requirepass=${KV_PASSWORD:-}
     volumes:
       - kv_data:/data
+    # Dragonfly warns "SWAP is enabled" on startup — this is a false positive.
+    # It checks host-level /proc/swaps, but mem_swappiness: 0 prevents the
+    # kernel from swapping this container's pages, and memlock: -1 allows
+    # Dragonfly to lock its memory.
     mem_swappiness: 0
     ulimits:
       memlock: -1

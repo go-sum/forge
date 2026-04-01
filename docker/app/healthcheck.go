@@ -1,5 +1,5 @@
 // healthcheck is a minimal static binary that sends an HTTP GET to the
-// local app server's /health endpoint and exits 0 on a 2xx response.
+// local app server's /health endpoint and exits 0 on a 2xx/3xx response.
 // Port defaults to 8080 unless HEALTHCHECK_PORT is set.
 package main
 

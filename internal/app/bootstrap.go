@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,7 +11,6 @@ import (
 
 	auth "github.com/go-sum/auth"
 	authsvc "github.com/go-sum/auth/service"
-	"github.com/go-sum/kv/redisstore"
 	"github.com/go-sum/componentry/assets"
 	icons "github.com/go-sum/componentry/icons"
 	install "github.com/go-sum/componentry/install"
@@ -19,17 +19,17 @@ import (
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters/authmail"
 	"github.com/go-sum/forge/internal/adapters/authsession"
-	"github.com/go-sum/forge/internal/health"
-	"github.com/go-sum/session"
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
+	"github.com/go-sum/kv/redisstore"
 	secheaders "github.com/go-sum/security/headers"
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
 	"github.com/go-sum/server/logging"
 	"github.com/go-sum/server/validate"
+	"github.com/go-sum/session"
 
 	"github.com/labstack/echo/v5"
 )
@@ -38,7 +38,6 @@ const (
 	defaultPublicDir    = "public"
 	defaultPublicPrefix = "/public"
 )
-
 
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
@@ -95,17 +94,34 @@ func (c *Container) initAssets() {
 	c.PublicPrefix = publicPrefix
 }
 
+// checkHealth returns a closure that reports database reachability.
+func (c *Container) checkHealth() func(context.Context) error {
+	return func(ctx context.Context) error {
+		if c.StartupError != nil {
+			return c.StartupError
+		}
+		if c.DB == nil {
+			return errors.New("database pool is not initialized")
+		}
+		return c.DB.Ping(ctx)
+	}
+}
+
 // Database bootstrap.
 func (c *Container) initDatabase() {
 	pool, err := database.Connect(context.Background(), c.Config.DSN())
 	if err != nil {
-		panic(fmt.Sprintf("database: %v", err))
+		c.StartupError = fmt.Errorf("database connect: %w", err)
+		slog.Error("database startup check failed", "error", c.StartupError)
+		return
 	}
-	if err := health.VerifyRequiredRelations(context.Background(), pool); err != nil {
-		panic(fmt.Sprintf("database: %v", err))
+	c.DB = pool
+	if err := repository.VerifyRequiredRelations(context.Background(), pool); err != nil {
+		c.StartupError = fmt.Errorf("database verify: %w", err)
+		slog.Error("database startup check failed", "error", c.StartupError)
+		return
 	}
 	slog.Info("database connected")
-	c.DB = pool
 }
 
 // KV store bootstrap.

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,45 +8,6 @@ import (
 
 	"github.com/go-sum/componentry/patterns/flash"
 )
-
-func TestHealthCheckReportsStatus(t *testing.T) {
-	tests := []struct {
-		name        string
-		checkHealth func(context.Context) error
-		wantStatus  int
-		wantBody    string
-	}{
-		{
-			name:        "healthy",
-			checkHealth: func(context.Context) error { return nil },
-			wantStatus:  http.StatusOK,
-			wantBody:    `"status":"ok"`,
-		},
-		{
-			name:        "unhealthy",
-			checkHealth: func(context.Context) error { return errors.New("db down") },
-			wantStatus:  http.StatusServiceUnavailable,
-			wantBody:    `"status":"error"`,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			h := newTestHandler(fakeUserService{}, tc.checkHealth)
-			c, rec := newRequestContext(http.MethodGet, "/health", nil)
-
-			if err := h.HealthCheck(c); err != nil {
-				t.Fatalf("HealthCheck() error = %v", err)
-			}
-			if rec.Code != tc.wantStatus {
-				t.Fatalf("status = %d", rec.Code)
-			}
-			if !strings.Contains(rec.Body.String(), tc.wantBody) {
-				t.Fatalf("body = %q", rec.Body.String())
-			}
-		})
-	}
-}
 
 func TestHomeRendersFlashMessages(t *testing.T) {
 	h := newTestHandler(fakeUserService{}, nil)
