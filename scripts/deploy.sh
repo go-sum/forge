@@ -40,6 +40,16 @@ docker compose version >/dev/null 2>&1 || {
     exit 1
 }
 
+docker info >/dev/null 2>&1 || {
+    echo "ERROR: current user cannot access the Docker daemon." >&2
+    echo "       docker commands require access to /var/run/docker.sock or a rootless Docker socket." >&2
+    echo "       On Linux, fix one of these before deploying:" >&2
+    echo "       1. Add this user to the docker group and start a new login session" >&2
+    echo "       2. Run the deploy via sudo/root" >&2
+    echo "       3. Use a rootless Docker daemon for this user" >&2
+    exit 1
+}
+
 if [[ ! -f "${DEPLOY_DIR}/${ENV_FILE}" ]]; then
     echo "ERROR: ${DEPLOY_DIR}/${ENV_FILE} not found." >&2
     echo "       Copy .env.example and configure it:" >&2
@@ -72,6 +82,10 @@ git clone --depth 1 --branch "${BRANCH}" "${DEPLOY_REPO}" "${TEMP_DIR}/src"
 COMMIT_SHA="$(git -C "${TEMP_DIR}/src" rev-parse --short HEAD)"
 echo "    Commit: ${COMMIT_SHA}"
 
+# ── Load version pins from cloned source ────────────────────────────────────
+# shellcheck source=.versions
+. "${TEMP_DIR}/src/.versions"
+
 # ── Step 2: Prepare deploy directory ────────────────────────────────────────
 
 mkdir -p "${DEPLOY_DIR}"
@@ -85,9 +99,21 @@ chmod +x "${DEPLOY_DIR}/deploy.sh"
 # ── Step 3: Build the production image ──────────────────────────────────────
 # Build runs from the cloned source (needs Dockerfile + full context).
 
+GITHUB_ACCESS_TOKEN="${GITHUB_ACCESS_TOKEN:-$(grep '^GITHUB_ACCESS_TOKEN=' "${DEPLOY_DIR}/${ENV_FILE}" | cut -d= -f2-)}"
+
 echo "==> Building production image (commit: ${COMMIT_SHA})"
 docker build \
     --target production_target \
+    --file "${TEMP_DIR}/src/docker/app/Dockerfile" \
+    --build-arg GO_VERSION="${GO_VERSION}" \
+    --build-arg PGSCHEMA_VERSION="${PGSCHEMA_VERSION}" \
+    --build-arg TAILWIND_VERSION="${TAILWIND_VERSION}" \
+    --build-arg HTMX_VERSION="${HTMX_VERSION}" \
+    --build-arg HUGO_VERSION="${HUGO_VERSION}" \
+    --build-arg AIR_VERSION="${AIR_VERSION}" \
+    --build-arg SQLC_VERSION="${SQLC_VERSION}" \
+    --build-arg GOLANGCI_LINT_VERSION="${GOLANGCI_LINT_VERSION}" \
+    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
     --tag forge:latest \
     "${TEMP_DIR}/src"
 
@@ -116,12 +142,20 @@ fi
 # pgschema lives in the dev image (production image is minimal).
 # Build the dev image on demand, connect it to the prod network.
 
-DEV_IMAGE="${PROJECT_NAME}-dev"
-docker image inspect "${DEV_IMAGE}" >/dev/null 2>&1 || {
-    echo "==> Building dev image for schema migration"
+TOOLS_IMAGE="${PROJECT_NAME}-tools"
+docker image inspect "${TOOLS_IMAGE}" >/dev/null 2>&1 || {
+    echo "==> Building tools image for schema migration"
     docker build \
-        --target dev_target \
-        --tag "${DEV_IMAGE}" \
+        --target cli_toolchain \
+        --file "${TEMP_DIR}/src/docker/app/Dockerfile" \
+        --build-arg GO_VERSION="${GO_VERSION}" \
+        --build-arg PGSCHEMA_VERSION="${PGSCHEMA_VERSION}" \
+        --build-arg TAILWIND_VERSION="${TAILWIND_VERSION}" \
+        --build-arg HUGO_VERSION="${HUGO_VERSION}" \
+        --build-arg AIR_VERSION="${AIR_VERSION}" \
+        --build-arg SQLC_VERSION="${SQLC_VERSION}" \
+        --build-arg GOLANGCI_LINT_VERSION="${GOLANGCI_LINT_VERSION}" \
+        --tag "${TOOLS_IMAGE}" \
         "${TEMP_DIR}/src"
 }
 
@@ -134,7 +168,7 @@ docker run --rm \
     -w /app \
     --network "${NETWORK}" \
     -e DATABASE_URL="${PROD_DB_URL}" \
-    "${DEV_IMAGE}" \
+    "${TOOLS_IMAGE}" \
     pgschema apply --file db/sql/schema.sql --auto-approve
 
 # ── Step 7: Start or restart app ───────────────────────────────────────────
