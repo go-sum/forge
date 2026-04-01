@@ -93,8 +93,8 @@ mkdir -p "${DEPLOY_DIR}"
 # Copy compose file (base only — no override), db init scripts, and this script
 cp "${TEMP_DIR}/src/${COMPOSE_FILE}" "${DEPLOY_DIR}/${COMPOSE_FILE}"
 cp -r "${TEMP_DIR}/src/db" "${DEPLOY_DIR}/db"
-cp "${TEMP_DIR}/src/scripts/deploy.sh" "${DEPLOY_DIR}/deploy.sh"
-chmod +x "${DEPLOY_DIR}/deploy.sh"
+cp "${TEMP_DIR}/src/scripts/deploy.sh" "${DEPLOY_DIR}/scripts/deploy.sh"
+chmod +x "${DEPLOY_DIR}/scripts/deploy.sh"
 
 # ── Step 3: Build the production image ──────────────────────────────────────
 # Build runs from the cloned source (needs Dockerfile + full context).
