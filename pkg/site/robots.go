@@ -15,6 +15,7 @@ import (
 // mutation endpoints that have no SEO value.
 var DefaultDisallowPaths = []string{
 	"/_components",
+	"/account",
 	"/users",
 	"/signin",
 	"/signup",

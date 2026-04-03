@@ -28,6 +28,7 @@ func TestBuildRobots(t *testing.T) {
 			cfg:  site.RobotsConfig{DefaultAllow: true},
 			wantLines: []string{
 				"User-agent: *",
+				"Disallow: /account",
 				"Disallow: /signin",
 				"Disallow: /signup",
 				"Disallow: /signout",

@@ -21,6 +21,8 @@ type userService interface {
 	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
 	Update(ctx context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	HasAdmin(ctx context.Context) (bool, error)
+	ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error)
 }
 
 type contactService interface {

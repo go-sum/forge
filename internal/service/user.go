@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/repository"
@@ -48,4 +49,26 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 // Count returns the total number of users.
 func (s *UserService) Count(ctx context.Context) (int64, error) {
 	return s.repo.Count(ctx)
+}
+
+// HasAdmin reports whether at least one admin user exists.
+func (s *UserService) HasAdmin(ctx context.Context) (bool, error) {
+	return s.repo.HasAdmin(ctx)
+}
+
+// ElevateToAdmin promotes the given user to admin, but only when no admin
+// exists yet. Returns model.ErrAdminExists if an admin is already present.
+func (s *UserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error) {
+	hasAdmin, err := s.repo.HasAdmin(ctx)
+	if err != nil {
+		return model.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
+	}
+	if hasAdmin {
+		return model.User{}, model.ErrAdminExists
+	}
+	user, err := s.repo.Update(ctx, userID, "", "", model.RoleAdmin)
+	if err != nil {
+		return model.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
+	}
+	return user, nil
 }

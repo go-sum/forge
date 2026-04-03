@@ -91,9 +91,6 @@ db-rollback: _ensure-tools ## Rollback the last migration
 db-status: _ensure-tools ## Show migration status
 	$(RUN_APP) go run ./cli/db status
 
-init-admin: _ensure-tools ## Bootstrap first admin — EMAIL=user@example.com (one-time, fails if admin exists)
-	@test -n "$(EMAIL)" || { echo "error: EMAIL is required  e.g. make init-admin EMAIL=user@example.com" >&2; exit 1; }
-	docker run --rm -it -v $(PWD):/app -w /app --env-file .env --network $(APP_NETWORK) $(TOOLS_NAME) go run ./cli/create admin "$(EMAIL)"
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 

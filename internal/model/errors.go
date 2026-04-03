@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	ErrAdminExists              = errors.New("admin already exists")
 	ErrEmailTaken               = authmodel.ErrEmailTaken
 	ErrForbidden                = errors.New("forbidden")
 	ErrInvalidCredentials       = authmodel.ErrInvalidCredentials

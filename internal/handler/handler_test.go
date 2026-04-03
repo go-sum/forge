@@ -41,11 +41,13 @@ var testUser = model.User{
 }
 
 type fakeUserService struct {
-	countFn  func(context.Context) (int64, error)
-	listFn   func(context.Context, int, int) ([]model.User, error)
-	getByID  func(context.Context, uuid.UUID) (model.User, error)
-	updateFn func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error)
-	deleteFn func(context.Context, uuid.UUID) error
+	countFn         func(context.Context) (int64, error)
+	listFn          func(context.Context, int, int) ([]model.User, error)
+	getByID         func(context.Context, uuid.UUID) (model.User, error)
+	updateFn        func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error)
+	deleteFn        func(context.Context, uuid.UUID) error
+	hasAdminFn      func(context.Context) (bool, error)
+	elevateToAdminFn func(context.Context, uuid.UUID) (model.User, error)
 }
 
 func (f fakeUserService) Count(ctx context.Context) (int64, error) {
@@ -81,6 +83,20 @@ func (f fakeUserService) Delete(ctx context.Context, id uuid.UUID) error {
 		return f.deleteFn(ctx, id)
 	}
 	return errors.New("unexpected Delete call")
+}
+
+func (f fakeUserService) HasAdmin(ctx context.Context) (bool, error) {
+	if f.hasAdminFn != nil {
+		return f.hasAdminFn(ctx)
+	}
+	return false, errors.New("unexpected HasAdmin call")
+}
+
+func (f fakeUserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error) {
+	if f.elevateToAdminFn != nil {
+		return f.elevateToAdminFn(ctx, userID)
+	}
+	return model.User{}, errors.New("unexpected ElevateToAdmin call")
 }
 
 func newTestHandler(userSvc userService, _ ...func(context.Context) error) *Handler {
@@ -148,6 +164,8 @@ func registerTestRoutes(e *echo.Echo) {
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/sitemap.xml", Name: "sitemap.show", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/contact", Name: "contact.show", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/contact", Name: "contact.submit", Handler: noOp})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/account/admin", Name: "account.admin", Handler: noOp})
+	route.Add(e, echo.Route{Method: http.MethodPost, Path: "/account/admin", Name: "account.admin.post", Handler: noOp})
 
 	users := e.Group("/users")
 	route.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})

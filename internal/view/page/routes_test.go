@@ -26,6 +26,8 @@ func mustPageRoutes(t *testing.T) echo.Routes {
 		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: noOp})
 		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/contact", Name: "contact.show", Handler: noOp})
 		route.Add(e, echo.Route{Method: http.MethodPost, Path: "/contact", Name: "contact.submit", Handler: noOp})
+		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/account/admin", Name: "account.admin", Handler: noOp})
+		route.Add(e, echo.Route{Method: http.MethodPost, Path: "/account/admin", Name: "account.admin.post", Handler: noOp})
 
 		users := e.Group("/users")
 		route.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})
