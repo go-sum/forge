@@ -30,11 +30,13 @@ services:
         HUGO_VERSION: ${HUGO_VERSION}
         GOLANGCI_LINT_VERSION: ${GOLANGCI_LINT_VERSION}
     image: forge-dev
+    pids_limit: 512
+    ports:
+      - "${APP_PORT:-8080}:8080"
     read_only: false
     tmpfs: !reset []
     security_opt: !reset []
     cap_drop: !reset []
-    pids_limit: 512
     healthcheck:
       disable: true
     volumes:

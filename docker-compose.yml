@@ -25,9 +25,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    mem_limit: 256m
+    memswap_limit: 256m # no swap — fail fast rather than thrash
     pids_limit: 128
-    ports:
-      - "${APP_PORT:-8080}:8080"
     env_file:
       - .env
     depends_on:
@@ -54,6 +54,8 @@ services:
     image: forge-db:latest
     security_opt:
       - no-new-privileges:true
+    mem_limit: 1g
+    memswap_limit: 1g
     pids_limit: 256
     shm_size: 128m
     environment:
@@ -85,6 +87,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    mem_limit: 512m
+    memswap_limit: 512m
     pids_limit: 128
     environment:
       - DFLY_requirepass=${KV_PASSWORD:-}
