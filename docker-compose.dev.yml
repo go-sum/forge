@@ -20,6 +20,7 @@ services:
       target: dev_target
       dockerfile: docker/app/Dockerfile
       args:
+        GO_VERSION: ${GO_VERSION}
         TOOLS_DEV_IMAGE: ${TOOLS_DEV}
     image: forge-dev
     pids_limit: 512

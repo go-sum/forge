@@ -1,22 +1,38 @@
 # check=skip=InvalidDefaultArgInFrom
-# ── External images ──────────────────────────────────────────────────────────
-# Pre-built toolchain images from docker/tools/Dockerfile.
-# Build via Makefile (make tools-dev / make tools-prod) before building app.
+# ── Version pins ──────────────────────────────────────────────────────────────
+# Dev toolchain is a pre-built external image (docker/tools/Dockerfile).
+# Prod toolchain is inlined below — keeps production builds self-contained.
 ARG GO_VERSION
 ARG HTMX_VERSION
+ARG HUGO_VERSION
+ARG TAILWIND_VERSION
 ARG TOOLS_DEV_IMAGE=forge-tools:dev
-ARG TOOLS_PROD_IMAGE=forge-tools:prod
 
-FROM ${TOOLS_DEV_IMAGE}  AS tools_dev
-FROM ${TOOLS_PROD_IMAGE} AS tools_prod
+FROM ${TOOLS_DEV_IMAGE} AS dev_tools
+
+# ───────────────────────────────────────────────────────── production_tools ───
+FROM golang:${GO_VERSION}-bookworm AS production_tools
+ARG HUGO_VERSION
+ARG TAILWIND_VERSION
+ARG TARGETARCH
+
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+
+RUN git config --global --add safe.directory /app
+
+COPY docker/tools/prod-tools.sh /tmp/
+RUN bash /tmp/prod-tools.sh && rm /tmp/prod-tools.sh
+
+WORKDIR /app
 
 # ===================================================================== dev ====
 # ─────────────────────────────────────────────────────────────── dev_target ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
 
-COPY --from=tools_dev /usr/local/go /usr/local/go
-COPY --from=tools_dev /root/go/bin/air /usr/local/bin/air
-COPY --from=tools_dev /usr/local/bin/tailwindcss /usr/local/bin/tailwindcss
+COPY --from=dev_tools /usr/local/go /usr/local/go
+COPY --from=dev_tools /root/go/bin/air /usr/local/bin/air
+COPY --from=dev_tools /usr/local/bin/tailwindcss /usr/local/bin/tailwindcss
 RUN apk update && apk add --no-cache bash ca-certificates-bundle curl git libstdc++
 
 ENV GOPATH=/root/go
@@ -40,7 +56,7 @@ CMD ["go", "run", "./cli/dev"]
 
 # =============================================================== production ===
 # ─────────────────────────────────────────────────────────── assets_builder ───
-FROM tools_prod AS assets_builder
+FROM production_tools AS assets_builder
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
@@ -50,7 +66,7 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify && \
 
 # ────────────────────────────────────────────────────── healthcheck_builder ───
 # healthcheck.go uses only stdlib — no workspace modules needed.
-FROM tools_prod AS healthcheck_builder
+FROM production_tools AS healthcheck_builder
 ARG GO_VERSION
 WORKDIR /build
 COPY docker/app/healthcheck.go main.go
@@ -59,7 +75,7 @@ RUN printf 'module healthcheck\ngo %s\n' "${GO_VERSION}" > go.mod && \
 
 # ─────────────────────────────────────────────────────── production_builder ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS production_builder
-COPY --from=tools_prod /usr/local/go /usr/local/go
+COPY --from=production_tools /usr/local/go /usr/local/go
 RUN apk update && apk add --no-cache ca-certificates-bundle git
 ENV PATH="/usr/local/go/bin:${PATH}"
 
