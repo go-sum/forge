@@ -1,86 +1,27 @@
 # check=skip=InvalidDefaultArgInFrom
-# ── Version pins ──────────────────────────────────────────────────────────────
-# Version strings are passed as --build-arg from .versions (project root).
-# Build via Makefile (make docker-dev / make docker-build) to ensure all
-# args are forwarded automatically.
-ARG AIR_VERSION
+# ── External images ──────────────────────────────────────────────────────────
+# Pre-built toolchain images from docker/tools/Dockerfile.
+# Build via Makefile (make tools-dev / make tools-prod) before building app.
 ARG GO_VERSION
-ARG GOLANGCI_LINT_VERSION
 ARG HTMX_VERSION
-ARG HUGO_VERSION
-ARG PGSCHEMA_VERSION
-ARG SQLC_VERSION
-ARG TAILWIND_VERSION
+ARG TOOLS_DEV_IMAGE=forge-tools:dev
+ARG TOOLS_PROD_IMAGE=forge-tools:prod
 
-# ───────────────────────────────────────────────────────────── go_toolchain ───
-FROM golang:${GO_VERSION}-bookworm AS go_toolchain
-
-# ──────────────────────────────────────────────────────────── dev_toolchain ───
-FROM go_toolchain AS dev_toolchain
-ARG AIR_VERSION
-ARG TAILWIND_VERSION
-ARG TARGETARCH
-
-ENV GOPATH=/root/go
-ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
-
-RUN go install github.com/air-verse/air@${AIR_VERSION}
-RUN git config --global --add safe.directory /app
-RUN case "${TARGETARCH}" in \
-      amd64) TW_ARCH="x64" ;; \
-      arm64) TW_ARCH="arm64" ;; \
-      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSLo /usr/local/bin/tailwindcss \
-      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}" && \
-    chmod +x /usr/local/bin/tailwindcss
-
-WORKDIR /app
-
-# ──────────────────────────────────────────────────────────── cli_toolchain ───
-FROM dev_toolchain AS cli_toolchain
-ARG SQLC_VERSION
-ARG PGSCHEMA_VERSION
-ARG HUGO_VERSION
-ARG GOLANGCI_LINT_VERSION
-ARG TARGETARCH
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      libgit2-dev pkgconf \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${SQLC_VERSION}
-RUN curl -fsSLo /usr/local/bin/pgschema \
-      "https://github.com/pgplex/pgschema/releases/download/v${PGSCHEMA_VERSION}/pgschema-${PGSCHEMA_VERSION}-linux-${TARGETARCH}" && \
-    chmod +x /usr/local/bin/pgschema
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-    | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
-RUN case "${TARGETARCH}" in \
-      amd64) HUGO_ARCH="Linux-64bit" ;; \
-      arm64) HUGO_ARCH="linux-arm64" ;; \
-      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSLo /tmp/hugo.tar.gz \
-      "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_${HUGO_ARCH}.tar.gz" && \
-    tar -xzf /tmp/hugo.tar.gz -C /tmp hugo && \
-    mv /tmp/hugo /usr/local/bin/hugo && \
-    chmod +x /usr/local/bin/hugo && \
-    rm -f /tmp/hugo.tar.gz
+FROM ${TOOLS_DEV_IMAGE}  AS tools_dev
+FROM ${TOOLS_PROD_IMAGE} AS tools_prod
 
 # ===================================================================== dev ====
 # ─────────────────────────────────────────────────────────────── dev_target ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS dev_target
-ARG AIR_VERSION
-ARG TARGETARCH
 
-COPY --from=go_toolchain /usr/local/go /usr/local/go
-COPY --from=dev_toolchain /usr/local/bin/tailwindcss /usr/local/bin/tailwindcss
+COPY --from=tools_dev /usr/local/go /usr/local/go
+COPY --from=tools_dev /root/go/bin/air /usr/local/bin/air
+COPY --from=tools_dev /usr/local/bin/tailwindcss /usr/local/bin/tailwindcss
 RUN apk update && apk add --no-cache bash ca-certificates-bundle curl git libstdc++
 
 ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
 
-RUN go install github.com/air-verse/air@${AIR_VERSION}
 RUN git config --global --add safe.directory /app
 
 WORKDIR /app
@@ -99,7 +40,7 @@ CMD ["go", "run", "./cli/dev"]
 
 # =============================================================== production ===
 # ─────────────────────────────────────────────────────────── assets_builder ───
-FROM cli_toolchain AS assets_builder
+FROM tools_prod AS assets_builder
 ARG HTMX_VERSION
 WORKDIR /app
 COPY . .
@@ -109,7 +50,7 @@ RUN HTMX_VERSION=${HTMX_VERSION} go run ./cli/build assets --minify && \
 
 # ────────────────────────────────────────────────────── healthcheck_builder ───
 # healthcheck.go uses only stdlib — no workspace modules needed.
-FROM golang:${GO_VERSION}-bookworm AS healthcheck_builder
+FROM tools_prod AS healthcheck_builder
 ARG GO_VERSION
 WORKDIR /build
 COPY docker/app/healthcheck.go main.go
@@ -118,7 +59,7 @@ RUN printf 'module healthcheck\ngo %s\n' "${GO_VERSION}" > go.mod && \
 
 # ─────────────────────────────────────────────────────── production_builder ───
 FROM cgr.dev/chainguard/wolfi-base:latest AS production_builder
-COPY --from=go_toolchain /usr/local/go /usr/local/go
+COPY --from=tools_prod /usr/local/go /usr/local/go
 RUN apk update && apk add --no-cache ca-certificates-bundle git
 ENV PATH="/usr/local/go/bin:${PATH}"
 
