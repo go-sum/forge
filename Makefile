@@ -4,7 +4,6 @@ export
 PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
 TOOLS_NAME      := $(PROJECT_NAME)-tools
-DATABASE_URL    ?= postgres://postgres:postgres@db:5432/starter?sslmode=disable
 PACKAGE         ?=
 VERSION         ?=
 
