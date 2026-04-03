@@ -115,7 +115,9 @@ type CSRFConfig struct {
 }
 
 type DatabaseConfig struct {
-	URL string `koanf:"url" validate:"required"`
+	URL           string `koanf:"url"`
+	AutoMigrate   bool   `koanf:"auto_migrate"`
+	MigrationsDir string `koanf:"migrations_dir"`
 }
 
 // KVConfig holds the key-value store configuration.

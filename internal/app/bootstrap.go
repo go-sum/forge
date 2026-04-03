@@ -27,6 +27,7 @@ import (
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/database"
+	"github.com/go-sum/server/database/migrate"
 	"github.com/go-sum/server/logging"
 	"github.com/go-sum/server/validate"
 	"github.com/go-sum/session"
@@ -116,6 +117,21 @@ func (c *Container) initDatabase() {
 		return
 	}
 	c.DB = pool
+
+	if c.Config.App.Database.AutoMigrate {
+		migrationsDir := c.Config.App.Database.MigrationsDir
+		if migrationsDir == "" {
+			migrationsDir = "db/migrations"
+		}
+		slog.Info("applying database migrations", "dir", migrationsDir)
+		if err := migrate.Up(context.Background(), c.Config.DSN(), migrationsDir); err != nil {
+			c.StartupError = fmt.Errorf("database migrate: %w", err)
+			slog.Error("migration failed", "error", c.StartupError)
+			return
+		}
+		slog.Info("database migrations complete")
+	}
+
 	if err := repository.VerifyRequiredRelations(context.Background(), pool); err != nil {
 		c.StartupError = fmt.Errorf("database verify: %w", err)
 		slog.Error("database startup check failed", "error", c.StartupError)

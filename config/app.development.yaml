@@ -30,4 +30,4 @@ app:
     enabled: true
 
   database:
-    url: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/starter?sslmode=disable}
+    auto_migrate: true

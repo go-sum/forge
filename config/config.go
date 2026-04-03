@@ -4,6 +4,8 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	cfgs "github.com/go-sum/server/config"
@@ -26,8 +28,37 @@ func (c *Config) IsDevelopment() bool { return c.Environment() == "development" 
 // IsProduction reports whether the application is running in production mode.
 func (c *Config) IsProduction() bool { return c.Environment() == "production" }
 
-// DSN is an alias for App.Database.URL.
-func (c *Config) DSN() string { return c.App.Database.URL }
+// DSN returns the PostgreSQL connection string. If App.Database.URL is set
+// (e.g. via YAML), it is returned as-is. Otherwise a DSN is built from the
+// standard PG* environment variables (PGHOST, PGPORT, PGDATABASE, PGUSER,
+// PGPASSWORD).
+func (c *Config) DSN() string {
+	if c.App.Database.URL != "" {
+		return c.App.Database.URL
+	}
+	return buildDSN()
+}
+
+// buildDSN constructs a PostgreSQL DSN from standard PG* environment variables.
+func buildDSN() string {
+	host := envOr("PGHOST", "localhost")
+	port := envOr("PGPORT", "5432")
+	name := envOr("PGDATABASE", "postgres")
+	user := envOr("PGUSER", "postgres")
+	password := os.Getenv("PGPASSWORD")
+	sslmode := envOr("PGSSLMODE", "disable")
+
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		user, password, host, port, name, sslmode)
+	return dsn
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 // Load loads the application configuration from the default config/ directory.
 // appEnv is typically os.Getenv("APP_ENV").

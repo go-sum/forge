@@ -15,7 +15,8 @@ app:
     dev_only: []
 
   database:
-    url: ${DATABASE_URL}
+    auto_migrate: false
+    migrations_dir: db/migrations
 
   kv:
     enabled: false

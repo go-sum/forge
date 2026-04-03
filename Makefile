@@ -9,12 +9,10 @@ PACKAGE         ?=
 VERSION         ?=
 
 APP_NETWORK  := $(PROJECT_NAME)_app_network
-TEST_NETWORK := $(PROJECT_NAME)_test_network
 
 D_RUN     := docker run --rm -v $(PWD):/app -w /app --env-file .env
 D_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name $(PROJECT_NAME) --profile
 RUN_APP   := $(D_RUN) --network $(APP_NETWORK) $(TOOLS_NAME)
-RUN_TEST  := $(D_RUN) --network $(TEST_NETWORK) $(TOOLS_NAME)
 
 # Build ARGs — Dockerfile stages only use what it declares.
 BUILD_FLAGS := \
@@ -33,7 +31,7 @@ HOST_GOARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/'
 
 .PHONY: help \
         build clean lint vet hash-air-csp \
-        db-apply db-gen db-plan db-dump \
+        db-create db-diff db-gen db-migrate db-rollback db-status \
         assets \
         package-list package-push package-release package-status package-sync \
         dev prod test \
@@ -59,22 +57,40 @@ lint: _ensure-tools ## Run golangci-lint
 	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec golangci-lint run ./...
 	$(D_RUN) $(TOOLS_NAME) ./scripts/workspace.sh exec go vet ./...
 
-test: _ensure-tools ## Run tests (auto-starts/stops test_db + test_kv)
-	./bin/compose run "$(D_COMPOSE) test" "test_db test_kv" "$(RUN_TEST) ./scripts/workspace.sh exec go test -v -race -count=1 ./..."
+test: _ensure-tools ## Run tests
+	$(D_RUN) --network $(APP_NETWORK) \
+	  -e TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable \
+	  -e TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 \
+	  $(TOOLS_NAME) ./scripts/workspace.sh exec go test -v -race -count=1 ./...
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-db-apply: _ensure-tools ## Apply schema.sql to the database (auto-starts/stops schema_data)
-	./bin/compose run "$(D_COMPOSE) db" "schema_data" "$(RUN_APP) pgschema apply --file db/sql/schema.sql --auto-approve"
+db-create: _ensure-tools ## Create a new empty migration file (NAME=add_posts_table)
+	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-create NAME=add_posts_table" >&2; exit 1; }
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/db create "$(NAME)"
+
+db-diff: _ensure-tools ## Generate a migration file and show schema diff (NAME=add_posts_table)
+	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-diff NAME=add_posts_table" >&2; exit 1; }
+	$(D_RUN) $(TOOLS_NAME) go run ./cli/db create "$(NAME)"
+	$(D_RUN) --network $(APP_NETWORK) \
+	  -e PGSCHEMA_PLAN_HOST=$$PGHOST \
+	  -e PGSCHEMA_PLAN_DB=$${PGDATABASE}_plan \
+	  -e PGSCHEMA_PLAN_USER=$$PGUSER \
+	  -e PGSCHEMA_PLAN_PASSWORD=$$PGPASSWORD \
+	  $(TOOLS_NAME) pgschema plan --file db/sql/schema.sql --output-human stdout
+	@echo "Review the diff above, then edit the migration file in db/migrations/"
 
 db-gen: _ensure-tools ## Regenerate sqlc Go code from SQL queries
 	$(D_RUN) $(TOOLS_NAME) sqlc generate -f .sqlc.yaml
 
-db-plan: _ensure-tools ## Preview schema changes only (auto-starts/stops schema_data)
-	./bin/compose run "$(D_COMPOSE) db" "schema_data" "$(RUN_APP) pgschema plan --file db/sql/schema.sql --output-human stdout"
+db-migrate: _ensure-tools ## Apply pending migrations
+	$(RUN_APP) go run ./cli/db migrate
 
-db-dump: _ensure-tools ## Dump current live database schema to stdout for preview
-	./bin/compose run "$(D_COMPOSE) db" "db" "$(RUN_APP) pgschema dump"
+db-rollback: _ensure-tools ## Rollback the last migration
+	$(RUN_APP) go run ./cli/db rollback
+
+db-status: _ensure-tools ## Show migration status
+	$(RUN_APP) go run ./cli/db status
 
 init-admin: _ensure-tools ## Bootstrap first admin — EMAIL=user@example.com (one-time, fails if admin exists)
 	@test -n "$(EMAIL)" || { echo "error: EMAIL is required  e.g. make init-admin EMAIL=user@example.com" >&2; exit 1; }

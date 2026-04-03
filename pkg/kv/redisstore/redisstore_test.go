@@ -3,8 +3,10 @@ package redisstore_test
 import (
 	"context"
 	"errors"
+	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,36 +14,37 @@ import (
 	"github.com/go-sum/kv/redisstore"
 )
 
-// testAddr returns the KV test server address. Skips the test if TEST_KV_URL is not set.
-func testAddr(t *testing.T) string {
+// testConfig returns a RedisStore config from TEST_KV_URL.
+// Skips the test if the env var is not set.
+// URL format: redis://host:port/db (e.g. redis://kv:6379/1)
+func testConfig(t *testing.T) redisstore.Config {
 	t.Helper()
-	addr := os.Getenv("TEST_KV_URL")
-	if addr == "" {
-		// Fallback to host:port from individual vars.
-		host := os.Getenv("KVTEST_HOST")
-		port := os.Getenv("KVTEST_PORT")
-		if host == "" || port == "" {
-			t.Skip("TEST_KV_URL or KVTEST_HOST+KVTEST_PORT not set; skipping integration test")
-		}
-		addr = host + ":" + port
+	raw := os.Getenv("TEST_KV_URL")
+	if raw == "" {
+		t.Skip("TEST_KV_URL not set; skipping integration test")
 	}
-	return addr
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse TEST_KV_URL: %v", err)
+	}
+
+	cfg := redisstore.Config{Addr: u.Host}
+	if u.User != nil {
+		cfg.Password, _ = u.User.Password()
+	}
+	if len(u.Path) > 1 {
+		cfg.DB, _ = strconv.Atoi(u.Path[1:])
+	}
+	return cfg
 }
 
 // newTestStore creates a connected RedisStore and registers cleanup.
 func newTestStore(t *testing.T) *redisstore.RedisStore {
 	t.Helper()
-	addr := testAddr(t)
+	cfg := testConfig(t)
 
-	// Strip redis:// prefix if present (go-redis wants host:port).
-	if len(addr) > 8 && addr[:8] == "redis://" {
-		addr = addr[8:]
-	}
-
-	store, err := redisstore.New(redisstore.Config{
-		Addr:     addr,
-		Password: os.Getenv("KVTEST_PASSWORD"),
-	})
+	store, err := redisstore.New(cfg)
 	if err != nil {
 		t.Fatalf("redisstore.New: %v", err)
 	}

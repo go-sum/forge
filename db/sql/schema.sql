@@ -1,7 +1,12 @@
 -- Schema: starter application
--- This file is the single source of truth for the database schema.
--- pgschema uses this file to compute schema diffs (make db-plan / make db-apply).
--- Note: extensions (citext) are managed separately via db/init/01-extensions.sql
+-- This file is the single source of truth for the DESIRED database schema state.
+-- It is used by:
+--   1. sqlc — reads this to generate type-safe Go code (.sqlc.yaml)
+--   2. make db-diff — pgschema diffs this against the live DB to generate migration files
+-- Actual migrations live in db/migrations/ and are applied via goose.
+
+-- ─── Extensions ─────────────────────────────────────────────────────────────
+CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ─── Trigger function ───────────────────────────────────────────────────────
 -- Automatically sets updated_at = NOW() on any UPDATE row.

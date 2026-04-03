@@ -1,21 +1,19 @@
-# docker-compose.dev.yml — Dev and test overlays
+# docker-compose.dev.yml — Dev overlay
 #
 # Merged explicitly via: docker compose -f docker-compose.yml -f docker-compose.dev.yml
 # Never present on production servers — bare `docker compose up` loads only the base.
-
-# anchors are file-scoped — these need to be redeclared here
-x-pg-healthcheck: &pg-healthcheck
-  interval: 5s
-  timeout: 5s
-  retries: 5
-
-x-kv-healthcheck: &kv-healthcheck
-  interval: 5s
-  timeout: 5s
-  retries: 5
-  start_period: 20s
+#
+# The db container hosts three databases (created by db/init-dev/01-databases.sh):
+#   starter       — main development database
+#   starter_plan  — pgschema diff computation (make db-diff)
+#   starter_test  — test suite (make test)
+# The kv container is shared: DB 0 for dev, DB 1 for tests.
 
 services:
+  db:
+    volumes:
+      - ./db/init-dev:/var/lib/postgres/initdb
+
   app:
     build:
       context: .
@@ -34,6 +32,8 @@ services:
     ports:
       - "${APP_PORT:-8080}:8080"
     read_only: false
+    mem_limit: 2g
+    memswap_limit: 2g
     tmpfs: !reset []
     security_opt: !reset []
     cap_drop: !reset []
@@ -42,73 +42,3 @@ services:
     volumes:
       - .:/app
     restart: "no"
-
-  schema_data:
-    profiles: [db]
-    build:
-      context: ./docker/postgres
-      args:
-        PG_VERSION: ${PG_VERSION}
-    image: forge-db:latest
-    environment:
-      POSTGRES_USER: ${PGSCHEMA_PLAN_USER}
-      POSTGRES_PASSWORD: ${PGSCHEMA_PLAN_PASSWORD}
-      POSTGRES_DB: ${PGSCHEMA_PLAN_DB}
-    tmpfs:
-      - /var/lib/postgresql/data
-    volumes:
-      - ./db/init-plan:/var/lib/postgres/initdb
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGSCHEMA_PLAN_USER}"]
-      <<: *pg-healthcheck
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - app_network
-
-  test_db:
-    profiles: [test]
-    build:
-      context: ./docker/postgres
-      args:
-        PG_VERSION: ${PG_VERSION}
-    image: forge-db:latest
-    environment:
-      POSTGRES_USER: ${PGTEST_USER}
-      POSTGRES_PASSWORD: ${PGTEST_PASSWORD}
-      POSTGRES_DB: ${PGTEST_DATABASE}
-    tmpfs:
-      - /var/lib/postgresql/data
-    volumes:
-      - ./db/init-test:/var/lib/postgres/initdb
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGTEST_USER}"]
-      <<: *pg-healthcheck
-    networks:
-      - test_network
-
-  test_kv:
-    profiles: [test]
-    build:
-      context: ./docker/dragonfly
-      args:
-        DRAGONFLY_VERSION: ${DRAGONFLY_VERSION}
-        GO_VERSION: ${GO_VERSION}
-    image: forge-kv:latest
-    environment:
-      - DFLY_requirepass=${KVTEST_PASSWORD:-}
-    tmpfs:
-      - /data
-    mem_swappiness: 0
-    ulimits:
-      memlock: -1
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/healthcheck"]
-      <<: *kv-healthcheck
-    networks:
-      - test_network
-
-networks:
-  test_network:
-    driver: bridge

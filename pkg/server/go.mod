@@ -23,10 +23,14 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/pressly/goose/v3 v3.27.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	go.yaml.in/yaml/v3 v3.0.3 // indirect
+	github.com/sethvargo/go-retry v0.3.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
