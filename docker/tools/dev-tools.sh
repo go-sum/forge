@@ -26,7 +26,7 @@ chmod +x /usr/local/bin/hugo
 rm -f /tmp/hugo.tar.gz
 
 # ── Air (hot-reload) ────────────────────────────────────────────────────────
-go install github.com/air-verse/air@${AIR_VERSION}
+go install github.com/air-verse/air@v${AIR_VERSION}
 
 # ── sqlc ─────────────────────────────────────────────────────────────────────
 go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${SQLC_VERSION}
@@ -38,4 +38,4 @@ chmod +x /usr/local/bin/pgschema
 
 # ── golangci-lint ────────────────────────────────────────────────────────────
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-  | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
+  | sh -s -- -b /usr/local/bin v${GOLANGCI_LINT_VERSION}

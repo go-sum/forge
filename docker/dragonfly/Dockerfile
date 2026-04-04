@@ -2,7 +2,7 @@
 ARG DRAGONFLY_VERSION
 ARG GO_VERSION
 
-FROM docker.dragonflydb.io/dragonflydb/dragonfly:${DRAGONFLY_VERSION} AS upstream
+FROM docker.dragonflydb.io/dragonflydb/dragonfly:v${DRAGONFLY_VERSION} AS upstream
 
 FROM golang:${GO_VERSION}-bookworm AS healthcheck_builder
 WORKDIR /build

@@ -29,3 +29,21 @@ COPY dev-tools.sh /tmp/
 RUN bash /tmp/dev-tools.sh && rm /tmp/dev-tools.sh
 
 WORKDIR /app
+
+# ── Production tools (Hugo + Tailwind only) ──────────────────────────────────
+# Pre-built image for production builds: avoids re-downloading Hugo + Tailwind
+# on every deploy. Mirrors the dev_tools caching strategy.
+FROM golang:${GO_VERSION}-bookworm AS production_tools
+ARG HUGO_VERSION
+ARG TAILWIND_VERSION
+ARG TARGETARCH
+
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+
+RUN git config --global --add safe.directory /app
+
+COPY prod-tools.sh /tmp/
+RUN bash /tmp/prod-tools.sh && rm /tmp/prod-tools.sh
+
+WORKDIR /app

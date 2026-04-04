@@ -11,6 +11,7 @@ APP_NETWORK  := $(PROJECT_NAME)_app_network
 # ── Tool images ──────────────────────────────────────────────────────────────
 TOOLS_IMAGE  := $(PROJECT_NAME)-tools
 TOOLS_DEV    := $(TOOLS_IMAGE):dev
+TOOLS_PROD   := $(TOOLS_IMAGE):prod
 
 TOOLS_DIR    := docker/tools
 
@@ -29,6 +30,12 @@ TOOLS_DEV_BUILD_FLAGS := \
     --build-arg SQLC_VERSION=$(SQLC_VERSION) \
     --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION)
 
+TOOLS_PROD_BUILD_FLAGS := \
+    --file $(TOOLS_DIR)/Dockerfile \
+    --build-arg GO_VERSION=$(GO_VERSION) \
+    --build-arg HUGO_VERSION=$(HUGO_VERSION) \
+    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION)
+
 DEV_BUILD_FLAGS := \
     --file docker/app/Dockerfile \
     --build-arg GO_VERSION=$(GO_VERSION) \
@@ -38,8 +45,7 @@ PROD_BUILD_FLAGS := \
     --file docker/app/Dockerfile \
     --build-arg GO_VERSION=$(GO_VERSION) \
     --build-arg HTMX_VERSION=$(HTMX_VERSION) \
-    --build-arg HUGO_VERSION=$(HUGO_VERSION) \
-    --build-arg TAILWIND_VERSION=$(TAILWIND_VERSION)
+    --build-arg TOOLS_PROD_IMAGE=$(TOOLS_PROD)
 
 # Host OS/arch for cross-compiling CLI tools inside containers.
 HOST_GOOS   := $(shell uname -s | tr A-Z a-z)
@@ -52,9 +58,9 @@ HOST_GOARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/'
         package-list package-push package-release package-status package-sync \
         dev prod test \
         docker-build docker-dev docker-down docker-logs docker-up \
-        dev-tools \
+        dev-tools prod-tools \
         init-admin \
-        _ensure-available _ensure-dev-tools
+        _ensure-available _ensure-dev-tools _ensure-prod-tools
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
 
@@ -145,6 +151,9 @@ package-sync: _ensure-dev-tools ## Regenerate go.prod.mod + go.prod.sum from go.
 dev-tools: ## Build dev toolchain image (lint, test, db, assets)
 	docker build --target dev_tools $(TOOLS_DEV_BUILD_FLAGS) -t $(TOOLS_DEV) $(TOOLS_DIR)
 
+prod-tools: ## Build production toolchain image (Hugo, Tailwind)
+	docker build --target production_tools $(TOOLS_PROD_BUILD_FLAGS) -t $(TOOLS_PROD) $(TOOLS_DIR)
+
 # ── Docker & Dev ──────────────────────────────────────────────────────────────
 
 dev: _ensure-dev-tools ## Start all services with hot-reload
@@ -153,7 +162,7 @@ dev: _ensure-dev-tools ## Start all services with hot-reload
 prod: docker-build ## Build and start the production stack locally
 	docker compose up -d
 
-docker-build: ## Build production Docker image
+docker-build: _ensure-prod-tools ## Build production Docker image
 	@GITHUB_ACCESS_TOKEN="$${GITHUB_ACCESS_TOKEN:-$$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}" && \
 	  export GITHUB_ACCESS_TOKEN && \
 	  docker build --target production_target $(PROD_BUILD_FLAGS) \
@@ -180,3 +189,7 @@ _ensure-dev-tools:
 	@docker image inspect $(TOOLS_DEV) > /dev/null 2>&1 || \
 	  docker build --target dev_tools $(TOOLS_DEV_BUILD_FLAGS) -t $(TOOLS_DEV) $(TOOLS_DIR)
 	@test -x bin/compose || { $(D_RUN) -e CGO_ENABLED=0 -e GOOS=$(HOST_GOOS) -e GOARCH=$(HOST_GOARCH) $(TOOLS_DEV) go build -o ./bin/compose ./cli/compose && chmod +x bin/compose; }
+
+_ensure-prod-tools:
+	@docker image inspect $(TOOLS_PROD) > /dev/null 2>&1 || \
+	  docker build --target production_tools $(TOOLS_PROD_BUILD_FLAGS) -t $(TOOLS_PROD) $(TOOLS_DIR)

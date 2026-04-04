@@ -1,30 +1,14 @@
 # check=skip=InvalidDefaultArgInFrom
 # ── Version pins ──────────────────────────────────────────────────────────────
 # Dev toolchain is a pre-built external image (docker/tools/Dockerfile).
-# Prod toolchain is inlined below — keeps production builds self-contained.
+# Prod toolchain is also pre-built — keeps builds fast via layer caching.
 ARG GO_VERSION
 ARG HTMX_VERSION
-ARG HUGO_VERSION
-ARG TAILWIND_VERSION
 ARG TOOLS_DEV_IMAGE=forge-tools:dev
+ARG TOOLS_PROD_IMAGE=forge-tools:prod
 
 FROM ${TOOLS_DEV_IMAGE} AS dev_tools
-
-# ───────────────────────────────────────────────────────── production_tools ───
-FROM golang:${GO_VERSION}-bookworm AS production_tools
-ARG HUGO_VERSION
-ARG TAILWIND_VERSION
-ARG TARGETARCH
-
-ENV GOPATH=/root/go
-ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
-
-RUN git config --global --add safe.directory /app
-
-COPY docker/tools/prod-tools.sh /tmp/
-RUN bash /tmp/prod-tools.sh && rm /tmp/prod-tools.sh
-
-WORKDIR /app
+FROM ${TOOLS_PROD_IMAGE} AS production_tools
 
 # ===================================================================== dev ====
 # ─────────────────────────────────────────────────────────────── dev_target ───
