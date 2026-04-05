@@ -44,6 +44,7 @@ func TestRegisterStartupRoutesServesUnavailableAndHealth(t *testing.T) {
 	startupH := handler.NewAvailability(
 		func(context.Context) error { return errors.New("database verify: missing required relations users") },
 		errors.New("database verify: missing required relations users"),
+		"",
 	)
 
 	if err := RegisterStartupRoutes(container, startupH); err != nil {

@@ -33,7 +33,7 @@ func TestVerifyRequiredRelations(t *testing.T) {
 		if !errors.Is(err, model.ErrRequiredRelationsMissing) {
 			t.Fatalf("errors.Is(err, model.ErrRequiredRelationsMissing) = false; err = %v", err)
 		}
-		want := "required relations missing: missing required relations users; run `make db-apply` to apply db/sql/schema.sql"
+		want := "required relations missing: missing required relations users; run `make db-migrate` to apply pending migrations"
 		if err.Error() != want {
 			t.Fatalf("VerifyRequiredRelations() error = %q, want %q", err.Error(), want)
 		}

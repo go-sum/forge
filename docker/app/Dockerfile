@@ -85,8 +85,9 @@ COPY config/ ./config/
 RUN rm -f config/*.development.yaml
 COPY db/ ./db/
 COPY internal/ ./internal/
+ARG APP_VERSION
 RUN GONOSUMDB='github.com/go-sum/*' GOPRIVATE='github.com/go-sum/*' \
-    CGO_ENABLED=0 go build -o /bin/server ./cmd/server
+    CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${APP_VERSION}" -o /bin/server ./cmd/server
 
 # ──────────────────────────────────────────────────────── production_target ───
 FROM cgr.dev/chainguard/static:latest AS production_target

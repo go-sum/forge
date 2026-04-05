@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Create additional databases for pgschema plan and tests.
+# Create additional databases for schema diff computation and tests.
 # The main database ($POSTGRES_DB) is created by the entrypoint.
 # Same credentials — simplifies development.
 for db in "${POSTGRES_DB}_plan" "${POSTGRES_DB}_test"; do
@@ -13,8 +13,8 @@ for db in "${POSTGRES_DB}_plan" "${POSTGRES_DB}_test"; do
 EOSQL
 done
 
-# pgschema needs citext + pgcrypto pre-installed in the plan database
-# (it doesn't run goose migrations, it applies schema.sql directly).
+# The plan database needs citext + pgcrypto pre-installed for schema diffing
+# (pgschema applies schema.sql directly to compute diffs, not via goose).
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${POSTGRES_DB}_plan" <<-EOSQL
     CREATE EXTENSION IF NOT EXISTS citext;
     CREATE EXTENSION IF NOT EXISTS pgcrypto;

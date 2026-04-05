@@ -46,7 +46,7 @@ Registered in `.mcp.json`. Available in all agents. **Prefer over Grep/Glob for 
 | Database | PostgreSQL | 16 |
 | DB Driver | pgx | v5.9.1 |
 | Query Codegen | sqlc | latest |
-| Migrations | pgschema | 1.7.4 |
+| Migrations | goose (via `cli/db`) | latest |
 | HTML Rendering | Gomponents | v1.2.0 |
 | Frontend | HTMX | 2.0.4 |
 | CSS | Tailwind | v4.1+ (standalone CLI, no Node.js) |
@@ -87,12 +87,13 @@ Tier 3  examples          (any tier)
 
 ## Database Workflow
 
-1. Edit `db/sql/schema.sql` (single source of truth)
-2. Preview: `make db-plan`
-3. Apply: `make db-apply`
+1. Edit `db/sql/schema.sql` (single source of truth for desired state)
+2. Create migration: `make db-create NAME=description` or `make db-diff NAME=description` (auto-generates diff)
+3. Apply migrations: `make db-migrate`
 4. Regenerate Go: `make db-gen` (only if queries changed)
+5. Check status: `make db-status` · Rollback: `make db-rollback`
 
-No migration files — pgschema computes diffs declaratively. Extensions (`pgcrypto`, `citext`) are managed via `db/init/01-extensions.sql`, not pgschema.
+Migrations live in `db/migrations/` and are applied via goose. Extensions (`pgcrypto`, `citext`) are managed via `db/init/01-extensions.sql`.
 
 ---
 

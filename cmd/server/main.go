@@ -7,11 +7,14 @@ import (
 	"github.com/go-sum/forge/internal/app"
 )
 
-func main() {
-	app := app.New()
-	defer app.Shutdown()
+// version is set at build time via -ldflags="-X main.version=...".
+var version string
 
-	if err := app.Start(); err != nil {
+func main() {
+	a := app.New(version)
+	defer a.Shutdown()
+
+	if err := a.Start(); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}

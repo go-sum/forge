@@ -95,7 +95,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	h := handler.New(cfg, func() echo.Routes {
 		return e.Router().Routes()
 	}, &service.Services{}, container.Validator)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
@@ -273,7 +273,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 		&service.Services{User: service.NewUserService(repo)},
 		container.Validator,
 	)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
@@ -447,7 +447,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		&service.Services{User: service.NewUserService(repo)},
 		container.Validator,
 	)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil)
+	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := authui.New(nil, sessions, container.Validator, authui.Config{
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",

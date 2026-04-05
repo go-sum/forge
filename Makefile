@@ -24,7 +24,7 @@ RUN_APP   := $(D_COMPOSE) --profile dev run --rm app
         deploy \
         package-list package-push package-release package-status package-sync \
         dev prod test \
-        docker-build docker-dev docker-down docker-logs docker-up \
+        docker-build docker-dev docker-down docker-logs docker-prune docker-up \
         dev-tools prod-tools
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
@@ -139,6 +139,7 @@ docker-build: ## Build production Docker image
 	    --file docker/app/Dockerfile \
 	    --build-arg GO_VERSION=$(GO_VERSION) \
 	    --build-arg HTMX_VERSION=$(HTMX_VERSION) \
+	    --build-arg APP_VERSION=$(APP_VERSION) \
 	    --build-arg TOOLS_PROD_IMAGE=$(TOOLS_PROD) \
 	    --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
 	    -t forge:latest .
@@ -153,8 +154,18 @@ docker-dev: ## Build dev Docker image
 docker-down: ## Stop and remove containers
 	$(D_COMPOSE) --profile dev down $(ARGS)
 
+caddy-up: ## Start Caddy reverse proxy for local production testing
+	docker compose -f docker/caddy/docker-compose.yml up -d
+
+caddy-down: ## Stop Caddy reverse proxy
+	docker compose -f docker/caddy/docker-compose.yml down
+
 docker-logs: ## Follow container logs
 	$(D_COMPOSE) --profile dev logs -f
+
+docker-prune: ## Remove all project containers, images, networks, and volumes
+	$(D_COMPOSE) --profile dev --profile tools down -v --rmi all --remove-orphans
+	@docker rmi forge:latest 2>/dev/null || true
 
 docker-up: ## Apply schema, then start containers in background
 	$(D_COMPOSE) --profile dev up -d $(ARGS)

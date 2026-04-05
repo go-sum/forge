@@ -13,7 +13,7 @@ import (
 
 func TestAvailabilityHandlerUnavailableReturnsServiceUnavailable(t *testing.T) {
 	cause := errors.New("database connect: dial tcp 127.0.0.1:5432: connect: connection refused")
-	h := NewAvailability(func(context.Context) error { return cause }, cause)
+	h := NewAvailability(func(context.Context) error { return cause }, cause, "")
 	c, _ := newRequestContext(http.MethodGet, "/", nil)
 
 	err := h.Unavailable(c)
@@ -36,7 +36,7 @@ func TestAvailabilityHandlerUnavailableReturnsServiceUnavailable(t *testing.T) {
 
 func TestAvailabilityHandlerUnavailableUsesSchemaMessage(t *testing.T) {
 	cause := fmt.Errorf("database verify: %w", model.ErrRequiredRelationsMissing)
-	h := NewAvailability(func(context.Context) error { return cause }, cause)
+	h := NewAvailability(func(context.Context) error { return cause }, cause, "")
 	c, _ := newRequestContext(http.MethodGet, "/", nil)
 
 	err := h.Unavailable(c)
@@ -74,7 +74,7 @@ func TestAvailabilityHandlerHealthReportsStatus(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			h := NewAvailability(tc.checkHealth, nil)
+			h := NewAvailability(tc.checkHealth, nil, "")
 			c, rec := newRequestContext(http.MethodGet, "/health", nil)
 
 			if err := h.Health(c); err != nil {
@@ -87,5 +87,18 @@ func TestAvailabilityHandlerHealthReportsStatus(t *testing.T) {
 				t.Fatalf("rec.Body.String() = %q, want %q", rec.Body.String(), tc.wantBody)
 			}
 		})
+	}
+}
+
+func TestAvailabilityHandlerHealthIncludesVersion(t *testing.T) {
+	h := NewAvailability(func(context.Context) error { return nil }, nil, "v1.2.3")
+	c, rec := newRequestContext(http.MethodGet, "/health", nil)
+
+	if err := h.Health(c); err != nil {
+		t.Fatalf("Health() error = %v", err)
+	}
+	want := "{\"status\":\"ok\",\"version\":\"v1.2.3\"}\n"
+	if rec.Body.String() != want {
+		t.Fatalf("rec.Body.String() = %q, want %q", rec.Body.String(), want)
 	}
 }

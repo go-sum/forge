@@ -133,8 +133,8 @@ else is implementation.
 Write SQL in `db/sql/`:
 - Schema changes go in `db/sql/schema.sql`
 - New query definitions go in `db/sql/queries/`
-- Run `make db-plan` to preview schema changes before applying
-- Run `make db-apply` to apply, then `make db-gen` to regenerate Go code
+- Run `make db-diff NAME=description` to generate a migration file and preview the schema diff
+- Run `make db-migrate` to apply pending migrations, then `make db-gen` to regenerate Go code
 
 Never edit generated files in `db/schema/*.go`.
 
@@ -718,7 +718,7 @@ if id, err := uuid.Parse(...); err == nil {
 ### Adding a new entity
 
 1. Define the model struct, input structs, and sentinel errors in `internal/model/`
-2. Write schema SQL, run `make db-apply`, run `make db-gen`
+2. Write schema SQL, run `make db-migrate`, run `make db-gen`
 3. Add a `XxxRepository` interface and implementation in `internal/repository/`
 4. Add the repo to `Repositories` and `NewRepositories`
 5. Add a `XxxService` in `internal/service/` with `NewXxxService`
@@ -769,7 +769,7 @@ compounding cost.
 ### New feature checklist
 
 - [ ] Domain types and error sentinels defined in `internal/model/`
-- [ ] SQL written, `make db-apply` run, `make db-gen` run
+- [ ] SQL written, `make db-migrate` run, `make db-gen` run
 - [ ] Repository interface extended, implementation added, db errors mapped
 - [ ] Service method added, business rules applied, transaction used if atomic
 - [ ] Route constant added to `internal/routes/`

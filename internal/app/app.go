@@ -18,9 +18,10 @@ type App struct {
 }
 
 // New initializes the application container and registers all HTTP routes.
-func New() *App {
+// version is the build-time application version (may be empty in dev).
+func New(version string) *App {
 	c := NewContainer()
-	availabilityH := handler.NewAvailability(c.checkHealth(), c.StartupError)
+	availabilityH := handler.NewAvailability(c.checkHealth(), c.StartupError, version)
 
 	if c.StartupError != nil {
 		if err := RegisterStartupRoutes(c, availabilityH); err != nil {

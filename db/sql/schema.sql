@@ -2,8 +2,8 @@
 -- This file is the single source of truth for the DESIRED database schema state.
 -- It is used by:
 --   1. sqlc — reads this to generate type-safe Go code (.sqlc.yaml)
---   2. make db-diff — pgschema diffs this against the live DB to generate migration files
--- Actual migrations live in db/migrations/ and are applied via goose.
+--   2. make db-diff — diffs this against the live DB to generate migration files in db/migrations/
+-- Migrations are applied via goose: make db-migrate
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS citext;

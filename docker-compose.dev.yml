@@ -5,7 +5,7 @@
 #
 # The db container hosts three databases (created by db/init-dev/01-databases.sh):
 #   starter       — main development database
-#   starter_plan  — pgschema diff computation (make db-diff)
+#   starter_plan  — schema diff computation (make db-diff)
 #   starter_test  — test suite (make test)
 # The kv container is shared: DB 0 for dev, DB 1 for tests.
 

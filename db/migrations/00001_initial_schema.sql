@@ -1,6 +1,6 @@
 -- +goose Up
 -- Baseline migration: matches db/sql/schema.sql at initial commit.
--- Idempotent — safe to apply to databases already provisioned by pgschema.
+-- Idempotent — safe to apply to databases provisioned before goose was adopted.
 
 CREATE EXTENSION IF NOT EXISTS citext;
 

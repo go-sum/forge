@@ -35,7 +35,7 @@ SELECT
 	}
 
 	return fmt.Errorf(
-		"%w: missing required relations %s; run `make db-apply` to apply db/sql/schema.sql",
+		"%w: missing required relations %s; run `make db-migrate` to apply pending migrations",
 		model.ErrRequiredRelationsMissing,
 		strings.Join(missing, ", "),
 	)

@@ -16,13 +16,15 @@ type AvailabilityHandler struct {
 	checkHealth func(context.Context) error
 	message     string
 	cause       error
+	version     string
 }
 
-func NewAvailability(checkHealth func(context.Context) error, cause error) *AvailabilityHandler {
+func NewAvailability(checkHealth func(context.Context) error, cause error, version string) *AvailabilityHandler {
 	return &AvailabilityHandler{
 		checkHealth: checkHealth,
 		message:     startupPublicMessage(cause),
 		cause:       cause,
+		version:     version,
 	}
 }
 
@@ -31,7 +33,11 @@ func (h *AvailabilityHandler) Health(c *echo.Context) error {
 	if err := h.checkHealth(c.Request().Context()); err != nil {
 		status, code = "error", http.StatusServiceUnavailable
 	}
-	return c.JSON(code, map[string]string{"status": status})
+	resp := map[string]string{"status": status}
+	if h.version != "" {
+		resp["version"] = h.version
+	}
+	return c.JSON(code, resp)
 }
 
 func (h *AvailabilityHandler) Unavailable(*echo.Context) error {
