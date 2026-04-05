@@ -14,6 +14,46 @@ services:
     volumes:
       - ./db/init-dev:/var/lib/postgres/initdb
 
+  # Dev toolchain — build, lint, test, db-gen, assets.
+  # profiles: [tools] keeps it out of `docker compose up`.
+  # `docker compose run --rm tools <cmd>` auto-builds if needed.
+  tools:
+    build:
+      context: ./docker/tools
+      dockerfile: Dockerfile
+      target: dev_tools
+      args:
+        GO_VERSION: ${GO_VERSION}
+        AIR_VERSION: ${AIR_VERSION}
+        GOLANGCI_LINT_VERSION: ${GOLANGCI_LINT_VERSION}
+        HUGO_VERSION: ${HUGO_VERSION}
+        PGSCHEMA_VERSION: ${PGSCHEMA_VERSION}
+        SQLC_VERSION: ${SQLC_VERSION}
+        TAILWIND_VERSION: ${TAILWIND_VERSION}
+    image: ${TOOLS_DEV:-forge-tools:dev}
+    volumes:
+      - .:/app
+    working_dir: /app
+    env_file: .env
+    profiles: [tools]
+
+  # Production toolchain — Hugo + Tailwind only.
+  prod-tools:
+    build:
+      context: ./docker/tools
+      dockerfile: Dockerfile
+      target: production_tools
+      args:
+        GO_VERSION: ${GO_VERSION}
+        HUGO_VERSION: ${HUGO_VERSION}
+        TAILWIND_VERSION: ${TAILWIND_VERSION}
+    image: ${TOOLS_PROD:-forge-tools:prod}
+    volumes:
+      - .:/app
+    working_dir: /app
+    env_file: .env
+    profiles: [tools]
+
   app:
     build:
       context: .

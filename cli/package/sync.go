@@ -4,11 +4,44 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// syncProdMod regenerates go.prod.mod from go.mod (stripping replace directives)
+// and runs go mod tidy to verify all dependencies resolve.
+// Note: git credentials must be configured before calling this function
+// (e.g. via git config url.insteadOf) for private module resolution.
+func syncProdMod(repoRoot string) error {
+	goModPath := filepath.Join(repoRoot, "go.mod")
+	prodModPath := filepath.Join(repoRoot, "go.prod.mod")
+
+	if err := copyModStripReplace(goModPath, prodModPath); err != nil {
+		return fmt.Errorf("write go.prod.mod: %w", err)
+	}
+	fmt.Fprintln(logWriter, "wrote go.prod.mod (replace directives removed)")
+
+	// Run go mod tidy on the production mod file to resolve all dependencies.
+	cmd := exec.Command("go", "mod", "tidy", "-modfile=go.prod.mod")
+	cmd.Dir = repoRoot
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(),
+		"GOWORK=off",
+		"GONOSUMDB=github.com/go-sum/*",
+		"GOPRIVATE=github.com/go-sum/*",
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go mod tidy -modfile=go.prod.mod: %w", err)
+	}
+	fmt.Fprintln(logWriter, "go.prod.mod tidied successfully")
+
+	return nil
+}
 
 func newSyncCmd(cfg *config) *cobra.Command {
 	return &cobra.Command{
@@ -16,15 +49,7 @@ func newSyncCmd(cfg *config) *cobra.Command {
 		Short: "Copy go.mod to go.prod.mod with replace directives removed",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			goModPath := filepath.Join(cfg.repoRoot, "go.mod")
-			prodModPath := filepath.Join(cfg.repoRoot, "go.prod.mod")
-
-			if err := copyModStripReplace(goModPath, prodModPath); err != nil {
-				return fmt.Errorf("write go.prod.mod: %w", err)
-			}
-
-			fmt.Fprintln(logWriter, "wrote go.prod.mod (replace directives removed)")
-			return nil
+			return syncProdMod(cfg.repoRoot)
 		},
 	}
 }

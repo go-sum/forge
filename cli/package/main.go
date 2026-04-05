@@ -41,6 +41,7 @@ func main() {
 	root.PersistentFlags().BoolVar(&cfg.dryRun, "dry-run", false, "print actions without executing")
 
 	root.AddCommand(
+		newDeployCmd(cfg),
 		newListCmd(cfg),
 		newPushCmd(cfg),
 		newReleaseCmd(cfg),

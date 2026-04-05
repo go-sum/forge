@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -121,6 +122,89 @@ func writeGoModVersion(goModPath, modulePath, newVersion string) error {
 	}
 
 	return os.WriteFile(goModPath, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// readDotVersion reads a single key from the .versions file (KEY=VALUE format).
+func readDotVersion(repoRoot, key string) (string, error) {
+	path := filepath.Join(repoRoot, ".versions")
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if ok && strings.TrimSpace(k) == key {
+			return strings.TrimSpace(v), nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("key %s not found in %s", key, path)
+}
+
+// writeDotVersion updates a single key in the .versions file, preserving other entries.
+func writeDotVersion(repoRoot, key, value string) error {
+	path := filepath.Join(repoRoot, ".versions")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		k, _, ok := strings.Cut(trimmed, "=")
+		if ok && strings.TrimSpace(k) == key {
+			lines[i] = key + "=" + value
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("key %s not found in %s", key, path)
+	}
+
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// resolveAppVersion reads APP_VERSION from .versions and resolves the next version.
+// If explicit is non-empty, validates it is > current. Otherwise, bumps patch.
+// Returns the current version string and the next version string.
+func resolveAppVersion(repoRoot, explicit string) (string, string, error) {
+	currentStr, err := readDotVersion(repoRoot, "APP_VERSION")
+	if err != nil {
+		return "", "", err
+	}
+
+	current, err := parseSemver(currentStr)
+	if err != nil {
+		return "", "", fmt.Errorf("APP_VERSION in .versions: %w", err)
+	}
+
+	if explicit == "" {
+		next := current.bumpPatch()
+		return currentStr, next.String(), nil
+	}
+
+	next, err := parseSemver(explicit)
+	if err != nil {
+		return "", "", err
+	}
+
+	if !next.greaterThan(current) {
+		return "", "", fmt.Errorf("version %s must be greater than current %s", next, current)
+	}
+
+	return currentStr, next.String(), nil
 }
 
 // resolveReleaseVersion determines the version to release.
