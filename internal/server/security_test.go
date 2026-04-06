@@ -120,11 +120,11 @@ func TestCSRFMiddlewareUsesTTLSecondsFromConfig(t *testing.T) {
 	cfg := testSecurityConfig()
 	cfg.App.Security.CSRF = config.CSRFConfig{
 		Key:        "test-signing-key-32-bytes-padded!",
+		ContextKey: "csrf",
 		FormField:  "_csrf",
 		HeaderName: "X-CSRF-Token",
 		TokenTTL:   3600,
 	}
-	cfg.App.Keys.CSRF = "csrf"
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

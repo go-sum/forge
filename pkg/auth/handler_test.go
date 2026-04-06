@@ -1,21 +1,21 @@
-package authui
+package auth
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/mail"
 	"net/url"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/forge/internal/adapters/authsession"
-	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/session"
-	servervalidate "github.com/go-sum/server/validate"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
@@ -35,6 +35,237 @@ var handlerTestUser = model.User{
 	UpdatedAt:   time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC),
 }
 
+// ── Fakes ────────────────────────────────────────────────────────────────────
+
+// fakeHandlerSessionManager is a stateful in-memory session manager.
+// All Load calls return the same fakeSessionState regardless of the request,
+// so tests can pre-populate state without simulating cookie roundtrips.
+type fakeHandlerSessionManager struct {
+	state      *fakeSessionState
+	commitErr  error
+	destroyErr error
+	rotateErr  error
+}
+
+func newFakeHandlerSessionManager() *fakeHandlerSessionManager {
+	return &fakeHandlerSessionManager{state: newFakeSessionState()}
+}
+
+func (m *fakeHandlerSessionManager) Load(r *http.Request) (SessionState, error) {
+	return m.state, nil
+}
+
+func (m *fakeHandlerSessionManager) Commit(w http.ResponseWriter, r *http.Request, s SessionState) error {
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	http.SetCookie(w, &http.Cookie{Name: "test-session", Value: "x", MaxAge: 3600})
+	return nil
+}
+
+func (m *fakeHandlerSessionManager) Destroy(w http.ResponseWriter, r *http.Request) error {
+	if m.destroyErr != nil {
+		return m.destroyErr
+	}
+	m.state = newFakeSessionState()
+	http.SetCookie(w, &http.Cookie{Name: "test-session", Value: "", MaxAge: -1})
+	return nil
+}
+
+func (m *fakeHandlerSessionManager) RotateID(w http.ResponseWriter, r *http.Request, s SessionState) error {
+	if m.rotateErr != nil {
+		return m.rotateErr
+	}
+	http.SetCookie(w, &http.Cookie{Name: "test-session", Value: "rotated", MaxAge: 3600})
+	return nil
+}
+
+// fakeFormParser reads `form:` struct tags, populates string fields from
+// request form values, and validates using `validate:` tags.
+type fakeFormParser struct{}
+
+func (p *fakeFormParser) Parse(c *echo.Context, dest any) FormSubmission {
+	_ = c.Request().ParseForm()
+	sub := &fakeFormSubmission{valid: true}
+	rv := reflect.ValueOf(dest).Elem()
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		formTag := field.Tag.Get("form")
+		if formTag == "" || formTag == "-" {
+			continue
+		}
+		val := c.Request().FormValue(formTag)
+		if rv.Field(i).Kind() == reflect.String {
+			rv.Field(i).SetString(val)
+		}
+		validateFormField(field.Name, val, field.Tag.Get("validate"), sub)
+	}
+	return sub
+}
+
+func validateFormField(name, val, tag string, sub *fakeFormSubmission) {
+	parts := strings.Split(tag, ",")
+	for _, p := range parts {
+		if strings.TrimSpace(p) == "omitempty" && val == "" {
+			return
+		}
+	}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		switch {
+		case part == "required":
+			if val == "" {
+				sub.SetFieldError(name, "This field is required.")
+				return
+			}
+		case part == "email":
+			if _, err := mail.ParseAddress(val); err != nil {
+				sub.SetFieldError(name, "Enter a valid email address.")
+				return
+			}
+		case strings.HasPrefix(part, "len="):
+			n, _ := strconv.Atoi(strings.TrimPrefix(part, "len="))
+			if len(val) != n {
+				sub.SetFieldError(name, fmt.Sprintf("Must be exactly %d characters.", n))
+				return
+			}
+		case part == "numeric":
+			for _, ch := range val {
+				if ch < '0' || ch > '9' {
+					sub.SetFieldError(name, "Must contain only digits.")
+					return
+				}
+			}
+		}
+	}
+}
+
+// fakeFormSubmission satisfies FormSubmission.
+type fakeFormSubmission struct {
+	valid       bool
+	fieldErrors map[string][]string
+	formErrors  []string
+}
+
+func (s *fakeFormSubmission) IsValid() bool { return s.valid && len(s.fieldErrors) == 0 && len(s.formErrors) == 0 }
+
+func (s *fakeFormSubmission) GetFieldErrors(field string) []string {
+	if s.fieldErrors == nil {
+		return nil
+	}
+	return s.fieldErrors[field]
+}
+
+func (s *fakeFormSubmission) SetFieldError(field, msg string) {
+	if s.fieldErrors == nil {
+		s.fieldErrors = make(map[string][]string)
+	}
+	s.fieldErrors[field] = append(s.fieldErrors[field], msg)
+}
+
+func (s *fakeFormSubmission) GetFormErrors() []string { return s.formErrors }
+
+func (s *fakeFormSubmission) SetFormError(msg string) {
+	s.formErrors = append(s.formErrors, msg)
+}
+
+// fakeFlasher discards all flash messages (flash is not under test here).
+type fakeFlasher struct{}
+
+func (f *fakeFlasher) Success(w http.ResponseWriter, text string) error { return nil }
+func (f *fakeFlasher) Error(w http.ResponseWriter, text string) error   { return nil }
+
+// fakeRedirector performs a real 303 redirect so Location/status checks pass.
+type fakeRedirector struct{}
+
+func (r *fakeRedirector) Redirect(w http.ResponseWriter, req *http.Request, url string) error {
+	http.Redirect(w, req, url, http.StatusSeeOther)
+	return nil
+}
+
+// fakePageRenderer renders enough HTML for test assertions without importing
+// any UI package.
+type fakePageRenderer struct{}
+
+func (r *fakePageRenderer) SigninPage(req Request, sub FormSubmission, input model.BeginSigninInput, signinPath, signupPath, csrfField string) g.Node {
+	nodes := []g.Node{
+		g.Text("Send Code"),
+		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
+	}
+	if input.Email != "" {
+		nodes = append(nodes, h.Input(h.Name("email"), h.Value(input.Email)))
+	}
+	if sub != nil {
+		for _, e := range sub.GetFieldErrors("Email") {
+			nodes = append(nodes, g.Text(e))
+		}
+		for _, e := range sub.GetFormErrors() {
+			nodes = append(nodes, g.Text(e))
+		}
+	}
+	return h.Div(g.Group(nodes))
+}
+
+func (r *fakePageRenderer) SignupPage(req Request, sub FormSubmission, input model.BeginSignupInput, signinPath, signupPath, csrfField string) g.Node {
+	nodes := []g.Node{
+		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
+	}
+	if sub != nil {
+		for _, e := range sub.GetFieldErrors("Email") {
+			nodes = append(nodes, g.Text(e))
+		}
+		for _, e := range sub.GetFormErrors() {
+			nodes = append(nodes, g.Text(e))
+		}
+	}
+	return h.Div(g.Group(nodes))
+}
+
+func (r *fakePageRenderer) VerifyPage(req Request, sub FormSubmission, input model.VerifyInput, state model.VerifyPageState, stateErrors []string, verifyPath, resendPath, csrfField string) g.Node {
+	code := input.Code
+	if code == "" {
+		code = state.Code
+	}
+	nodes := []g.Node{
+		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
+	}
+	if code != "" {
+		nodes = append(nodes, h.Input(h.Value(code)))
+	}
+	if state.Email != "" {
+		nodes = append(nodes, g.Text(state.Email))
+	}
+	for _, e := range stateErrors {
+		nodes = append(nodes, g.Text(e))
+	}
+	if sub != nil {
+		for _, e := range sub.GetFormErrors() {
+			nodes = append(nodes, g.Text(e))
+		}
+		for _, e := range sub.GetFieldErrors("Code") {
+			nodes = append(nodes, g.Text(e))
+		}
+	}
+	return h.Div(g.Group(nodes))
+}
+
+func (r *fakePageRenderer) EmailChangePage(req Request, sub FormSubmission, input model.BeginEmailChangeInput, actionPath, csrfField string) g.Node {
+	nodes := []g.Node{
+		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
+	}
+	if sub != nil {
+		for _, e := range sub.GetFieldErrors("Email") {
+			nodes = append(nodes, g.Text(e))
+		}
+		for _, e := range sub.GetFormErrors() {
+			nodes = append(nodes, g.Text(e))
+		}
+	}
+	return h.Div(g.Group(nodes))
+}
+
+// fakeAuthService satisfies authService.
 type fakeAuthService struct {
 	beginSigninFn      func(context.Context, model.BeginSigninInput, string) (model.PendingFlow, error)
 	beginSignupFn      func(context.Context, model.BeginSignupInput, string) (model.PendingFlow, error)
@@ -94,39 +325,33 @@ func (f fakeAuthService) VerifyPageState(token string) (model.VerifyPageState, e
 	return model.VerifyPageState{}, errors.New("unexpected VerifyPageState call")
 }
 
-func newTestHandler(svc authService) *Handler {
-	mgr, err := session.NewManager(session.Config{
-		CookieName: "test-session",
-		AuthKey:    strings.Repeat("a", 32),
-		EncryptKey: strings.Repeat("b", 32),
-		MaxAge:     3600,
-	})
-	if err != nil {
-		panic(err)
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+func newTestHandler(svc Service, mgr *fakeHandlerSessionManager) *Handler {
+	if mgr == nil {
+		mgr = newFakeHandlerSessionManager()
 	}
-	return New(
-		svc,
-		mgr,
-		servervalidate.New(),
-		Config{
-			SigninPath:       "/signin",
-			SignupPath:       "/signup",
-			VerifyPath:       "/verify",
-			VerifyResendPath: "/verify/resend",
-			VerifyURL:        "https://example.com/verify",
-			EmailChangePath:  "/account/email",
-			HomePath:         "/",
-			CSRFField:        "_csrf",
-			RequestFn: func(*echo.Context) Request {
-				return Request{
-					CSRFToken: testCSRFToken,
-					PageFn: func(_ string, children ...g.Node) g.Node {
-						return h.Div(children...)
-					},
-				}
-			},
+	return NewHandler(svc, HandlerConfig{
+		Sessions:         mgr,
+		Forms:            &fakeFormParser{},
+		Flash:            &fakeFlasher{},
+		Redirect:         &fakeRedirector{},
+		Pages:            &fakePageRenderer{},
+		SigninPath:       "/signin",
+		SignupPath:       "/signup",
+		VerifyPath:       "/verify",
+		VerifyResendPath: "/verify/resend",
+		VerifyURL:        "https://example.com/verify",
+		EmailChangePath:  "/account/email",
+		HomePath:         "/",
+		CSRFField:        "_csrf",
+		RequestFn: func(*echo.Context) Request {
+			return Request{
+				CSRFToken: testCSRFToken,
+				PageFn:    func(_ string, children ...g.Node) g.Node { return h.Div(children...) },
+			}
 		},
-	)
+	})
 }
 
 func newRequestContext(method, target string, body io.Reader) (*echo.Context, *httptest.ResponseRecorder) {
@@ -147,8 +372,26 @@ func setCSRFToken(c *echo.Context) {
 	c.Set(echomw.DefaultCSRFConfig.ContextKey, testCSRFToken)
 }
 
+// withPendingFlowSession pre-populates the fake session with a pending flow.
+func withPendingFlowSession(t *testing.T, mgr *fakeHandlerSessionManager, flow model.PendingFlow) {
+	t.Helper()
+	if err := setPendingFlow(mgr.state, flow); err != nil {
+		t.Fatalf("setPendingFlow() error = %v", err)
+	}
+}
+
+// withAuthSession pre-populates the fake session with auth state.
+func withAuthSession(t *testing.T, mgr *fakeHandlerSessionManager, userID, displayName string) {
+	t.Helper()
+	if err := setAuth(mgr.state, userID, displayName); err != nil {
+		t.Fatalf("setAuth() error = %v", err)
+	}
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 func TestSigninPageRenders(t *testing.T) {
-	h := newTestHandler(fakeAuthService{})
+	h := newTestHandler(fakeAuthService{}, nil)
 	c, rec := newRequestContext(http.MethodGet, "/signin", nil)
 	setCSRFToken(c)
 
@@ -165,7 +408,7 @@ func TestSigninPageRenders(t *testing.T) {
 }
 
 func TestSigninValidationFailureRenders422(t *testing.T) {
-	h := newTestHandler(fakeAuthService{})
+	h := newTestHandler(fakeAuthService{}, nil)
 	c, rec := newFormContext(http.MethodPost, "/signin", url.Values{
 		"email": {"not-an-email"},
 	})
@@ -183,6 +426,7 @@ func TestSigninValidationFailureRenders422(t *testing.T) {
 }
 
 func TestSigninRedirectsToVerifyAndStoresPendingFlow(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		beginSigninFn: func(_ context.Context, input model.BeginSigninInput, verifyURL string) (model.PendingFlow, error) {
 			if input.Email != "ada@example.com" || verifyURL != "https://example.com/verify" {
@@ -196,7 +440,7 @@ func TestSigninRedirectsToVerifyAndStoresPendingFlow(t *testing.T) {
 				ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 			}, nil
 		},
-	})
+	}, mgr)
 	c, rec := newFormContext(http.MethodPost, "/signin", url.Values{
 		"email": {"ada@example.com"},
 	})
@@ -212,15 +456,7 @@ func TestSigninRedirectsToVerifyAndStoresPendingFlow(t *testing.T) {
 		t.Fatalf("location = %q", got)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	for _, cookie := range rec.Result().Cookies() {
-		req.AddCookie(cookie)
-	}
-	state, err := h.sessions.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	flow, ok := authsession.GetPendingFlow(state)
+	flow, ok := getPendingFlow(mgr.state)
 	if !ok || flow.Email != "ada@example.com" || flow.Purpose != model.FlowPurposeSignin {
 		t.Fatalf("flow=%#v ok=%v", flow, ok)
 	}
@@ -231,7 +467,7 @@ func TestSignupConflictRenders409(t *testing.T) {
 		beginSignupFn: func(context.Context, model.BeginSignupInput, string) (model.PendingFlow, error) {
 			return model.PendingFlow{}, model.ErrEmailTaken
 		},
-	})
+	}, nil)
 	c, rec := newFormContext(http.MethodPost, "/signup", url.Values{
 		"email":        {"ada@example.com"},
 		"display_name": {"Ada"},
@@ -262,7 +498,7 @@ func TestVerifyPagePrefillsTokenCode(t *testing.T) {
 				Email:   "ada@example.com",
 			}, nil
 		},
-	})
+	}, nil)
 	c, rec := newRequestContext(http.MethodGet, "/verify?token=signed-token", nil)
 	setCSRFToken(c)
 
@@ -276,6 +512,7 @@ func TestVerifyPagePrefillsTokenCode(t *testing.T) {
 }
 
 func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		resendPendingFn: func(_ context.Context, flow model.PendingFlow, verifyURL string) (model.PendingFlow, error) {
 			if flow.Purpose != model.FlowPurposeSignup || verifyURL != "https://example.com/verify" {
@@ -285,9 +522,9 @@ func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
 			next.Secret = "NEWSECRET"
 			return next, nil
 		},
-	})
+	}, mgr)
 
-	cookies := withPendingFlowSession(t, h, model.PendingFlow{
+	withPendingFlowSession(t, mgr, model.PendingFlow{
 		Purpose:     model.FlowPurposeSignup,
 		Email:       "ada@example.com",
 		DisplayName: "Ada",
@@ -297,39 +534,27 @@ func TestResendVerifyRedirectsWithFreshPendingFlow(t *testing.T) {
 		ExpiresAt:   time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify/resend", nil)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	resendRec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, resendRec)
+	c, rec := newRequestContext(http.MethodPost, "/verify/resend", nil)
 	setCSRFToken(c)
 
 	if err := h.ResendVerify(c); err != nil {
 		t.Fatalf("ResendVerify() error = %v", err)
 	}
-	if resendRec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d", resendRec.Code)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := resendRec.Header().Get(echo.HeaderLocation); got != "/verify" {
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/verify" {
 		t.Fatalf("location = %q", got)
 	}
 
-	checkReq := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	for _, cookie := range resendRec.Result().Cookies() {
-		checkReq.AddCookie(cookie)
-	}
-	state, err := h.sessions.Load(checkReq)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	flow, ok := authsession.GetPendingFlow(state)
+	flow, ok := getPendingFlow(mgr.state)
 	if !ok || flow.Secret != "NEWSECRET" {
 		t.Fatalf("flow=%#v ok=%v", flow, ok)
 	}
 }
 
 func TestVerifyRedirectsOnSuccess(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		verifyPendingFn: func(_ context.Context, flow model.PendingFlow, input model.VerifyInput) (model.VerifyResult, error) {
 			if flow.Purpose != model.FlowPurposeSignin || input.Code != "123456" {
@@ -340,9 +565,9 @@ func TestVerifyRedirectsOnSuccess(t *testing.T) {
 				User:    handlerTestUser,
 			}, nil
 		},
-	})
+	}, mgr)
 
-	cookies := withPendingFlowSession(t, h, model.PendingFlow{
+	withPendingFlowSession(t, mgr, model.PendingFlow{
 		Purpose:   model.FlowPurposeSignin,
 		Email:     handlerTestUser.Email,
 		Secret:    "SECRET",
@@ -350,30 +575,25 @@ func TestVerifyRedirectsOnSuccess(t *testing.T) {
 		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"123456"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	verifyRec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, verifyRec)
+	c, rec := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"123456"}})
 	setCSRFToken(c)
 
 	if err := h.Verify(c); err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if verifyRec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d", verifyRec.Code)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := verifyRec.Header().Get(echo.HeaderLocation); got != "/" {
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/" {
 		t.Fatalf("location = %q", got)
 	}
-	if !strings.Contains(verifyRec.Header().Get(echo.HeaderSetCookie), "test-session=") {
-		t.Fatalf("set-cookie = %q", verifyRec.Header().Get(echo.HeaderSetCookie))
+	if !strings.Contains(rec.Header().Get(echo.HeaderSetCookie), "test-session=") {
+		t.Fatalf("set-cookie = %q", rec.Header().Get(echo.HeaderSetCookie))
 	}
 }
 
 func TestEmailChangeRedirectsToVerify(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		beginEmailChangeFn: func(_ context.Context, userID uuid.UUID, input model.BeginEmailChangeInput, verifyURL string) (model.PendingFlow, error) {
 			if userID != handlerTestUser.ID || input.Email != "new@example.com" || verifyURL != "https://example.com/verify" {
@@ -388,32 +608,26 @@ func TestEmailChangeRedirectsToVerify(t *testing.T) {
 				ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 			}, nil
 		},
-	})
+	}, mgr)
 
-	cookies := withAuthSession(t, h, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
+	withAuthSession(t, mgr, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
 
-	req := httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"new@example.com"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	changeRec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, changeRec)
+	c, rec := newFormContext(http.MethodPost, "/account/email", url.Values{"email": {"new@example.com"}})
 	setCSRFToken(c)
 
 	if err := h.BeginEmailChange(c); err != nil {
 		t.Fatalf("BeginEmailChange() error = %v", err)
 	}
-	if changeRec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d", changeRec.Code)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
 	}
-	if got := changeRec.Header().Get(echo.HeaderLocation); got != "/verify" {
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/verify" {
 		t.Fatalf("location = %q", got)
 	}
 }
 
 func TestSignoutClearsSession(t *testing.T) {
-	h := newTestHandler(fakeAuthService{})
+	h := newTestHandler(fakeAuthService{}, nil)
 	c, rec := newRequestContext(http.MethodPost, "/signout", nil)
 
 	if err := h.Signout(c); err != nil {
@@ -425,54 +639,21 @@ func TestSignoutClearsSession(t *testing.T) {
 	if got := rec.Header().Get(echo.HeaderLocation); got != "/signin" {
 		t.Fatalf("location = %q", got)
 	}
-	if !strings.Contains(rec.Header().Get(echo.HeaderSetCookie), "Max-Age=0") &&
-		!strings.Contains(rec.Header().Get(echo.HeaderSetCookie), "Max-Age=-1") {
-		t.Fatalf("set-cookie = %q", rec.Header().Get(echo.HeaderSetCookie))
+	setCookie := rec.Header().Get(echo.HeaderSetCookie)
+	if !strings.Contains(setCookie, "Max-Age=0") && !strings.Contains(setCookie, "Max-Age=-1") {
+		t.Fatalf("set-cookie = %q", setCookie)
 	}
-}
-
-func withPendingFlowSession(t *testing.T, h *Handler, flow model.PendingFlow) []*http.Cookie {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, "/verify", nil)
-	rec := httptest.NewRecorder()
-	state, err := h.sessions.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if err := authsession.SetPendingFlow(state, flow); err != nil {
-		t.Fatalf("authsession.SetPendingFlow() error = %v", err)
-	}
-	if err := h.sessions.Commit(rec, req, state); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	return rec.Result().Cookies()
-}
-
-func withAuthSession(t *testing.T, h *Handler, userID, displayName string) []*http.Cookie {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	state, err := h.sessions.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if err := authsession.SetAuth(state, userID, displayName); err != nil {
-		t.Fatalf("authsession.SetAuth() error = %v", err)
-	}
-	if err := h.sessions.Commit(rec, req, state); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	return rec.Result().Cookies()
 }
 
 func TestVerifyRejectsExpiredCode(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		verifyPendingFn: func(context.Context, model.PendingFlow, model.VerifyInput) (model.VerifyResult, error) {
 			return model.VerifyResult{}, model.ErrVerificationExpired
 		},
-	})
+	}, mgr)
 
-	cookies := withPendingFlowSession(t, h, model.PendingFlow{
+	withPendingFlowSession(t, mgr, model.PendingFlow{
 		Purpose:   model.FlowPurposeSignin,
 		Email:     "ada@example.com",
 		Secret:    "SECRET",
@@ -480,13 +661,7 @@ func TestVerifyRejectsExpiredCode(t *testing.T) {
 		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"123456"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	rec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, rec)
+	c, rec := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"123456"}})
 	setCSRFToken(c)
 
 	if err := h.Verify(c); err != nil {
@@ -501,13 +676,14 @@ func TestVerifyRejectsExpiredCode(t *testing.T) {
 }
 
 func TestVerifyRejectsInvalidCode(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		verifyPendingFn: func(context.Context, model.PendingFlow, model.VerifyInput) (model.VerifyResult, error) {
 			return model.VerifyResult{}, model.ErrInvalidVerificationCode
 		},
-	})
+	}, mgr)
 
-	cookies := withPendingFlowSession(t, h, model.PendingFlow{
+	withPendingFlowSession(t, mgr, model.PendingFlow{
 		Purpose:   model.FlowPurposeSignin,
 		Email:     "ada@example.com",
 		Secret:    "SECRET",
@@ -515,13 +691,7 @@ func TestVerifyRejectsInvalidCode(t *testing.T) {
 		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(url.Values{"code": {"000000"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	rec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, rec)
+	c, rec := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"000000"}})
 	setCSRFToken(c)
 
 	if err := h.Verify(c); err != nil {
@@ -536,50 +706,34 @@ func TestVerifyRejectsInvalidCode(t *testing.T) {
 }
 
 func TestVerifyWithMissingSessionReturnsBadRequest(t *testing.T) {
-	h := newTestHandler(fakeAuthService{})
+	h := newTestHandler(fakeAuthService{}, nil)
 	c, _ := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"123456"}})
 	setCSRFToken(c)
 
 	err := h.Verify(c)
-	assertAppErrorStatus(t, err, http.StatusBadRequest)
+	assertHTTPErrorStatus(t, err, http.StatusBadRequest)
 }
 
 func TestEmailChangeRejectsConflictingEmail(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
 	h := newTestHandler(fakeAuthService{
 		beginEmailChangeFn: func(context.Context, uuid.UUID, model.BeginEmailChangeInput, string) (model.PendingFlow, error) {
 			return model.PendingFlow{}, model.ErrEmailTaken
 		},
-	})
+	}, mgr)
 
-	cookies := withAuthSession(t, h, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
+	withAuthSession(t, mgr, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
 
-	req := httptest.NewRequest(http.MethodPost, "/account/email", strings.NewReader(url.Values{"email": {"taken@example.com"}}.Encode()))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	changeRec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, changeRec)
+	c, rec := newFormContext(http.MethodPost, "/account/email", url.Values{"email": {"taken@example.com"}})
 	setCSRFToken(c)
 
 	if err := h.BeginEmailChange(c); err != nil {
 		t.Fatalf("BeginEmailChange() error = %v", err)
 	}
-	if changeRec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409", changeRec.Code)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", rec.Code)
 	}
-	if !strings.Contains(changeRec.Body.String(), "Email already in use.") {
-		t.Fatalf("body = %q", changeRec.Body.String())
-	}
-}
-
-func assertAppErrorStatus(t *testing.T, err error, status int) {
-	t.Helper()
-	var appErr *apperr.Error
-	if !errors.As(err, &appErr) {
-		t.Fatalf("err = %T, want *apperr.Error", err)
-	}
-	if appErr.Status != status {
-		t.Fatalf("status = %d, want %d", appErr.Status, status)
+	if !strings.Contains(rec.Body.String(), "Email already in use.") {
+		t.Fatalf("body = %q", rec.Body.String())
 	}
 }

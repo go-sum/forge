@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-sum/forge/internal/adapters/authui"
+	auth "github.com/go-sum/auth"
+	"github.com/go-sum/forge/internal/adapters/authview"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
@@ -38,11 +39,14 @@ func New(version string) *App {
 		c.Validator,
 	)
 
-	authH := authui.New(
+	authH := auth.NewHandler(
 		c.AuthService,
-		c.Sessions,
-		c.Validator,
-		authui.Config{
+		auth.HandlerConfig{
+			Sessions:           &sessionManagerAdapter{mgr: c.Sessions},
+			Forms:              &formParserAdapter{v: c.Validator},
+			Flash:              &flashAdapter{},
+			Redirect:           &redirectAdapter{},
+			Pages:              authview.NewRenderer(),
 			CSRFField:          c.Config.App.Security.CSRF.FormField,
 			SigninPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
 			SignupPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
@@ -53,9 +57,9 @@ func New(version string) *App {
 			},
 			EmailChangeFn: func() string { return route.Reverse(c.Web.Router().Routes(), "account.email.get") },
 			HomePathFn:    func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
-			RequestFn: func(ec *echo.Context) authui.Request {
+			RequestFn: func(ec *echo.Context) auth.Request {
 				req := view.NewRequest(ec, c.Config)
-				return authui.Request{
+				return auth.Request{
 					CSRFToken: req.CSRFToken,
 					PageFn:    req.Page,
 				}

@@ -1,17 +1,57 @@
-package authui
+package authview
 
 import (
 	"fmt"
 
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/auth/model"
 	uiform "github.com/go-sum/componentry/form"
-	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
+
+// Renderer implements auth.PageRenderer using the componentry UI library.
+type Renderer struct{}
+
+// NewRenderer creates a Renderer.
+func NewRenderer() *Renderer { return &Renderer{} }
+
+var _ auth.PageRenderer = (*Renderer)(nil)
+
+// SigninPage renders the full signin page inside the host layout.
+func (r *Renderer) SigninPage(req auth.Request, sub auth.FormSubmission, input model.BeginSigninInput, signinPath, signupPath, csrfField string) g.Node {
+	return req.Page(
+		"Sign In",
+		authCard("Sign In", "Enter your email address and we'll send a verification code.", signinForm(req, sub, input, signinPath, signupPath, csrfField)),
+	)
+}
+
+// SignupPage renders the full registration page inside the host layout.
+func (r *Renderer) SignupPage(req auth.Request, sub auth.FormSubmission, input model.BeginSignupInput, signinPath, signupPath, csrfField string) g.Node {
+	return req.Page(
+		"Sign Up",
+		authCard("Create Account", "Enter your details and we'll send a verification code.", signupForm(req, sub, input, signinPath, signupPath, csrfField)),
+	)
+}
+
+// VerifyPage renders the shared verification screen.
+func (r *Renderer) VerifyPage(req auth.Request, sub auth.FormSubmission, input model.VerifyInput, state model.VerifyPageState, stateErrors []string, verifyPath, resendPath, csrfField string) g.Node {
+	return req.Page(
+		"Verify",
+		authCard("Verify Code", verifyDescription(state), verifyContent(req, sub, input, state, stateErrors, verifyPath, resendPath, csrfField)),
+	)
+}
+
+// EmailChangePage renders the self-service email change form.
+func (r *Renderer) EmailChangePage(req auth.Request, sub auth.FormSubmission, input model.BeginEmailChangeInput, actionPath, csrfField string) g.Node {
+	return req.Page(
+		"Change Email",
+		authCard("Change Email", "Enter your new email address and we'll send a verification code there.", emailChangeForm(req, sub, input, actionPath, csrfField)),
+	)
+}
 
 // FormError renders a destructive alert listing validation messages.
 func FormError(messages []string) g.Node {
@@ -28,15 +68,7 @@ func FormError(messages []string) g.Node {
 	)
 }
 
-// SigninPage renders the full signin page inside the host layout.
-func SigninPage(req Request, submission *form.Submission, input model.BeginSigninInput, signinPath, signupPath, csrfField string) g.Node {
-	return req.Page(
-		"Sign In",
-		authCard("Sign In", "Enter your email address and we'll send a verification code.", signinForm(req, submission, input, signinPath, signupPath, csrfField)),
-	)
-}
-
-func signinForm(req Request, submission *form.Submission, input model.BeginSigninInput, signinPath, signupPath, csrfField string) g.Node {
+func signinForm(req auth.Request, submission auth.FormSubmission, input model.BeginSigninInput, signinPath, signupPath, csrfField string) g.Node {
 	var emailErrors, formErrors []string
 	if submission != nil {
 		emailErrors = submission.GetFieldErrors("Email")
@@ -63,15 +95,7 @@ func signinForm(req Request, submission *form.Submission, input model.BeginSigni
 	)
 }
 
-// SignupPage renders the full registration page inside the host layout.
-func SignupPage(req Request, submission *form.Submission, input model.BeginSignupInput, signinPath, signupPath, csrfField string) g.Node {
-	return req.Page(
-		"Sign Up",
-		authCard("Create Account", "Enter your details and we'll send a verification code.", signupForm(req, submission, input, signinPath, signupPath, csrfField)),
-	)
-}
-
-func signupForm(req Request, submission *form.Submission, input model.BeginSignupInput, signinPath, signupPath, csrfField string) g.Node {
+func signupForm(req auth.Request, submission auth.FormSubmission, input model.BeginSignupInput, signinPath, signupPath, csrfField string) g.Node {
 	var emailErrors, nameErrors, formErrors []string
 	if submission != nil {
 		emailErrors = submission.GetFieldErrors("Email")
@@ -112,29 +136,7 @@ func signupForm(req Request, submission *form.Submission, input model.BeginSignu
 	)
 }
 
-// VerifyPage renders the shared verification screen.
-func VerifyPage(
-	req Request,
-	submission *form.Submission,
-	input model.VerifyInput,
-	state model.VerifyPageState,
-	stateErrors []string,
-	verifyPath, resendPath, csrfField string,
-) g.Node {
-	return req.Page(
-		"Verify",
-		authCard("Verify Code", verifyDescription(state), verifyContent(req, submission, input, state, stateErrors, verifyPath, resendPath, csrfField)),
-	)
-}
-
-func verifyContent(
-	req Request,
-	submission *form.Submission,
-	input model.VerifyInput,
-	state model.VerifyPageState,
-	stateErrors []string,
-	verifyPath, resendPath, csrfField string,
-) g.Node {
+func verifyContent(req auth.Request, submission auth.FormSubmission, input model.VerifyInput, state model.VerifyPageState, stateErrors []string, verifyPath, resendPath, csrfField string) g.Node {
 	return h.Div(
 		h.Class("w-full flex flex-col gap-4"),
 		verifyForm(req, submission, input, state, stateErrors, verifyPath, csrfField),
@@ -142,14 +144,7 @@ func verifyContent(
 	)
 }
 
-func verifyForm(
-	req Request,
-	submission *form.Submission,
-	input model.VerifyInput,
-	state model.VerifyPageState,
-	stateErrors []string,
-	verifyPath, csrfField string,
-) g.Node {
+func verifyForm(req auth.Request, submission auth.FormSubmission, input model.VerifyInput, state model.VerifyPageState, stateErrors []string, verifyPath, csrfField string) g.Node {
 	var codeErrors, formErrors []string
 	if submission != nil {
 		codeErrors = submission.GetFieldErrors("Code")
@@ -192,7 +187,7 @@ func verifyForm(
 	)
 }
 
-func resendForm(req Request, resendPath, csrfField string) g.Node {
+func resendForm(req auth.Request, resendPath, csrfField string) g.Node {
 	return h.Form(
 		h.Method("post"),
 		h.Action(resendPath),
@@ -207,15 +202,7 @@ func resendForm(req Request, resendPath, csrfField string) g.Node {
 	)
 }
 
-// EmailChangePage renders the self-service email change form.
-func EmailChangePage(req Request, submission *form.Submission, input model.BeginEmailChangeInput, actionPath, csrfField string) g.Node {
-	return req.Page(
-		"Change Email",
-		authCard("Change Email", "Enter your new email address and we'll send a verification code there.", emailChangeForm(req, submission, input, actionPath, csrfField)),
-	)
-}
-
-func emailChangeForm(req Request, submission *form.Submission, input model.BeginEmailChangeInput, actionPath, csrfField string) g.Node {
+func emailChangeForm(req auth.Request, submission auth.FormSubmission, input model.BeginEmailChangeInput, actionPath, csrfField string) g.Node {
 	var emailErrors, formErrors []string
 	if submission != nil {
 		emailErrors = submission.GetFieldErrors("Email")

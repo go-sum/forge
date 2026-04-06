@@ -46,7 +46,7 @@ func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 	return csrf.Middleware(csrf.Config{
 		Key:        []byte(c.Key),
 		TokenTTL:   c.TokenTTL,
-		ContextKey: cfg.App.Keys.CSRF,
+		ContextKey: c.ContextKey,
 		HeaderName: c.HeaderName,
 		FormField:  c.FormField,
 	})

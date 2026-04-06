@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/go-sum/forge/internal/adapters/authui"
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/server/headers"
@@ -17,17 +17,12 @@ import (
 
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
 // This is the single source of truth for HTTP route registration.
-func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.AvailabilityHandler, authH *authui.Handler) error {
+func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.AvailabilityHandler, authH *auth.Handler) error {
 	staticGroup := c.Web.Group(c.PublicPrefix)
 	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
 	staticGroup.Static("", c.PublicDir)
 
-	authKeys := authui.ContextKeys{
-		UserID:      c.Config.App.Keys.UserID,
-		UserRole:    c.Config.App.Keys.UserRole,
-		DisplayName: c.Config.App.Keys.DisplayName,
-	}
-	c.Web.Use(authui.LoadSession(c.Sessions, authKeys))
+	c.Web.Use(auth.LoadSession(&sessionManagerAdapter{mgr: c.Sessions}))
 
 	siteH := sitehandlers.New(sitehandlers.Config{
 		Origin:  c.Config.App.Security.ExternalOrigin,
@@ -44,9 +39,9 @@ func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.Ava
 	authGuarded := c.Web.Group("") // (requires session)
 	authGuarded.Use(
 		c.RateLimiters.Middleware(c.Config, "server"),
-		authui.RequireAuthPath(func() string {
+		auth.RequireAuthPath(func() string {
 			return route.Reverse(c.Web.Router().Routes(), "signin.get")
-		}, authKeys),
+		}),
 	)
 
 	authGuardedPost := authGuarded.Group("") // (session + cross-origin-guarded POST)
@@ -54,8 +49,8 @@ func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.Ava
 
 	adminGuarded := authGuarded.Group("") // (admin + requires session)
 	adminGuarded.Use(
-		authui.LoadUserRole(c.AuthStore, authKeys),
-		authui.RequireAdmin(authKeys),
+		auth.LoadUserRole(c.AuthStore),
+		auth.RequireAdmin(),
 	)
 
 	adminGuardedPost := adminGuarded.Group("") // (admin + session + cross-origin-guarded POST)

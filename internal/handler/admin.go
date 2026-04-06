@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/page"
@@ -36,7 +37,7 @@ func (h *Handler) AdminElevateForm(c *echo.Context) error {
 func (h *Handler) AdminElevate(c *echo.Context) error {
 	ctx := c.Request().Context()
 
-	userIDStr, _ := c.Get(h.cfg.App.Keys.UserID).(string)
+	userIDStr := auth.UserID(c)
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return apperr.Unauthorized("Your session is invalid. Please sign in again.")

@@ -22,11 +22,8 @@ func TestRegisterStartupRoutesServesUnavailableAndHealth(t *testing.T) {
 	e := echo.New()
 	cfg := &config.Config{
 		App: config.AppConfig{
-			Keys: config.ContextKeysConfig{
-				UserID:      "user_id",
-				UserRole:    "user_role",
-				DisplayName: "user_display_name",
-				CSRF:        "csrf",
+			Security: config.SecurityConfig{
+				CSRF: config.CSRFConfig{ContextKey: "csrf"},
 			},
 		},
 		Nav: config.NavConfig{

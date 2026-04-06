@@ -21,10 +21,9 @@ type AppConfig struct {
 	KV        KVConfig          `koanf:"kv"`
 	Session   SessionConfig     `koanf:"session"`
 	Auth      AuthConfig        `koanf:"auth"`
-	Assets    AssetsConfig      `koanf:"assets"`
-	Log       LogConfig         `koanf:"log"`
-	CSPHashes CSPHashesConfig   `koanf:"csp_hashes"`
-	Keys      ContextKeysConfig `koanf:"keys"`
+	Assets    AssetsConfig    `koanf:"assets"`
+	Log       LogConfig       `koanf:"log"`
+	CSPHashes CSPHashesConfig `koanf:"csp_hashes"`
 }
 
 type ServerConfig struct {
@@ -111,10 +110,11 @@ type HSTSConfig struct {
 }
 
 type CSRFConfig struct {
-	Key        string `koanf:"key"         validate:"required,min=32"`
-	FormField  string `koanf:"form_field"  validate:"required"`
-	HeaderName string `koanf:"header_name" validate:"required"`
-	TokenTTL   int    `koanf:"token_ttl"   validate:"omitempty,min=1"` // seconds; defaults to 3600 when unset
+	Key        string `koanf:"key"          validate:"required,min=32"`
+	ContextKey string `koanf:"context_key"  validate:"required"`
+	FormField  string `koanf:"form_field"   validate:"required"`
+	HeaderName string `koanf:"header_name"  validate:"required"`
+	TokenTTL   int    `koanf:"token_ttl"    validate:"omitempty,min=1"` // seconds; defaults to 3600 when unset
 }
 
 type DatabaseConfig struct {
@@ -144,8 +144,8 @@ type QueueEntryConfig struct {
 
 // KVConfig holds the key-value store configuration.
 type KVConfig struct {
-	Enabled bool         `koanf:"enabled"`
-	Store   string       `koanf:"store" validate:"omitempty,oneof=redis"`
+	Enabled bool          `koanf:"enabled"`
+	Store   string        `koanf:"store" validate:"omitempty,oneof=redis"`
 	Redis   RedisKVConfig `koanf:"redis"`
 }
 
@@ -186,11 +186,3 @@ type CSPHashesConfig struct {
 	DevOnly []string `koanf:"dev_only"`
 }
 
-// ContextKeysConfig defines the Echo context key names written by auth middleware
-// and read by the view layer. Override in config/app.yaml under app.keys.
-type ContextKeysConfig struct {
-	UserID      string `koanf:"user_id"`
-	UserRole    string `koanf:"user_role"`
-	DisplayName string `koanf:"display_name"`
-	CSRF        string `koanf:"csrf"`
-}

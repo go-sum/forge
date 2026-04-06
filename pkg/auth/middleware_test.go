@@ -1,28 +1,44 @@
-package authui
+package auth
 
 import (
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
-	"github.com/go-sum/forge/internal/adapters/authsession"
-	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
 const testSigninPath = "/signin"
 
-var testContextKeys = ContextKeys{
-	UserID:      "user_id",
-	UserRole:    "user_role",
-	DisplayName: "user_display_name",
+// fakeMiddlewareSessionManager always returns the same state so tests can
+// pre-populate it without simulating a cookie roundtrip.
+type fakeMiddlewareSessionManager struct {
+	state *fakeSessionState
+}
+
+func newFakeMiddlewareSessionManager() *fakeMiddlewareSessionManager {
+	return &fakeMiddlewareSessionManager{state: newFakeSessionState()}
+}
+
+func (m *fakeMiddlewareSessionManager) Load(r *http.Request) (SessionState, error) {
+	return m.state, nil
+}
+
+func (m *fakeMiddlewareSessionManager) Commit(w http.ResponseWriter, r *http.Request, s SessionState) error {
+	return nil
+}
+
+func (m *fakeMiddlewareSessionManager) Destroy(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+func (m *fakeMiddlewareSessionManager) RotateID(w http.ResponseWriter, r *http.Request, s SessionState) error {
+	return nil
 }
 
 func TestRequireAuthRedirectsToSignin(t *testing.T) {
@@ -32,7 +48,7 @@ func TestRequireAuthRedirectsToSignin(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testSigninPath, testContextKeys)(func(c *echo.Context) error {
+	err := RequireAuth(testSigninPath)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -59,7 +75,7 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	called := false
-	err := RequireAuth(testSigninPath, testContextKeys)(func(c *echo.Context) error {
+	err := RequireAuth(testSigninPath)(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -80,27 +96,16 @@ func TestRequireAuthSetsHTMXRedirectHeader(t *testing.T) {
 
 func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 	e := echo.New()
-	mgr := testManager(t)
+	mgr := newFakeMiddlewareSessionManager()
+	if err := setAuth(mgr.state, "11111111-1111-1111-1111-111111111111", ""); err != nil {
+		t.Fatalf("setAuth() error = %v", err)
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
-	rec := httptest.NewRecorder()
-	state, err := mgr.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if err := authsession.SetAuth(state, "11111111-1111-1111-1111-111111111111", ""); err != nil {
-		t.Fatalf("authsession.SetAuth() error = %v", err)
-	}
-	if err := mgr.Commit(rec, req, state); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	req = httptest.NewRequest(http.MethodGet, "/users", nil)
-	for _, cookie := range rec.Result().Cookies() {
-		req.AddCookie(cookie)
-	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
-		if got, _ := c.Get(testContextKeys.UserID).(string); got != "11111111-1111-1111-1111-111111111111" {
+	err := LoadSession(mgr)(func(c *echo.Context) error {
+		if got, _ := c.Get(ContextKeyUserID).(string); got != "11111111-1111-1111-1111-111111111111" {
 			t.Fatalf("user ID = %q", got)
 		}
 		return nil
@@ -113,27 +118,16 @@ func TestLoadSessionSetsUserIDWhenSessionExists(t *testing.T) {
 
 func TestLoadSessionSetsDisplayNameWhenPresentInSession(t *testing.T) {
 	e := echo.New()
-	mgr := testManager(t)
+	mgr := newFakeMiddlewareSessionManager()
+	if err := setAuth(mgr.state, "11111111-1111-1111-1111-111111111111", "Ada Lovelace"); err != nil {
+		t.Fatalf("setAuth() error = %v", err)
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	state, err := mgr.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if err := authsession.SetAuth(state, "11111111-1111-1111-1111-111111111111", "Ada Lovelace"); err != nil {
-		t.Fatalf("authsession.SetAuth() error = %v", err)
-	}
-	if err := mgr.Commit(rec, req, state); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	for _, cookie := range rec.Result().Cookies() {
-		req.AddCookie(cookie)
-	}
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
-		if got, _ := c.Get(testContextKeys.DisplayName).(string); got != "Ada Lovelace" {
+	err := LoadSession(mgr)(func(c *echo.Context) error {
+		if got, _ := c.Get(ContextKeyDisplayName).(string); got != "Ada Lovelace" {
 			t.Fatalf("display name = %q, want %q", got, "Ada Lovelace")
 		}
 		return nil
@@ -146,28 +140,17 @@ func TestLoadSessionSetsDisplayNameWhenPresentInSession(t *testing.T) {
 
 func TestLoadSessionDoesNotSetDisplayNameWhenAbsentFromSession(t *testing.T) {
 	e := echo.New()
-	mgr := testManager(t)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	state, err := mgr.Load(req)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
+	mgr := newFakeMiddlewareSessionManager()
 	// Set only the user ID, not the display name.
-	if err := state.Put("auth.user_id", "11111111-1111-1111-1111-111111111111"); err != nil {
+	if err := mgr.state.Put(sessionKeyUserID, "11111111-1111-1111-1111-111111111111"); err != nil {
 		t.Fatalf("Put() error = %v", err)
 	}
-	if err := mgr.Commit(rec, req, state); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	for _, cookie := range rec.Result().Cookies() {
-		req.AddCookie(cookie)
-	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	c := e.NewContext(req, httptest.NewRecorder())
 
-	err = LoadSession(mgr, testContextKeys)(func(c *echo.Context) error {
-		if got := c.Get(testContextKeys.DisplayName); got != nil {
+	err := LoadSession(mgr)(func(c *echo.Context) error {
+		if got := c.Get(ContextKeyDisplayName); got != nil {
 			t.Fatalf("display name = %v, want nil", got)
 		}
 		return nil
@@ -182,29 +165,29 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 	tests := []struct {
 		name       string
 		userID     string
-		repo       middlewareUserRepo
+		repo       fakeMiddlewareUserRepo
 		wantStatus int
 		wantRole   string
 		expectNext bool
 	}{
-		{name: "missing session user ID", repo: middlewareUserRepo{}, expectNext: true},
+		{name: "missing session user ID", repo: fakeMiddlewareUserRepo{}, expectNext: true},
 		{name: "invalid UUID", userID: "not-a-uuid", wantStatus: http.StatusUnauthorized},
 		{
 			name:       "user not found",
 			userID:     "11111111-1111-1111-1111-111111111111",
-			repo:       middlewareUserRepo{getByIDErr: model.ErrUserNotFound},
+			repo:       fakeMiddlewareUserRepo{getByIDErr: model.ErrUserNotFound},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "repository unavailable",
 			userID:     "11111111-1111-1111-1111-111111111111",
-			repo:       middlewareUserRepo{getByIDErr: errors.New("db down")},
+			repo:       fakeMiddlewareUserRepo{getByIDErr: errors.New("db down")},
 			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
 			name:       "success",
 			userID:     "11111111-1111-1111-1111-111111111111",
-			repo:       middlewareUserRepo{user: model.User{Role: "admin", DisplayName: "Alice"}},
+			repo:       fakeMiddlewareUserRepo{user: model.User{Role: "admin", DisplayName: "Alice"}},
 			wantRole:   "admin",
 			expectNext: true,
 		},
@@ -217,14 +200,14 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 			if tc.userID != "" {
-				c.Set(testContextKeys.UserID, tc.userID)
+				c.Set(ContextKeyUserID, tc.userID)
 			}
 
 			nextCalled := false
-			err := LoadUserRole(tc.repo, testContextKeys)(func(c *echo.Context) error {
+			err := LoadUserRole(tc.repo)(func(c *echo.Context) error {
 				nextCalled = true
 				if tc.wantRole != "" {
-					if got, _ := c.Get(testContextKeys.UserRole).(string); got != tc.wantRole {
+					if got, _ := c.Get(ContextKeyUserRole).(string); got != tc.wantRole {
 						t.Fatalf("role = %q", got)
 					}
 				}
@@ -240,7 +223,7 @@ func TestLoadUserRoleHandlesOutcomes(t *testing.T) {
 				}
 				return
 			}
-			assertMiddlewareAppErrorStatus(t, err, tc.wantStatus)
+			assertHTTPErrorStatus(t, err, tc.wantStatus)
 		})
 	}
 }
@@ -250,10 +233,10 @@ func TestRequireAdminRejectsNonAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(testContextKeys.UserRole, "user")
+	c.Set(ContextKeyUserRole, "user")
 
 	called := false
-	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {
+	err := RequireAdmin()(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -261,7 +244,7 @@ func TestRequireAdminRejectsNonAdmin(t *testing.T) {
 	if called {
 		t.Fatal("next handler should not be called")
 	}
-	assertMiddlewareAppErrorStatus(t, err, http.StatusForbidden)
+	assertHTTPErrorStatus(t, err, http.StatusForbidden)
 }
 
 func TestRequireAdminAllowsAdmin(t *testing.T) {
@@ -269,10 +252,10 @@ func TestRequireAdminAllowsAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(testContextKeys.UserRole, "admin")
+	c.Set(ContextKeyUserRole, "admin")
 
 	called := false
-	err := RequireAdmin(testContextKeys)(func(c *echo.Context) error {
+	err := RequireAdmin()(func(c *echo.Context) error {
 		called = true
 		return nil
 	})(c)
@@ -285,45 +268,31 @@ func TestRequireAdminAllowsAdmin(t *testing.T) {
 	}
 }
 
-type middlewareUserRepo struct {
+type fakeMiddlewareUserRepo struct {
 	user       model.User
 	getByIDErr error
 }
 
-func (r middlewareUserRepo) GetByID(context.Context, uuid.UUID) (model.User, error) {
+func (r fakeMiddlewareUserRepo) GetByID(context.Context, uuid.UUID) (model.User, error) {
 	if r.getByIDErr != nil {
 		return model.User{}, r.getByIDErr
 	}
 	return r.user, nil
 }
 
-func (r middlewareUserRepo) GetByEmail(context.Context, string) (model.User, error) {
+func (r fakeMiddlewareUserRepo) GetByEmail(context.Context, string) (model.User, error) {
 	return model.User{}, errors.New("unexpected GetByEmail call")
 }
 
-var _ authrepo.UserReader = middlewareUserRepo{}
+var _ authrepo.UserReader = fakeMiddlewareUserRepo{}
 
-func testManager(t *testing.T) session.Manager {
+func assertHTTPErrorStatus(t *testing.T, err error, status int) {
 	t.Helper()
-	mgr, err := session.NewManager(session.Config{
-		CookieName: "test-session",
-		AuthKey:    strings.Repeat("a", 32),
-		EncryptKey: strings.Repeat("b", 32),
-		MaxAge:     3600,
-	})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) {
+		t.Fatalf("err = %T (%v), want *HTTPError", err, err)
 	}
-	return mgr
-}
-
-func assertMiddlewareAppErrorStatus(t *testing.T, err error, status int) {
-	t.Helper()
-	var appErr *apperr.Error
-	if !errors.As(err, &appErr) {
-		t.Fatalf("err = %T, want *apperr.Error", err)
-	}
-	if appErr.Status != status {
-		t.Fatalf("status = %d, want %d", appErr.Status, status)
+	if httpErr.StatusCode() != status {
+		t.Fatalf("status = %d, want %d", httpErr.StatusCode(), status)
 	}
 }

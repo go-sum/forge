@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/componentry/patterns/flash"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	render "github.com/go-sum/componentry/render/echo"
@@ -58,17 +59,17 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 		Routes:         c.Echo().Router().Routes(),
 	}
 
-	if userID, ok := c.Get(cfg.App.Keys.UserID).(string); ok && userID != "" {
+	if userID := auth.UserID(c); userID != "" {
 		req.UserID = userID
 		req.IsAuthenticated = true
 	}
-	if userRole, ok := c.Get(cfg.App.Keys.UserRole).(string); ok && userRole != "" {
+	if userRole := auth.UserRole(c); userRole != "" {
 		req.UserRole = userRole
 	}
-	if name, ok := c.Get(cfg.App.Keys.DisplayName).(string); ok && name != "" {
+	if name := auth.DisplayName(c); name != "" {
 		req.UserName = name
 	}
-	if csrf, ok := c.Get(cfg.App.Keys.CSRF).(string); ok && csrf != "" {
+	if csrf, ok := c.Get(cfg.App.Security.CSRF.ContextKey).(string); ok && csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {

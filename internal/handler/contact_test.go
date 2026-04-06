@@ -32,7 +32,7 @@ func newContactHandler(svc contactService) *Handler {
 	return &Handler{
 		services:  handlerServices{Contact: svc},
 		validator: validate.New(),
-		cfg:       &config.Config{App: config.AppConfig{Keys: testKeys}},
+		cfg:       &config.Config{App: config.AppConfig{Security: config.SecurityConfig{CSRF: config.CSRFConfig{ContextKey: "csrf"}}}},
 		routes:    func() echo.Routes { return e.Router().Routes() },
 	}
 }

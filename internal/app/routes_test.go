@@ -9,8 +9,9 @@ import (
 
 	authmodel "github.com/go-sum/auth/model"
 	authrepo "github.com/go-sum/auth/repository"
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/adapters/authui"
+	"github.com/go-sum/forge/internal/adapters/authview"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/repository"
@@ -30,6 +31,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 			Security: config.SecurityConfig{
 				ExternalOrigin: "http://localhost:3000",
 				CSRF: config.CSRFConfig{
+					ContextKey: "csrf",
 					FormField:  "_csrf",
 					HeaderName: "X-CSRF-Token",
 				},
@@ -38,12 +40,6 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 				Name:       "_session",
 				AuthKey:    "12345678901234567890123456789012",
 				EncryptKey: "12345678901234567890123456789012",
-			},
-			Keys: config.ContextKeysConfig{
-				UserID:      "user_id",
-				UserRole:    "user_role",
-				DisplayName: "user_display_name",
-				CSRF:        "csrf",
 			},
 		},
 		Nav: config.NavConfig{
@@ -108,7 +104,12 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		return e.Router().Routes()
 	}, &service.Services{}, container.Validator)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
-	authH := authui.New(nil, sessions, container.Validator, authui.Config{
+	authH := auth.NewHandler(nil, auth.HandlerConfig{
+		Sessions:        &sessionManagerAdapter{mgr: sessions},
+		Forms:           &formParserAdapter{v: container.Validator},
+		Flash:           &flashAdapter{},
+		Redirect:        &redirectAdapter{},
+		Pages:           authview.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -116,9 +117,9 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		VerifyURL:       "http://localhost:3000/verify",
 		EmailChangePath: "/account/email",
 		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) authui.Request {
+		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
-			return authui.Request{
+			return auth.Request{
 				CSRFToken: req.CSRFToken,
 				PageFn:    req.Page,
 			}
@@ -244,6 +245,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 			Security: config.SecurityConfig{
 				ExternalOrigin: "http://localhost:3000",
 				CSRF: config.CSRFConfig{
+					ContextKey: "csrf",
 					FormField:  "_csrf",
 					HeaderName: "X-CSRF-Token",
 				},
@@ -252,12 +254,6 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 				Name:       "_session",
 				AuthKey:    "12345678901234567890123456789012",
 				EncryptKey: "12345678901234567890123456789012",
-			},
-			Keys: config.ContextKeysConfig{
-				UserID:      "user_id",
-				UserRole:    "user_role",
-				DisplayName: "user_display_name",
-				CSRF:        "csrf",
 			},
 		},
 		Nav: config.NavConfig{
@@ -322,7 +318,12 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 		container.Validator,
 	)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
-	authH := authui.New(nil, sessions, container.Validator, authui.Config{
+	authH := auth.NewHandler(nil, auth.HandlerConfig{
+		Sessions:        &sessionManagerAdapter{mgr: sessions},
+		Forms:           &formParserAdapter{v: container.Validator},
+		Flash:           &flashAdapter{},
+		Redirect:        &redirectAdapter{},
+		Pages:           authview.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -330,9 +331,9 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 		VerifyURL:       "http://localhost:3000/verify",
 		EmailChangePath: "/account/email",
 		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) authui.Request {
+		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
-			return authui.Request{
+			return auth.Request{
 				CSRFToken: req.CSRFToken,
 				PageFn:    req.Page,
 			}
@@ -433,6 +434,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 			Security: config.SecurityConfig{
 				ExternalOrigin: "http://localhost:3000",
 				CSRF: config.CSRFConfig{
+					ContextKey: "csrf",
 					FormField:  "_csrf",
 					HeaderName: "X-CSRF-Token",
 				},
@@ -441,12 +443,6 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 				Name:       "_session",
 				AuthKey:    "12345678901234567890123456789012",
 				EncryptKey: "12345678901234567890123456789012",
-			},
-			Keys: config.ContextKeysConfig{
-				UserID:      "user_id",
-				UserRole:    "user_role",
-				DisplayName: "user_display_name",
-				CSRF:        "csrf",
 			},
 		},
 		Nav: config.NavConfig{
@@ -511,7 +507,12 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		container.Validator,
 	)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
-	authH := authui.New(nil, sessions, container.Validator, authui.Config{
+	authH := auth.NewHandler(nil, auth.HandlerConfig{
+		Sessions:        &sessionManagerAdapter{mgr: sessions},
+		Forms:           &formParserAdapter{v: container.Validator},
+		Flash:           &flashAdapter{},
+		Redirect:        &redirectAdapter{},
+		Pages:           authview.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -519,9 +520,9 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		VerifyURL:       "http://localhost:3000/verify",
 		EmailChangePath: "/account/email",
 		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) authui.Request {
+		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
-			return authui.Request{
+			return auth.Request{
 				CSRFToken: req.CSRFToken,
 				PageFn:    req.Page,
 			}

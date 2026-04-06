@@ -1,4 +1,4 @@
-package authui
+package auth
 
 import (
 	"context"
@@ -6,13 +6,6 @@ import (
 	"net/http"
 
 	"github.com/go-sum/auth/model"
-	"github.com/go-sum/componentry/patterns/flash"
-	"github.com/go-sum/forge/internal/adapters/authsession"
-	"github.com/go-sum/componentry/patterns/form"
-	"github.com/go-sum/componentry/patterns/redirect"
-	render "github.com/go-sum/componentry/render/echo"
-	"github.com/go-sum/server/apperr"
-	"github.com/go-sum/session"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
@@ -27,11 +20,14 @@ type authService interface {
 	VerifyPageState(string) (model.VerifyPageState, error)
 }
 
-// Handler holds auth transport dependencies for the Echo + componentry adapter.
+// Handler holds auth transport dependencies.
 type Handler struct {
 	service          authService
-	sessions         session.Manager
-	validator        form.StructValidator
+	sessions         SessionManager
+	forms            FormParser
+	flash            Flasher
+	redirect         Redirector
+	pages            PageRenderer
 	signinPath       func() string
 	signupPath       func() string
 	verifyPath       func() string
@@ -43,41 +39,44 @@ type Handler struct {
 	requestFn        func(c *echo.Context) Request
 }
 
-// Config parameterises the adapter with application-specific route paths and layout wiring.
-type Config struct {
-	SigninPath         string
-	SignupPath         string
-	VerifyPath         string
-	VerifyResendPath   string
-	VerifyURL          string
-	EmailChangePath    string
-	HomePath           string
-	SigninPathFn       func() string
-	SignupPathFn       func() string
-	VerifyPathFn       func() string
-	VerifyResendPathFn func() string
-	VerifyURLFn        func() string
-	EmailChangeFn      func() string
-	HomePathFn         func() string
-	CSRFField          string
-	RequestFn          func(c *echo.Context) Request
+// HandlerConfig parameterises the Handler with application-specific dependencies.
+type HandlerConfig struct {
+	Sessions           SessionManager
+	Forms              FormParser
+	Flash              Flasher
+	Redirect           Redirector
+	Pages              PageRenderer
+	SigninPath          string
+	SignupPath          string
+	VerifyPath          string
+	VerifyResendPath    string
+	VerifyURL           string
+	EmailChangePath     string
+	HomePath            string
+	SigninPathFn        func() string
+	SignupPathFn        func() string
+	VerifyPathFn        func() string
+	VerifyResendPathFn  func() string
+	VerifyURLFn         func() string
+	EmailChangeFn       func() string
+	HomePathFn          func() string
+	CSRFField           string
+	RequestFn           func(c *echo.Context) Request
 }
 
-// New constructs a Handler.
-func New(
-	svc authService,
-	sessions session.Manager,
-	validator form.StructValidator,
-	cfg Config,
-) *Handler {
+// NewHandler constructs a Handler.
+func NewHandler(svc Service, cfg HandlerConfig) *Handler {
 	csrfField := cfg.CSRFField
 	if csrfField == "" {
 		csrfField = "_csrf"
 	}
 	return &Handler{
 		service:          svc,
-		sessions:         sessions,
-		validator:        validator,
+		sessions:         cfg.Sessions,
+		forms:            cfg.Forms,
+		flash:            cfg.Flash,
+		redirect:         cfg.Redirect,
+		pages:            cfg.Pages,
 		signinPath:       resolvePath(cfg.SigninPath, cfg.SigninPathFn),
 		signupPath:       resolvePath(cfg.SignupPath, cfg.SignupPathFn),
 		verifyPath:       resolvePath(cfg.VerifyPath, cfg.VerifyPathFn),
@@ -107,85 +106,83 @@ func (h *Handler) req(c *echo.Context) Request {
 // SigninPage renders the signin form.
 func (h *Handler) SigninPage(c *echo.Context) error {
 	req := h.req(c)
-	node := SigninPage(req, nil, model.BeginSigninInput{}, h.signinPath(), h.signupPath(), h.csrfField)
-	return render.Component(c, node)
+	node := h.pages.SigninPage(req, nil, model.BeginSigninInput{}, h.signinPath(), h.signupPath(), h.csrfField)
+	return renderOK(c, node)
 }
 
 // Signin starts a passwordless signin flow.
 func (h *Handler) Signin(c *echo.Context) error {
 	req := h.req(c)
 	var input model.BeginSigninInput
-	sub := form.New(h.validator)
-	sub.Submit(c, &input)
+	sub := h.forms.Parse(c, &input)
 
 	if !sub.IsValid() {
-		node := SigninPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
-		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		node := h.pages.SigninPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
+		return renderNode(c, http.StatusUnprocessableEntity, node)
 	}
 
 	flow, err := h.service.BeginSignin(c.Request().Context(), input, h.verifyURL())
 	if err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
 	state, err := h.sessions.Load(c.Request())
 	if err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := authsession.SetPendingFlow(state, flow); err != nil {
-		return apperr.Internal(err)
+	if err := setPendingFlow(state, flow); err != nil {
+		return errInternal(err)
 	}
 	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
-		return apperr.Internal(err)
+	if err := h.flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
+		return errInternal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.verifyPath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.verifyPath())
 }
 
 // SignupPage renders the signup form.
 func (h *Handler) SignupPage(c *echo.Context) error {
 	req := h.req(c)
-	node := SignupPage(req, nil, model.BeginSignupInput{}, h.signinPath(), h.signupPath(), h.csrfField)
-	return render.Component(c, node)
+	node := h.pages.SignupPage(req, nil, model.BeginSignupInput{}, h.signinPath(), h.signupPath(), h.csrfField)
+	return renderOK(c, node)
 }
 
 // Signup starts a signup verification flow.
 func (h *Handler) Signup(c *echo.Context) error {
 	req := h.req(c)
 	var input model.BeginSignupInput
-	sub := form.New(h.validator)
-	sub.Submit(c, &input)
+	sub := h.forms.Parse(c, &input)
 
 	if !sub.IsValid() {
-		node := SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
-		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		node := h.pages.SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
+		return renderNode(c, http.StatusUnprocessableEntity, node)
 	}
 
 	flow, err := h.service.BeginSignup(c.Request().Context(), input, h.verifyURL())
 	if err != nil {
 		if errors.Is(err, model.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
-			node := SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusConflict, node)
+			node := h.pages.SignupPage(req, sub, input, h.signinPath(), h.signupPath(), h.csrfField)
+			return renderNode(c, http.StatusConflict, node)
 		}
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
 
 	state, err := h.sessions.Load(c.Request())
 	if err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := authsession.SetPendingFlow(state, flow); err != nil {
-		return apperr.Internal(err)
+	if err := setPendingFlow(state, flow); err != nil {
+		return errInternal(err)
 	}
 	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
-		return apperr.Internal(err)
+	if err := h.flash.Success(c.Response(), "Check your email for the verification code."); err != nil {
+		return errInternal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.verifyPath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.verifyPath())
 }
 
 // VerifyPage renders the shared verification screen.
@@ -193,21 +190,20 @@ func (h *Handler) VerifyPage(c *echo.Context) error {
 	req := h.req(c)
 	input := model.VerifyInput{Token: c.QueryParam("token")}
 	state, formErrs := h.verifyStateFromRequest(c)
-	node := VerifyPage(req, nil, input, state, formErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-	return render.Component(c, node)
+	node := h.pages.VerifyPage(req, nil, input, state, formErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+	return renderOK(c, node)
 }
 
 // Verify completes either a pending browser flow or a token-based flow.
 func (h *Handler) Verify(c *echo.Context) error {
 	req := h.req(c)
 	var input model.VerifyInput
-	sub := form.New(h.validator)
-	sub.Submit(c, &input)
+	sub := h.forms.Parse(c, &input)
 
 	state, stateErrs := h.verifyStateFromPost(c, input.Token)
 	if !sub.IsValid() {
-		node := VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		node := h.pages.VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+		return renderNode(c, http.StatusUnprocessableEntity, node)
 	}
 
 	var (
@@ -219,11 +215,11 @@ func (h *Handler) Verify(c *echo.Context) error {
 	} else {
 		verifyState, loadErr := h.sessions.Load(c.Request())
 		if loadErr != nil {
-			return apperr.BadRequest("Your verification session is missing. Start again.")
+			return errBadRequest("Your verification session is missing. Start again.")
 		}
-		flow, ok := authsession.GetPendingFlow(verifyState)
+		flow, ok := getPendingFlow(verifyState)
 		if !ok {
-			return apperr.BadRequest("Your verification session is missing. Start again.")
+			return errBadRequest("Your verification session is missing. Start again.")
 		}
 		result, err = h.service.VerifyPendingFlow(c.Request().Context(), flow, input)
 	}
@@ -231,78 +227,78 @@ func (h *Handler) Verify(c *echo.Context) error {
 		switch {
 		case errors.Is(err, model.ErrInvalidVerificationCode):
 			sub.SetFormError("The verification code is invalid.")
-			node := VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusUnauthorized, node)
+			node := h.pages.VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+			return renderNode(c, http.StatusUnauthorized, node)
 		case errors.Is(err, model.ErrVerificationExpired):
 			sub.SetFormError("The verification code has expired. Start again.")
-			node := VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusGone, node)
+			node := h.pages.VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+			return renderNode(c, http.StatusGone, node)
 		case errors.Is(err, model.ErrInvalidCredentials):
 			sub.SetFormError("The verification session is no longer valid. Start again.")
-			node := VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusUnauthorized, node)
+			node := h.pages.VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+			return renderNode(c, http.StatusUnauthorized, node)
 		case errors.Is(err, model.ErrEmailTaken):
 			sub.SetFormError("The target email is already in use.")
-			node := VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusConflict, node)
+			node := h.pages.VerifyPage(req, sub, input, state, stateErrs, h.verifyPath(), h.verifyResendPath(), h.csrfField)
+			return renderNode(c, http.StatusConflict, node)
 		default:
-			return apperr.Internal(err)
+			return errInternal(err)
 		}
 	}
 
 	commitState, err := h.sessions.Load(c.Request())
 	if err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := authsession.SetAuth(commitState, result.User.ID.String(), result.User.DisplayName); err != nil {
-		return apperr.Internal(err)
+	if err := setAuth(commitState, result.User.ID.String(), result.User.DisplayName); err != nil {
+		return errInternal(err)
 	}
 	if err := h.sessions.RotateID(c.Response(), c.Request(), commitState); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
 	if result.Purpose == model.FlowPurposeEmailChange {
-		if err := flash.Success(c.Response(), "Your email address has been updated."); err != nil {
-			return apperr.Internal(err)
+		if err := h.flash.Success(c.Response(), "Your email address has been updated."); err != nil {
+			return errInternal(err)
 		}
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.homePath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.homePath())
 }
 
 // ResendVerify starts a fresh verification cycle from the current pending flow.
 func (h *Handler) ResendVerify(c *echo.Context) error {
 	state, err := h.sessions.Load(c.Request())
 	if err != nil {
-		return apperr.BadRequest("Your verification session is missing. Start again.")
+		return errBadRequest("Your verification session is missing. Start again.")
 	}
-	flow, ok := authsession.GetPendingFlow(state)
+	flow, ok := getPendingFlow(state)
 	if !ok {
-		return apperr.BadRequest("Your verification session is missing. Start again.")
+		return errBadRequest("Your verification session is missing. Start again.")
 	}
 
 	nextFlow, err := h.service.ResendPendingFlow(c.Request().Context(), flow, h.verifyURL())
 	if err != nil {
-		if flashErr := flash.Error(c.Response(), "Unable to resend that verification code. Start again."); flashErr != nil {
-			return apperr.Internal(flashErr)
+		if flashErr := h.flash.Error(c.Response(), "Unable to resend that verification code. Start again."); flashErr != nil {
+			return errInternal(flashErr)
 		}
-		return redirect.New(c.Response(), c.Request()).To(h.startPathForPurpose(flow.Purpose)).Go()
+		return h.redirect.Redirect(c.Response(), c.Request(), h.startPathForPurpose(flow.Purpose))
 	}
-	if err := authsession.SetPendingFlow(state, nextFlow); err != nil {
-		return apperr.Internal(err)
+	if err := setPendingFlow(state, nextFlow); err != nil {
+		return errInternal(err)
 	}
 	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := flash.Success(c.Response(), "A new verification code has been sent."); err != nil {
-		return apperr.Internal(err)
+	if err := h.flash.Success(c.Response(), "A new verification code has been sent."); err != nil {
+		return errInternal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.verifyPath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.verifyPath())
 }
 
 // EmailChangePage renders the self-service email-change form.
 func (h *Handler) EmailChangePage(c *echo.Context) error {
 	req := h.req(c)
-	node := EmailChangePage(req, nil, model.BeginEmailChangeInput{}, h.emailChangePath(), h.csrfField)
-	return render.Component(c, node)
+	node := h.pages.EmailChangePage(req, nil, model.BeginEmailChangeInput{}, h.emailChangePath(), h.csrfField)
+	return renderOK(c, node)
 }
 
 // BeginEmailChange starts an email-change verification flow.
@@ -310,23 +306,22 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 	req := h.req(c)
 	state, err := h.sessions.Load(c.Request())
 	if err != nil {
-		return apperr.Unauthorized("Please sign in again.")
+		return errUnauthorized("Please sign in again.")
 	}
-	userIDRaw, ok := authsession.GetUserID(state)
+	userIDRaw, ok := getUserID(state)
 	if !ok {
-		return apperr.Unauthorized("Please sign in again.")
+		return errUnauthorized("Please sign in again.")
 	}
 	userID, err := uuid.Parse(userIDRaw)
 	if err != nil {
-		return apperr.Unauthorized("Please sign in again.")
+		return errUnauthorized("Please sign in again.")
 	}
 
 	var input model.BeginEmailChangeInput
-	sub := form.New(h.validator)
-	sub.Submit(c, &input)
+	sub := h.forms.Parse(c, &input)
 	if !sub.IsValid() {
-		node := EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)
-		return render.ComponentWithStatus(c, http.StatusUnprocessableEntity, node)
+		node := h.pages.EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)
+		return renderNode(c, http.StatusUnprocessableEntity, node)
 	}
 
 	flow, err := h.service.BeginEmailChange(c.Request().Context(), userID, input, h.verifyURL())
@@ -334,32 +329,32 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 		switch {
 		case errors.Is(err, model.ErrEmailTaken):
 			sub.SetFieldError("Email", "Email already in use.")
-			node := EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)
-			return render.ComponentWithStatus(c, http.StatusConflict, node)
+			node := h.pages.EmailChangePage(req, sub, input, h.emailChangePath(), h.csrfField)
+			return renderNode(c, http.StatusConflict, node)
 		case errors.Is(err, model.ErrUserNotFound):
-			return apperr.Unauthorized("Please sign in again.")
+			return errUnauthorized("Please sign in again.")
 		}
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
 
-	if err := authsession.SetPendingFlow(state, flow); err != nil {
-		return apperr.Internal(err)
+	if err := setPendingFlow(state, flow); err != nil {
+		return errInternal(err)
 	}
 	if err := h.sessions.Commit(c.Response(), c.Request(), state); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	if err := flash.Success(c.Response(), "Check your new email address for the verification code."); err != nil {
-		return apperr.Internal(err)
+	if err := h.flash.Success(c.Response(), "Check your new email address for the verification code."); err != nil {
+		return errInternal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.verifyPath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.verifyPath())
 }
 
 // Signout clears the session and redirects to the signin page.
 func (h *Handler) Signout(c *echo.Context) error {
 	if err := h.sessions.Destroy(c.Response(), c.Request()); err != nil {
-		return apperr.Internal(err)
+		return errInternal(err)
 	}
-	return redirect.New(c.Response(), c.Request()).To(h.signinPath()).Go()
+	return h.redirect.Redirect(c.Response(), c.Request(), h.signinPath())
 }
 
 func (h *Handler) verifyStateFromRequest(c *echo.Context) (model.VerifyPageState, []string) {
@@ -376,7 +371,7 @@ func (h *Handler) verifyStateFromRequest(c *echo.Context) (model.VerifyPageState
 	if err != nil {
 		return model.VerifyPageState{}, []string{"Start a signup, signin, or email-change flow first."}
 	}
-	flow, ok := authsession.GetPendingFlow(state)
+	flow, ok := getPendingFlow(state)
 	if !ok {
 		return model.VerifyPageState{}, []string{"Start a signup, signin, or email-change flow first."}
 	}
@@ -399,7 +394,7 @@ func (h *Handler) verifyStateFromPost(c *echo.Context, token string) (model.Veri
 	if err != nil {
 		return model.VerifyPageState{}, []string{"Your verification session is missing. Start again."}
 	}
-	flow, ok := authsession.GetPendingFlow(state)
+	flow, ok := getPendingFlow(state)
 	if !ok {
 		return model.VerifyPageState{}, []string{"Your verification session is missing. Start again."}
 	}

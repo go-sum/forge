@@ -46,12 +46,6 @@ app:
       db: 0
       pool_size: 10
 
-  keys:
-    user_id: user_id
-    user_role: user_role
-    display_name: user_display_name
-    csrf: csrf
-
   assets:
     public_dir: ${PUBLIC_DIR:-public}
     public_prefix: ${PUBLIC_PREFIX:-/public}
@@ -96,6 +90,7 @@ app:
         preload: true
     csrf:
       key: ${SECURITY_CSRF_KEY}
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
       token_ttl: 3600

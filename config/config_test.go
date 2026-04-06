@@ -53,6 +53,7 @@ func TestInitLoadsNavContentFile(t *testing.T) {
         preload: false
     csrf:
       key: "12345678901234567890123456789012"
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
   csp_hashes:
@@ -216,6 +217,7 @@ func TestInitAllowsNavShapesWithoutCustomCrossFieldValidation(t *testing.T) {
         preload: false
     csrf:
       key: "12345678901234567890123456789012"
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
   csp_hashes:
@@ -313,6 +315,7 @@ func TestLoadFromLoadsNestedServiceProviderConfig(t *testing.T) {
         preload: false
     csrf:
       key: "12345678901234567890123456789012"
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
   csp_hashes:
@@ -427,6 +430,7 @@ func TestLoadFromLoadsCSRFSecurityTokenTTLSeconds(t *testing.T) {
         preload: false
     csrf:
       key: "12345678901234567890123456789012"
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
       token_ttl: 3600
@@ -524,6 +528,7 @@ func TestLoadFromRequiresServiceFile(t *testing.T) {
         preload: false
     csrf:
       key: "12345678901234567890123456789012"
+      context_key: csrf
       form_field: _csrf
       header_name: X-CSRF-Token
   csp_hashes:

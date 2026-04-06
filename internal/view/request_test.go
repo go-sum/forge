@@ -5,19 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	auth "github.com/go-sum/auth"
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/forge/config"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
 )
-
-var testKeys = config.ContextKeysConfig{
-	UserID:      "user_id",
-	UserRole:    "user_role",
-	DisplayName: "user_display_name",
-	CSRF:        "csrf",
-}
 
 func TestNewRequestCollectsPresentationState(t *testing.T) {
 	e := echo.New()
@@ -26,9 +20,9 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	req.Header.Set("HX-Target", "#users")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(testKeys.UserID, "user-123")
-	c.Set(testKeys.UserRole, "admin")
-	c.Set(testKeys.DisplayName, "Alice")
+	c.Set(auth.ContextKeyUserID, "user-123")
+	c.Set(auth.ContextKeyUserRole, "admin")
+	c.Set(auth.ContextKeyDisplayName, "Alice")
 	c.Set(echomw.DefaultCSRFConfig.ContextKey, "csrf-token")
 	if err := flash.Success(rec, "Saved"); err != nil {
 		t.Fatalf("set flash: %v", err)
@@ -39,9 +33,9 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 
 	viewReq := NewRequest(c, &config.Config{
 		App: config.AppConfig{
-			Keys: testKeys,
 			Security: config.SecurityConfig{
 				CSRF: config.CSRFConfig{
+					ContextKey: "csrf",
 					FormField:  "_csrf",
 					HeaderName: "X-CSRF-Token",
 				},

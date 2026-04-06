@@ -20,7 +20,7 @@ import (
 	"github.com/go-sum/componentry/patterns/font"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters/authmail"
-	"github.com/go-sum/forge/internal/adapters/authsession"
+	"github.com/go-sum/forge/internal/adapters/kvsession"
 	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
@@ -293,7 +293,7 @@ func (c *Container) initAuth() {
 		EncryptKey: cfg.EncryptKey,
 		MaxAge:     cfg.MaxAge,
 		Secure:     cfg.Secure,
-		BlobStore:  authsession.WrapKV(c.KV),
+		BlobStore:  kvsession.New(c.KV),
 	})
 	if err != nil {
 		panic(fmt.Sprintf("session: %v", err))

@@ -1,4 +1,4 @@
-package authui
+package auth
 
 import (
 	g "maragu.dev/gomponents"
