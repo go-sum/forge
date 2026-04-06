@@ -51,7 +51,7 @@ func newTestStore(t *testing.T) *redisstore.RedisStore {
 
 	ctx := context.Background()
 	if err := store.Ping(ctx); err != nil {
-		t.Skipf("cannot reach KV server at %s: %v", addr, err)
+		t.Skipf("cannot reach KV server at %s: %v", cfg.Addr, err)
 	}
 
 	t.Cleanup(func() { _ = store.Close() })
@@ -287,15 +287,9 @@ func TestScanStopsOnCallbackError(t *testing.T) {
 }
 
 func TestClosePreventsFurtherOps(t *testing.T) {
-	addr := testAddr(t)
-	if len(addr) > 8 && addr[:8] == "redis://" {
-		addr = addr[8:]
-	}
+	cfg := testConfig(t)
 
-	store, err := redisstore.New(redisstore.Config{
-		Addr:     addr,
-		Password: os.Getenv("KVTEST_PASSWORD"),
-	})
+	store, err := redisstore.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

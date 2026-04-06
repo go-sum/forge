@@ -35,6 +35,8 @@ services:
       - .:/app
     working_dir: /app
     env_file: .env
+    networks:
+      - app_network
     profiles: [tools]
 
   # Production toolchain — Hugo + Tailwind only.
