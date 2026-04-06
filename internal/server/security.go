@@ -70,6 +70,23 @@ func CORSMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 	})
 }
 
+// secureHeaders sets Referrer-Policy and Permissions-Policy response
+// headers that Echo's SecureWithConfig does not support natively.
+func secureHeaders(cfg *config.Config) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			h := cfg.App.Security.Headers
+			if h.ReferrerPolicy != "" {
+				c.Response().Header().Set("Referrer-Policy", h.ReferrerPolicy)
+			}
+			if h.PermissionsPolicy != "" {
+				c.Response().Header().Set("Permissions-Policy", h.PermissionsPolicy)
+			}
+			return next(c)
+		}
+	}
+}
+
 // secureMiddleware applies HTTP security headers via Echo's built-in Secure
 // middleware. HSTS is TLS-conditional (not written on plain HTTP in dev).
 func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFunc {

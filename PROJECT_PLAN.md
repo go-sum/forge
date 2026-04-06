@@ -91,6 +91,64 @@ downstream task numbers.
 
 ---
 
+### Phase 00: Bugfixes
+
+- [x] **T0001** — Fix session fixation: rotate session ID after authentication
+  Severity: **High**
+  Cover: successful authentication does not rotate the session ID, leaving the
+  app vulnerable to session fixation. In `internal/adapters/authui/handler.go:253`
+  the Verify flow loads the existing session, writes auth state, and commits it
+  unchanged; `pkg/session/manager.go:123` already exposes `RotateID` but it is
+  never called anywhere in the codebase. Replace `h.sessions.Commit(...)` with
+  `h.sessions.RotateID(...)` at the Verify handler's authentication commit point
+  (line 260). Audit the other session commit sites in the same file — Signin,
+  Signup, ResendVerify, and BeginEmailChange write pending flow state (not auth),
+  so rotation is only mandatory at the Verify step where the user transitions
+  from unauthenticated to authenticated. Add a test verifying the session ID
+  changes after successful verification.
+  Files: `internal/adapters/authui/handler.go`, auth handler test file
+
+- [x] **T0002** — Harden security headers: add missing CSP directives, Referrer-Policy, Permissions-Policy
+  Severity: **High**
+  Cover: the security-header baseline has gaps. `config/app.yaml:89` CSP is
+  missing `object-src 'none'` and `base-uri 'self'`. There is no
+  `Referrer-Policy` or `Permissions-Policy` header anywhere in the codebase, and
+  `config/app.go:96` `HeadersConfig` has no fields for them. Echo's
+  `SecureWithConfig` (used in `internal/server/security.go:85`) does not support
+  these two headers natively. Fix: (1) append `object-src 'none'; base-uri
+  'self'` to the CSP string in `config/app.yaml`; (2) add `referrer_policy` and
+  `permissions_policy` fields to `HeadersConfig` with sensible defaults
+  (`strict-origin-when-cross-origin` and `camera=(), microphone=(),
+  geolocation=()`); (3) add a custom middleware in `internal/server/security.go`
+  that sets these two response headers; (4) wire it into the middleware chain in
+  `internal/server/middleware.go`. Add tests for the new header middleware.
+  Files: `config/app.go`, `config/app.yaml`, `internal/server/security.go`,
+  `internal/server/middleware.go`
+
+- [x] **T0003** — Replace hardcoded route paths with named route reversal
+  Severity: **Medium**
+  Cover: two locations bypass the named-route single-source-of-truth.
+  `internal/view/layout/base.go:113` hardcodes `"/signout"` instead of reversing
+  `"signout.post"`, and `internal/handler/admin.go:55` hardcodes `"/"` instead of
+  reversing `"home.show"`. The route reversal infrastructure already exists:
+  `route.Reverse()` in `pkg/server/route/route.go:23` and the view layer exposes
+  `Request.Path()` at `internal/view/request.go:81`. Both route names are
+  registered in `internal/app/routes.go`. Fix: replace hardcoded strings with
+  reversed named routes. Grep for any other hardcoded route paths in
+  `internal/handler/` and `internal/view/` and fix those too.
+  Files: `internal/view/layout/base.go`, `internal/handler/admin.go`
+
+- [x] **T0004** — Rate limiter: log warning on unsupported backend instead of silent fallback
+  Severity: **Medium**
+  Cover: `internal/server/ratelimit.go:60` silently falls back to in-memory
+  storage for any non-memory backend value — no log, no error, no indication to
+  the operator. In multi-instance deployments the single-process, IP-only rate
+  limiter becomes easy to evade. Fix: add `slog.Warn` in the `default` switch
+  case of `newRateLimitStore` so operators are alerted that their configured
+  backend is unsupported and memory fallback is in use. Add a code comment
+  documenting the single-process limitation for future distributed-store work.
+  Files: `internal/server/ratelimit.go`
+
 ### Phase 01: Echo v5 Runtime Hardening
 
 Low-effort, high-value fixes to the existing runtime configuration.

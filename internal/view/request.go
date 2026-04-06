@@ -82,6 +82,18 @@ func (r Request) Path(name string, pathValues ...any) string {
 	return route.Reverse(r.Routes, name, pathValues...)
 }
 
+// safePath resolves a named route, returning fallback when routes are
+// unavailable (e.g. in tests that don't register the full route table).
+func (r Request) safePath(name, fallback string) string {
+	if r.Routes == nil {
+		return fallback
+	}
+	if path, ok := route.SafeReverse(r.Routes, name); ok {
+		return path
+	}
+	return fallback
+}
+
 func (r Request) PathWithQuery(name string, query url.Values, pathValues ...any) string {
 	return route.ReverseWithQuery(r.Routes, name, query, pathValues...)
 }
@@ -126,6 +138,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		Flash:           r.Flash,
 		NavConfig:       r.NavConfig,
 		FontConfig:      r.FontConfig,
+		SignoutPath:      r.safePath("signout.post", "/signout"),
 		CopyrightYear:   r.CopyrightYear,
 		Children:        children,
 	}

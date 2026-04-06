@@ -98,6 +98,8 @@ type HeadersConfig struct {
 	ContentTypeNosniff    bool       `koanf:"content_type_nosniff"`
 	FrameOptions          string     `koanf:"frame_options" validate:"required"`
 	ContentSecurityPolicy string     `koanf:"content_security_policy" validate:"required"`
+	ReferrerPolicy        string     `koanf:"referrer_policy"`
+	PermissionsPolicy     string     `koanf:"permissions_policy"`
 	HSTS                  HSTSConfig `koanf:"hsts"`
 }
 

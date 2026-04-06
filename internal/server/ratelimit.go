@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/go-sum/forge/config"
@@ -58,6 +59,7 @@ func newRateLimitStore(backend string, policy config.RateLimitConfig) ratelimit.
 			ExpiresIn: time.Duration(policy.ExpiresIn) * time.Second,
 		})
 	default:
+		slog.Warn("unsupported rate limit backend, falling back to in-memory store", "backend", backend)
 		return ratelimit.NewMemoryStoreWithConfig(ratelimit.MemoryStoreConfig{
 			Rate:      policy.Rate,
 			Burst:     policy.Burst,

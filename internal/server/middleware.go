@@ -32,6 +32,7 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string) {
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 	e.Use(secureMiddleware(cfg, processedCSP))
+	e.Use(secureHeaders(cfg))
 
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
 	// Each Log* flag must be explicitly enabled — Echo v5 opts out of capture by default.

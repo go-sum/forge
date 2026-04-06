@@ -257,7 +257,7 @@ func (h *Handler) Verify(c *echo.Context) error {
 	if err := authsession.SetAuth(commitState, result.User.ID.String(), result.User.DisplayName); err != nil {
 		return apperr.Internal(err)
 	}
-	if err := h.sessions.Commit(c.Response(), c.Request(), commitState); err != nil {
+	if err := h.sessions.RotateID(c.Response(), c.Request(), commitState); err != nil {
 		return apperr.Internal(err)
 	}
 	if result.Purpose == model.FlowPurposeEmailChange {

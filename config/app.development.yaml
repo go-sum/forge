@@ -15,7 +15,7 @@ app:
         burst: 5
     headers:
       # Inline script hashes are injected at startup — see csp_hashes below.
-      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
       hsts:
         enabled: false
 

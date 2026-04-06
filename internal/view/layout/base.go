@@ -30,6 +30,7 @@ type Props struct {
 	Flash           []flash.Message
 	NavConfig       config.NavConfig
 	FontConfig      font.Config
+	SignoutPath      string
 	CopyrightYear   int
 	Children        []g.Node
 }
@@ -110,7 +111,7 @@ func pageNavSlots(p Props) uilayout.NavSlots {
 		"user_name": uilayout.TextSlot(userName),
 		"signout": uilayout.FormSlot(uilayout.FormSlotProps{
 			Label:  "Signout",
-			Action: "/signout",
+			Action: p.SignoutPath,
 			HiddenFields: []uilayout.NavHiddenField{{
 				Name:  p.CSRFFieldName,
 				Value: p.CSRFToken,

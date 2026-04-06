@@ -8,6 +8,7 @@ import (
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/page"
 	"github.com/go-sum/server/apperr"
+	"github.com/go-sum/server/route"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -52,5 +53,5 @@ func (h *Handler) AdminElevate(c *echo.Context) error {
 		return apperr.Unavailable("Unable to complete elevation right now.", err)
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/")
+	return c.Redirect(http.StatusSeeOther, route.Reverse(c.Echo().Router().Routes(), "home.show"))
 }
