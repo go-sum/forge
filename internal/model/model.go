@@ -4,7 +4,10 @@
 package model
 
 import (
+	"time"
+
 	authmodel "github.com/go-sum/auth/model"
+	"github.com/google/uuid"
 )
 
 const (
@@ -12,7 +15,32 @@ const (
 	RoleAdmin = authmodel.RoleAdmin
 )
 
-type User = authmodel.User
+// User is the application's domain type for an authenticated user.
+// It mirrors authmodel.User field-for-field so the mapping is zero-cost,
+// but ownership lives here — internal/ code never imports authmodel.User directly.
+type User struct {
+	ID          uuid.UUID
+	Email       string
+	DisplayName string
+	Role        string
+	Verified    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// UserFromAuth converts an auth-package user to the application domain User.
+// Use this at adapter boundaries where pkg/auth returns authmodel.User.
+func UserFromAuth(u authmodel.User) User {
+	return User{
+		ID:          u.ID,
+		Email:       u.Email,
+		DisplayName: u.DisplayName,
+		Role:        u.Role,
+		Verified:    u.Verified,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
+	}
+}
 
 // UpdateUserInput carries validated data for updating an existing user.
 // Empty strings are treated as "no change" by the COALESCE logic in the SQL query.

@@ -54,7 +54,7 @@ func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.Ava
 
 	adminGuarded := authGuarded.Group("") // (admin + requires session)
 	adminGuarded.Use(
-		authui.LoadUserRole(c.Repos.User, authKeys),
+		authui.LoadUserRole(c.AuthStore, authKeys),
 		authui.RequireAdmin(authKeys),
 	)
 

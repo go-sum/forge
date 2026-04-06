@@ -1,4 +1,3 @@
-// Example: safe to delete as a unit.
 package repository
 
 import (
@@ -31,32 +30,8 @@ func toUserModel(u db.User) model.User {
 	}
 }
 
-func (r *userRepository) Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error) {
-	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
-		Email:       email,
-		DisplayName: displayName,
-		Role:        role,
-		Verified:    verified,
-	})
-	if err != nil {
-		return model.User{}, mapUserErr(err)
-	}
-	return toUserModel(u), nil
-}
-
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
 	u, err := r.q.GetUserByID(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return model.User{}, model.ErrUserNotFound
-	}
-	if err != nil {
-		return model.User{}, err
-	}
-	return toUserModel(u), nil
-}
-
-func (r *userRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
-	u, err := r.q.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound
 	}
@@ -84,20 +59,6 @@ func (r *userRepository) Update(ctx context.Context, id uuid.UUID, email, displa
 		Email:       email,
 		DisplayName: displayName,
 		Role:        role,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return model.User{}, model.ErrUserNotFound
-	}
-	if err != nil {
-		return model.User{}, mapUserErr(err)
-	}
-	return toUserModel(u), nil
-}
-
-func (r *userRepository) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error) {
-	u, err := r.q.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
-		ID:    id,
-		Email: email,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound

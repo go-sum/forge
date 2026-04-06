@@ -6,4 +6,5 @@
 # Usage: make db-compose NAME=add_feature
 schemas:
   - db/sql/schema.sql
+  - pkg/auth/pgstore/sql/schema.sql
   - pkg/queue/pgstore/sql/schema.sql

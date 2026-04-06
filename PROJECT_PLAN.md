@@ -149,6 +149,26 @@ downstream task numbers.
   documenting the single-process limitation for future distributed-store work.
   Files: `internal/server/ratelimit.go`
 
+- [x] **T0005** — Establish app-owned domain types instead of re-exporting auth package types
+  Severity: **Medium**
+  Cover: `internal/model/model.go:15` uses `type User = authmodel.User` (type
+  alias) and `internal/model/errors.go` re-exports error sentinels from
+  `authmodel` instead of defining app-owned types/errors. This lets the external
+  `github.com/go-sum/auth/model` package dictate internal domain shape, violating
+  the design guide's intent that `internal/model/` is the owning domain boundary.
+  Fix: (1) replace the type alias with a concrete `User` struct and add a
+  `UserFromAuth()` mapping function for the adapter boundary; (2) replace
+  re-exported error sentinels with app-owned `errors.New(...)` definitions;
+  (3) map `authmodel.ErrX` → `model.ErrX` in `internal/adapters/authui/`;
+  (4) trace and update all callers of `model.User` across repository and service
+  layers. This is the largest refactor in Phase 00 — use LSP to trace all callers
+  before modifying.
+  Files: `internal/model/model.go`, `internal/model/errors.go`,
+  `internal/adapters/authui/handler.go`, `internal/repository/`,
+  `internal/service/`
+
+---
+
 ### Phase 01: Echo v5 Runtime Hardening
 
 Low-effort, high-value fixes to the existing runtime configuration.

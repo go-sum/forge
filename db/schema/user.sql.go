@@ -22,46 +22,6 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const createUser = `-- name: CreateUser :one
-
-INSERT INTO users (email, display_name, role, verified)
-VALUES ($1, $2, $3, $4)
-RETURNING id, email, display_name, role, verified, created_at, updated_at
-`
-
-type CreateUserParams struct {
-	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
-	Role        string `json:"role"`
-	Verified    bool   `json:"verified"`
-}
-
-// User queries
-// sqlc annotations control the return type:
-//
-//	:one  → returns a single struct
-//	:many → returns []struct
-//	:exec → returns error only
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser,
-		arg.Email,
-		arg.DisplayName,
-		arg.Role,
-		arg.Verified,
-	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.DisplayName,
-		&i.Role,
-		&i.Verified,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1
@@ -72,32 +32,21 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
-WHERE email = $1
-`
-
-// Used for both public profile lookup and auth (repository returns hash separately).
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.DisplayName,
-		&i.Role,
-		&i.Verified,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getUserByID = `-- name: GetUserByID :one
+
 SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
 WHERE id = $1
 `
 
+// Admin user queries.
+// Auth-related queries (CreateUser, GetUserByEmail, UpdateUserEmail) are owned
+// by pkg/auth/pgstore/sql/queries.sql and managed by that package.
+// These queries support admin user management only.
+// sqlc annotations control the return type:
+//
+//	:one  → returns a single struct
+//	:many → returns []struct
+//	:exec → returns error only
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
@@ -189,33 +138,6 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.Role,
 		arg.ID,
 	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.DisplayName,
-		&i.Role,
-		&i.Verified,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateUserEmail = `-- name: UpdateUserEmail :one
-UPDATE users
-SET email = $2
-WHERE id = $1
-RETURNING id, email, display_name, role, verified, created_at, updated_at
-`
-
-type UpdateUserEmailParams struct {
-	ID    uuid.UUID `json:"id"`
-	Email string    `json:"email"`
-}
-
-func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserEmail, arg.ID, arg.Email)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -29,19 +29,11 @@ type fakeUserRepo struct {
 	hasAdminFn func(context.Context) (bool, error)
 }
 
-func (fakeUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
-	return model.User{}, errors.New("unexpected Create call")
-}
-
 func (r fakeUserRepo) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
 	if r.getByID != nil {
 		return r.getByID(ctx, id)
 	}
 	return model.User{}, errors.New("unexpected GetByID call")
-}
-
-func (fakeUserRepo) GetByEmail(context.Context, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected GetByEmail call")
 }
 
 func (r fakeUserRepo) List(ctx context.Context, limit, offset int32) ([]model.User, error) {
@@ -56,10 +48,6 @@ func (r fakeUserRepo) Update(ctx context.Context, id uuid.UUID, email, displayNa
 		return r.updateFn(ctx, id, email, displayName, role)
 	}
 	return model.User{}, errors.New("unexpected Update call")
-}
-
-func (fakeUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
-	return model.User{}, errors.New("unexpected UpdateEmail call")
 }
 
 func (r fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -137,11 +125,11 @@ func TestUserServiceDelegatesCRUDOperations(t *testing.T) {
 
 func TestUserServiceHasAdminDelegatesToRepo(t *testing.T) {
 	tests := []struct {
-		name     string
-		repoVal  bool
-		repoErr  error
-		wantVal  bool
-		wantErr  bool
+		name    string
+		repoVal bool
+		repoErr error
+		wantVal bool
+		wantErr bool
 	}{
 		{
 			name:    "repo returns true",

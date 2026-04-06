@@ -1,22 +1,15 @@
--- User queries
+-- Admin user queries.
+-- Auth-related queries (CreateUser, GetUserByEmail, UpdateUserEmail) are owned
+-- by pkg/auth/pgstore/sql/queries.sql and managed by that package.
+-- These queries support admin user management only.
 -- sqlc annotations control the return type:
 --   :one  → returns a single struct
 --   :many → returns []struct
 --   :exec → returns error only
 
--- name: CreateUser :one
-INSERT INTO users (email, display_name, role, verified)
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
 -- name: GetUserByID :one
 SELECT * FROM users
 WHERE id = $1;
-
--- name: GetUserByEmail :one
--- Used for both public profile lookup and auth (repository returns hash separately).
-SELECT * FROM users
-WHERE email = $1;
 
 -- name: ListUsers :many
 SELECT * FROM users
@@ -32,12 +25,6 @@ SET
     display_name = COALESCE(NULLIF(sqlc.arg(display_name)::text, ''), display_name),
     role         = COALESCE(NULLIF(sqlc.arg(role)::text, ''), role)
 WHERE id = sqlc.arg(id)
-RETURNING *;
-
--- name: UpdateUserEmail :one
-UPDATE users
-SET email = $2
-WHERE id = $1
 RETURNING *;
 
 -- name: DeleteUser :exec

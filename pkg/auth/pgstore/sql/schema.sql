@@ -1,18 +1,13 @@
--- Schema: starter application
--- This file is used by:
---   1. sqlc — reads this to generate type-safe Go code (.sqlc.yaml)
---   2. make db-compose — to generate migration files in db/migrations/
--- Migrations are applied via goose: make db-migrate
---
--- NOTE: The users table canonical source is pkg/auth/pgstore/sql/schema.sql.
--- This copy exists solely for sqlc admin-query code generation.
--- Keep these two definitions in sync when altering the users table.
+-- Schema: auth users table
+-- This file is the canonical source of truth for the users table.
+-- It is embedded by pkg/auth/pgstore and used for idempotent schema installation.
+-- The application's db/sql/schema.sql mirrors this definition for sqlc code generation.
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
-CREATE EXTENSION IF NOT EXISTS citext;
+-- citext extension must be installed by the host application before Install() is called.
+-- See db/init/01-extensions.sql.
 
 -- ─── Trigger function ───────────────────────────────────────────────────────
--- Automatically sets updated_at = NOW() on any UPDATE row.
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -22,7 +17,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ─── Users ──────────────────────────────────────────────────────────────────
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id            UUID         PRIMARY KEY DEFAULT uuidv7(),
     -- CITEXT enforces case-insensitive uniqueness: user@example.com == User@Example.com
     email         CITEXT       NOT NULL UNIQUE,
@@ -33,9 +28,9 @@ CREATE TABLE users (
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_role ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 
-CREATE TRIGGER users_updated_at
+CREATE OR REPLACE TRIGGER users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	authmodel "github.com/go-sum/auth/model"
+	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/adapters/authui"
 	"github.com/go-sum/forge/internal/handler"
@@ -82,6 +84,15 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 			},
 		},
 	}
+	authStore := &routesTestAuthStore{
+		users: map[uuid.UUID]authmodel.User{
+			uuid.MustParse("11111111-1111-1111-1111-111111111111"): {
+				ID:    uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+				Email: "ada@example.com",
+				Role:  "admin",
+			},
+		},
+	}
 
 	container := &Container{
 		Config:       cfg,
@@ -90,6 +101,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		Sessions:     sessions,
 		Validator:    validate.New(),
 		Repos:        &repository.Repositories{User: repo},
+		AuthStore:    authStore,
 	}
 
 	h := handler.New(cfg, func() echo.Routes {
@@ -148,13 +160,10 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	}
 }
 
+// routesTestUserRepo implements repository.AdminUserRepository for route tests.
 type routesTestUserRepo struct {
 	users        map[uuid.UUID]model.User
 	getByIDCalls int
-}
-
-func (r *routesTestUserRepo) Create(context.Context, string, string, string, bool) (model.User, error) {
-	return model.User{}, nil
 }
 
 func (r *routesTestUserRepo) GetByID(_ context.Context, id uuid.UUID) (model.User, error) {
@@ -165,19 +174,11 @@ func (r *routesTestUserRepo) GetByID(_ context.Context, id uuid.UUID) (model.Use
 	return model.User{}, model.ErrUserNotFound
 }
 
-func (r *routesTestUserRepo) GetByEmail(context.Context, string) (model.User, error) {
-	return model.User{}, nil
-}
-
 func (r *routesTestUserRepo) List(context.Context, int32, int32) ([]model.User, error) {
 	return nil, nil
 }
 
 func (r *routesTestUserRepo) Update(context.Context, uuid.UUID, string, string, string) (model.User, error) {
-	return model.User{}, nil
-}
-
-func (r *routesTestUserRepo) UpdateEmail(context.Context, uuid.UUID, string) (model.User, error) {
 	return model.User{}, nil
 }
 
@@ -193,7 +194,39 @@ func (r *routesTestUserRepo) HasAdmin(context.Context) (bool, error) {
 	return false, nil
 }
 
-var _ repository.UserRepository = (*routesTestUserRepo)(nil)
+var _ repository.AdminUserRepository = (*routesTestUserRepo)(nil)
+
+// routesTestAuthStore implements authrepo.UserStore for route tests.
+// It is used by LoadUserRole middleware to resolve the authenticated user's role.
+type routesTestAuthStore struct {
+	users map[uuid.UUID]authmodel.User
+}
+
+func (s *routesTestAuthStore) GetByID(_ context.Context, id uuid.UUID) (authmodel.User, error) {
+	if u, ok := s.users[id]; ok {
+		return u, nil
+	}
+	return authmodel.User{}, authmodel.ErrUserNotFound
+}
+
+func (s *routesTestAuthStore) GetByEmail(_ context.Context, email string) (authmodel.User, error) {
+	for _, u := range s.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return authmodel.User{}, authmodel.ErrUserNotFound
+}
+
+func (s *routesTestAuthStore) Create(_ context.Context, email, displayName, role string, verified bool) (authmodel.User, error) {
+	return authmodel.User{}, nil
+}
+
+func (s *routesTestAuthStore) UpdateEmail(_ context.Context, id uuid.UUID, email string) (authmodel.User, error) {
+	return authmodel.User{}, nil
+}
+
+var _ authrepo.UserStore = (*routesTestAuthStore)(nil)
 
 // newTestApp builds a minimal application container with fake repositories
 // suitable for route integration tests. The returned Echo instance has all
@@ -257,6 +290,20 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 			},
 		},
 	}
+	authStore := &routesTestAuthStore{
+		users: map[uuid.UUID]authmodel.User{
+			uuid.MustParse(adminID): {
+				ID:    uuid.MustParse(adminID),
+				Email: "admin@example.com",
+				Role:  "admin",
+			},
+			uuid.MustParse(regularID): {
+				ID:    uuid.MustParse(regularID),
+				Email: "user@example.com",
+				Role:  "user",
+			},
+		},
+	}
 
 	container := &Container{
 		Config:       cfg,
@@ -265,6 +312,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestUserRepo)
 		Sessions:     sessions,
 		Validator:    validate.New(),
 		Repos:        &repository.Repositories{User: repo},
+		AuthStore:    authStore,
 	}
 
 	h := handler.New(
@@ -431,6 +479,20 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 			},
 		},
 	}
+	authStore := &routesTestAuthStore{
+		users: map[uuid.UUID]authmodel.User{
+			uuid.MustParse(adminID): {
+				ID:    uuid.MustParse(adminID),
+				Email: "admin@example.com",
+				Role:  "admin",
+			},
+			uuid.MustParse(regularID): {
+				ID:    uuid.MustParse(regularID),
+				Email: "user@example.com",
+				Role:  "user",
+			},
+		},
+	}
 
 	container := &Container{
 		Config:       cfg,
@@ -439,6 +501,7 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		Sessions:     sessions,
 		Validator:    validate.New(),
 		Repos:        &repository.Repositories{User: repo},
+		AuthStore:    authStore,
 	}
 
 	h := handler.New(

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	auth "github.com/go-sum/auth"
+	authpgstore "github.com/go-sum/auth/pgstore"
 	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/componentry/assets"
 	icons "github.com/go-sum/componentry/icons"
@@ -141,6 +142,21 @@ func (c *Container) initDatabase() {
 		return
 	}
 	slog.Info("database connected")
+}
+
+// Auth store bootstrap. Creates the pgstore-backed UserStore for pkg/auth.
+// Install() is idempotent — safe to call on an existing database.
+func (c *Container) initAuthStore() {
+	pg := authpgstore.New(authpgstore.Config{Pool: c.DB})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// Install is idempotent: uses CREATE TABLE IF NOT EXISTS.
+	if err := pg.Install(ctx); err != nil {
+		panic(fmt.Sprintf("auth store: install schema: %v", err))
+	}
+	// Assign via interface — callers depend on authrepo.UserStore, not the concrete type.
+	c.AuthStore = pg
+	slog.Info("auth store initialized")
 }
 
 // Queue bootstrap. Always creates a queue.Client. When queue.enabled is true,
@@ -309,7 +325,7 @@ func (c *Container) initServices() {
 		panic(fmt.Sprintf("app: auth: %v", err))
 	}
 	c.AuthService = authsvc.NewAuthService(
-		c.Repos.User,
+		c.AuthStore,
 		authsvc.Config{
 			Method:   c.Config.Service.Auth.Methods.EmailTOTP,
 			Notifier: authmail.New(c.Sender, send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery)),

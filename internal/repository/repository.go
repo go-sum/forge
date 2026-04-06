@@ -13,14 +13,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// UserRepository defines data access operations for users.
-type UserRepository interface {
-	Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error)
+// AdminUserRepository defines data access operations for admin user management.
+// Auth-related operations (Create, GetByEmail, UpdateEmail) are owned by
+// pkg/auth/pgstore and are intentionally absent here.
+type AdminUserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
-	GetByEmail(ctx context.Context, email string) (model.User, error)
 	List(ctx context.Context, limit, offset int32) ([]model.User, error)
 	Update(ctx context.Context, id uuid.UUID, email, displayName, role string) (model.User, error)
-	UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Count(ctx context.Context) (int64, error)
 	HasAdmin(ctx context.Context) (bool, error)
@@ -28,7 +27,7 @@ type UserRepository interface {
 
 // Repositories is the composition root for all data access.
 type Repositories struct {
-	User UserRepository
+	User AdminUserRepository
 }
 
 // NewRepositories constructs Repositories backed by the given pool.

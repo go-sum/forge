@@ -127,18 +127,11 @@ func TestUserRepositoryMethods(t *testing.T) {
 		UpdatedAt:   repoTestUpdatedAt,
 	}
 
-	t.Run("create and get map db users", func(t *testing.T) {
+	t.Run("get by id maps db user to model", func(t *testing.T) {
 		repo := newUserRepository(stubDBTX{
 			queryRowFn: func(_ context.Context, _ string, args ...interface{}) pgx.Row {
-				switch len(args) {
-				case 4:
-					if args[0] != expected.Email || args[1] != expected.DisplayName || args[2] != expected.Role || args[3] != true {
-						t.Fatalf("args = %#v", args)
-					}
-				case 1:
-					if args[0] != repoTestUserID && args[0] != expected.Email {
-						t.Fatalf("args = %#v", args)
-					}
+				if args[0] != repoTestUserID {
+					t.Fatalf("GetByID args = %#v", args)
 				}
 				return stubRow{values: []any{
 					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.Verified, expected.CreatedAt, expected.UpdatedAt,
@@ -146,39 +139,26 @@ func TestUserRepositoryMethods(t *testing.T) {
 			},
 		})
 
-		created, err := repo.Create(ctx, expected.Email, expected.DisplayName, expected.Role, true)
-		if err != nil || created != expected {
-			t.Fatalf("Create() user=%#v err=%v", created, err)
-		}
-
 		byID, err := repo.GetByID(ctx, repoTestUserID)
 		if err != nil || byID != expected {
 			t.Fatalf("GetByID() user=%#v err=%v", byID, err)
 		}
-
-		byEmail, err := repo.GetByEmail(ctx, expected.Email)
-		if err != nil || byEmail != expected {
-			t.Fatalf("GetByEmail() user=%#v err=%v", byEmail, err)
-		}
 	})
 
-	t.Run("get methods map no rows", func(t *testing.T) {
+	t.Run("get by id maps no rows to ErrUserNotFound", func(t *testing.T) {
 		repo := newUserRepository(stubDBTX{
 			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row { return stubRow{err: pgx.ErrNoRows} },
 		})
 		if _, err := repo.GetByID(ctx, repoTestUserID); !errors.Is(err, model.ErrUserNotFound) {
 			t.Fatalf("GetByID() err = %v", err)
 		}
-		if _, err := repo.GetByEmail(ctx, expected.Email); !errors.Is(err, model.ErrUserNotFound) {
-			t.Fatalf("GetByEmail() err = %v", err)
-		}
 	})
 
-	t.Run("list update delete count and error mapping", func(t *testing.T) {
+	t.Run("list update delete count", func(t *testing.T) {
 		repo := newUserRepository(stubDBTX{
 			queryFn: func(_ context.Context, _ string, args ...interface{}) (pgx.Rows, error) {
 				if args[0] != int32(10) || args[1] != int32(20) {
-					t.Fatalf("args = %#v", args)
+					t.Fatalf("List args = %#v", args)
 				}
 				rows := &stubRows{rows: [][]any{{
 					expected.ID, expected.Email, expected.DisplayName, expected.Role, expected.Verified, expected.CreatedAt, expected.UpdatedAt,
@@ -218,14 +198,8 @@ func TestUserRepositoryMethods(t *testing.T) {
 		}
 	})
 
-	t.Run("create and update map unique violation and no rows", func(t *testing.T) {
+	t.Run("update maps unique violation and no rows", func(t *testing.T) {
 		uniqueErr := &pgconn.PgError{Code: "23505"}
-		createRepo := newUserRepository(stubDBTX{
-			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row { return stubRow{err: uniqueErr} },
-		})
-		if _, err := createRepo.Create(ctx, expected.Email, expected.DisplayName, expected.Role, true); !errors.Is(err, model.ErrEmailTaken) {
-			t.Fatalf("Create() err = %v", err)
-		}
 
 		updateNoRows := newUserRepository(stubDBTX{
 			queryRowFn: func(context.Context, string, ...interface{}) pgx.Row { return stubRow{err: pgx.ErrNoRows} },

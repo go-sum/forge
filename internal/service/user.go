@@ -13,11 +13,11 @@ import (
 
 // UserService provides CRUD operations for user management.
 type UserService struct {
-	repo repository.UserRepository
+	repo repository.AdminUserRepository
 }
 
-// NewUserService constructs a UserService from a user repository.
-func NewUserService(repo repository.UserRepository) *UserService {
+// NewUserService constructs a UserService from an admin user repository.
+func NewUserService(repo repository.AdminUserRepository) *UserService {
 	return &UserService{repo: repo}
 }
 

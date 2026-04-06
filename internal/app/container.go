@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	auth "github.com/go-sum/auth"
+	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/repository"
@@ -53,6 +54,7 @@ type Container struct {
 	Repos        *repository.Repositories
 	Services     *service.Services
 	AuthService  auth.Service
+	AuthStore    authrepo.UserStore
 	Sender       send.Sender
 
 	background []BackgroundService // registered in init order, stopped in reverse
@@ -72,6 +74,7 @@ func NewContainer() *Container {
 	if c.StartupError != nil {
 		return c
 	}
+	c.initAuthStore()
 	c.initQueue()
 	c.initKV()
 	c.initAuth()
