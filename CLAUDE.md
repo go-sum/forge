@@ -87,10 +87,39 @@ Tier 3  examples          (any tier)
 
 ## Database Workflow
 
-1. Edit `db/sql/schema.sql` (single source of truth for desired state)
-2. Create migration: `make db-compose NAME=description` (auto-generates diff)
+Schema is **distributed** — each self-contained `pkg/*/pgstore` owns its own SQL schema file alongside its queries and Go code. `db/sql/schemas.yaml` is the composition registry that lists every schema file; `make db-compose` reads it, concatenates all schemas in order, and generates a migration diff.
+
+### Schema ownership
+
+| Table | Canonical schema file | Owned by |
+|-------|----------------------|----------|
+| `users` | `pkg/auth/pgstore/sql/schema.sql` | `pkg/auth` |
+| `queue_jobs` | `pkg/queue/pgstore/sql/schema.sql` | `pkg/queue` |
+| app tables | `db/sql/schema.sql` | `internal/` |
+
+> `db/sql/schema.sql` also contains a **sqlc-only mirror** of the `users` table so that sqlc can generate admin-query code. Keep this copy in sync when altering `pkg/auth/pgstore/sql/schema.sql`.
+
+### Query code ownership
+
+Each `pkg/*/pgstore` also owns its SQL queries and generates its own Go code locally via a co-located `.sqlc.yaml`. Generated code lives in a `db/` sub-package within the same module — no module boundary is crossed.
+
+| Package | Config | Generated output | Import path |
+|---------|--------|-----------------|-------------|
+| `pkg/auth/pgstore` | `pkg/auth/pgstore/.sqlc.yaml` | `pkg/auth/pgstore/db/` | `github.com/go-sum/auth/pgstore/db` |
+| `pkg/queue/pgstore` | `pkg/queue/pgstore/.sqlc.yaml` | `pkg/queue/pgstore/db/` | `github.com/go-sum/queue/pgstore/db` |
+| `internal/repository` | `.sqlc.yaml` (root) | `db/schema/` | `github.com/go-sum/forge/db/schema` |
+
+`make db-gen` regenerates all three. Never hand-edit files in any `db/` generated output directory.
+
+### Steps
+
+1. Edit the right schema file:
+   - **App tables** → `db/sql/schema.sql`
+   - **Existing `pkg/` table** → `pkg/<name>/pgstore/sql/schema.sql`
+   - **New `pkg/` table** → create `pkg/<name>/pgstore/sql/schema.sql`, then add it to `db/sql/schemas.yaml`
+2. Create migration: `make db-compose NAME=description` (reads `schemas.yaml`, diffs concatenated state)
 3. Apply migrations: `make db-migrate`
-4. Regenerate Go: `make db-gen` (only if queries changed)
+4. Regenerate Go: `make db-gen` (regenerates `db/schema/` and all `pkg/*/pgstore/db/` outputs)
 5. Check status: `make db-status` · Rollback: `make db-rollback`
 
 Migrations live in `db/migrations/` and are applied via goose. Extensions (`pgcrypto`, `citext`) are managed via `db/init/01-extensions.sql`.

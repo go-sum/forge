@@ -5,11 +5,12 @@ package pgstore
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-sum/auth/model"
+	authdb "github.com/go-sum/auth/pgstore/db"
 	authrepo "github.com/go-sum/auth/repository"
 
 	"github.com/google/uuid"
@@ -21,6 +22,9 @@ import (
 // Compile-time interface check.
 var _ authrepo.UserStore = (*PgStore)(nil)
 
+//go:embed sql/schema.sql
+var createTableSQL string
+
 // Config holds the PostgreSQL store configuration.
 type Config struct {
 	Pool *pgxpool.Pool
@@ -28,12 +32,16 @@ type Config struct {
 
 // PgStore implements authrepo.UserStore backed by PostgreSQL.
 type PgStore struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *authdb.Queries
 }
 
 // New creates a PgStore. The pool is externally managed and not closed by PgStore.
 func New(cfg Config) *PgStore {
-	return &PgStore{pool: cfg.Pool}
+	return &PgStore{
+		pool:    cfg.Pool,
+		queries: authdb.New(cfg.Pool),
+	}
 }
 
 // Install creates the users table and indexes idempotently.
@@ -49,75 +57,71 @@ func (s *PgStore) Install(ctx context.Context) error {
 
 // Create inserts a new user and returns the persisted record.
 func (s *PgStore) Create(ctx context.Context, email, displayName, role string, verified bool) (model.User, error) {
-	row := s.pool.QueryRow(ctx, createUserSQL, email, displayName, role, verified)
-	u, err := scanUser(row)
+	u, err := s.queries.CreateUser(ctx, authdb.CreateUserParams{
+		Email:       email,
+		DisplayName: displayName,
+		Role:        role,
+		Verified:    verified,
+	})
 	if err != nil {
 		return model.User{}, mapUserErr(err)
 	}
-	return u, nil
+	return toUserModel(u), nil
 }
 
 // GetByID retrieves a user by UUID. Returns model.ErrUserNotFound when missing.
 func (s *PgStore) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
-	row := s.pool.QueryRow(ctx, getUserByIDSQL, id)
-	u, err := scanUser(row)
+	u, err := s.queries.GetUserByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound
 	}
 	if err != nil {
 		return model.User{}, err
 	}
-	return u, nil
+	return toUserModel(u), nil
 }
 
 // GetByEmail retrieves a user by email address (case-insensitive via CITEXT).
 // Returns model.ErrUserNotFound when missing.
 func (s *PgStore) GetByEmail(ctx context.Context, email string) (model.User, error) {
-	row := s.pool.QueryRow(ctx, getUserByEmailSQL, email)
-	u, err := scanUser(row)
+	u, err := s.queries.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound
 	}
 	if err != nil {
 		return model.User{}, err
 	}
-	return u, nil
+	return toUserModel(u), nil
 }
 
 // UpdateEmail changes the user's email address and returns the updated record.
 // Returns model.ErrUserNotFound when no row matches id.
 // Returns model.ErrEmailTaken on unique constraint violation.
 func (s *PgStore) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (model.User, error) {
-	row := s.pool.QueryRow(ctx, updateUserEmailSQL, id, email)
-	u, err := scanUser(row)
+	u, err := s.queries.UpdateUserEmail(ctx, authdb.UpdateUserEmailParams{
+		ID:    id,
+		Email: email,
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.User{}, model.ErrUserNotFound
 	}
 	if err != nil {
 		return model.User{}, mapUserErr(err)
 	}
-	return u, nil
+	return toUserModel(u), nil
 }
 
-// scanUser scans all user columns from a pgx.Row into a model.User.
-func scanUser(row pgx.Row) (model.User, error) {
-	var u model.User
-	var createdAt, updatedAt time.Time
-	err := row.Scan(
-		&u.ID,
-		&u.Email,
-		&u.DisplayName,
-		&u.Role,
-		&u.Verified,
-		&createdAt,
-		&updatedAt,
-	)
-	if err != nil {
-		return model.User{}, err
+// toUserModel converts a sqlc-generated db.User to the domain model.
+func toUserModel(u authdb.User) model.User {
+	return model.User{
+		ID:          u.ID,
+		Email:       u.Email,
+		DisplayName: u.DisplayName,
+		Role:        u.Role,
+		Verified:    u.Verified,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
 	}
-	u.CreatedAt = createdAt
-	u.UpdatedAt = updatedAt
-	return u, nil
 }
 
 // mapUserErr translates PostgreSQL unique constraint violations to domain errors.

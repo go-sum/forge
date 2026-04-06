@@ -4,15 +4,25 @@ package pgstore
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-sum/queue"
+	queuedb "github.com/go-sum/queue/pgstore/db"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// Compile-time interface check.
+var _ queue.Store = (*PgStore)(nil)
+
+//go:embed sql/schema.sql
+var createTableSQL string
 
 // Config holds the PostgreSQL store configuration.
 type Config struct {
@@ -26,11 +36,9 @@ type Config struct {
 // PgStore implements queue.Store backed by PostgreSQL.
 type PgStore struct {
 	pool          *pgxpool.Pool
+	queries       *queuedb.Queries
 	reapThreshold time.Duration
 }
-
-// Compile-time interface check.
-var _ queue.Store = (*PgStore)(nil)
 
 // New creates a PgStore. The pool is externally managed and not closed by Close().
 func New(cfg Config) *PgStore {
@@ -40,6 +48,7 @@ func New(cfg Config) *PgStore {
 	}
 	return &PgStore{
 		pool:          cfg.Pool,
+		queries:       queuedb.New(cfg.Pool),
 		reapThreshold: reap,
 	}
 }
@@ -55,48 +64,43 @@ func (s *PgStore) Install(ctx context.Context) error {
 
 // Enqueue inserts a new job and sets its ID from the RETURNING clause.
 func (s *PgStore) Enqueue(ctx context.Context, job *queue.Job) error {
-	row := s.pool.QueryRow(ctx, enqueueSQL,
-		job.Queue,
-		int(job.Priority),
-		job.Payload,
-		string(job.Status),
-		job.MaxAttempts,
-		job.RunAt,
-	)
-	return row.Scan(&job.ID, &job.CreatedAt, &job.UpdatedAt)
+	row, err := s.queries.Enqueue(ctx, queuedb.EnqueueParams{
+		Queue:       job.Queue,
+		Priority:    int32(job.Priority),
+		Payload:     job.Payload,
+		Status:      string(job.Status),
+		MaxAttempts: int32(job.MaxAttempts),
+		RunAt:       job.RunAt,
+	})
+	if err != nil {
+		return fmt.Errorf("pgstore: enqueue: %w", err)
+	}
+	job.ID = row.ID.String()
+	job.CreatedAt = row.CreatedAt
+	job.UpdatedAt = row.UpdatedAt
+	return nil
 }
 
 // Dequeue atomically claims the highest-priority pending job from the given
 // queues. Returns queue.ErrJobNotFound when no work is available.
 func (s *PgStore) Dequeue(ctx context.Context, queues []string) (*queue.Job, error) {
-	row := s.pool.QueryRow(ctx, dequeueSQL, queues)
-
-	var job queue.Job
-	var priority int
-	var status string
-
-	err := row.Scan(
-		&job.ID, &job.Queue, &priority,
-		&job.Payload, &status, &job.Attempts,
-		&job.MaxAttempts, &job.LastError, &job.RunAt,
-		&job.CreatedAt, &job.UpdatedAt,
-	)
+	row, err := s.queries.Dequeue(ctx, queues)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, queue.ErrJobNotFound
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, queue.ErrJobNotFound
-		}
 		return nil, fmt.Errorf("pgstore: dequeue: %w", err)
 	}
-
-	job.Priority = queue.Priority(priority)
-	job.Status = queue.JobStatus(status)
-	return &job, nil
+	return toJobModel(row), nil
 }
 
 // Complete marks a job as completed.
 func (s *PgStore) Complete(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, completeSQL, id)
+	uid, err := uuid.Parse(id)
 	if err != nil {
+		return fmt.Errorf("pgstore: complete: invalid id: %w", err)
+	}
+	if err := s.queries.Complete(ctx, uid); err != nil {
 		return fmt.Errorf("pgstore: complete: %w", err)
 	}
 	return nil
@@ -105,9 +109,15 @@ func (s *PgStore) Complete(ctx context.Context, id string) error {
 // Fail records a failure. If the job has retries remaining it is rescheduled
 // after retryAfter; otherwise it is marked dead.
 func (s *PgStore) Fail(ctx context.Context, id string, errMsg string, retryAfter time.Duration) error {
-	interval := fmt.Sprintf("%d seconds", int(retryAfter.Seconds()))
-	_, err := s.pool.Exec(ctx, failSQL, id, errMsg, interval)
+	uid, err := uuid.Parse(id)
 	if err != nil {
+		return fmt.Errorf("pgstore: fail: invalid id: %w", err)
+	}
+	if err := s.queries.Fail(ctx, queuedb.FailParams{
+		ID:        uid,
+		LastError: errMsg,
+		Column3:   durationToInterval(retryAfter),
+	}); err != nil {
 		return fmt.Errorf("pgstore: fail: %w", err)
 	}
 	return nil
@@ -115,12 +125,14 @@ func (s *PgStore) Fail(ctx context.Context, id string, errMsg string, retryAfter
 
 // Reap reclaims jobs stuck in running state beyond the reap threshold.
 func (s *PgStore) Reap(ctx context.Context, queues []string) (int, error) {
-	interval := fmt.Sprintf("%d seconds", int(s.reapThreshold.Seconds()))
-	tag, err := s.pool.Exec(ctx, reapSQL, queues, interval)
+	n, err := s.queries.Reap(ctx, queuedb.ReapParams{
+		Column1: queues,
+		Column2: durationToInterval(s.reapThreshold),
+	})
 	if err != nil {
 		return 0, fmt.Errorf("pgstore: reap: %w", err)
 	}
-	return int(tag.RowsAffected()), nil
+	return int(n), nil
 }
 
 // Ping verifies database connectivity.
@@ -131,4 +143,30 @@ func (s *PgStore) Ping(ctx context.Context) error {
 // Close is a no-op because the pool is externally managed.
 func (s *PgStore) Close() error {
 	return nil
+}
+
+// toJobModel converts a sqlc-generated db.QueueJob to the domain model.
+func toJobModel(r queuedb.QueueJob) *queue.Job {
+	return &queue.Job{
+		ID:          r.ID.String(),
+		Queue:       r.Queue,
+		Priority:    queue.Priority(r.Priority),
+		Payload:     r.Payload,
+		Status:      queue.JobStatus(r.Status),
+		Attempts:    int(r.Attempts),
+		MaxAttempts: int(r.MaxAttempts),
+		LastError:   r.LastError,
+		RunAt:       r.RunAt,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	}
+}
+
+// durationToInterval converts a time.Duration to a pgtype.Interval for use
+// in parameterized queries that accept a PostgreSQL interval type.
+func durationToInterval(d time.Duration) pgtype.Interval {
+	return pgtype.Interval{
+		Microseconds: d.Microseconds(),
+		Valid:        true,
+	}
 }

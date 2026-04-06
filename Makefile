@@ -73,6 +73,8 @@ db-compose: ## Compose schemas and generate migration with diff (NAME=add_queue_
 
 db-gen: ## Regenerate sqlc Go code from SQL queries
 	$(RUN_TOOLS) tools sqlc generate -f .sqlc.yaml
+	$(RUN_TOOLS) tools sqlc generate -f pkg/auth/pgstore/.sqlc.yaml
+	$(RUN_TOOLS) tools sqlc generate -f pkg/queue/pgstore/.sqlc.yaml
 
 db-migrate: ## Apply pending migrations
 	$(RUN_APP) app go run ./cli/db migrate

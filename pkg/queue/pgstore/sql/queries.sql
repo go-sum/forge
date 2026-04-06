@@ -12,7 +12,7 @@ RETURNING id, created_at, updated_at;
 -- Uses FOR UPDATE SKIP LOCKED for concurrent-safe worker claiming.
 WITH next AS (
     SELECT id FROM queue_jobs
-    WHERE queue = ANY($1)
+    WHERE queue_jobs.queue = ANY($1::text[])
       AND status = 'pending'
       AND run_at <= NOW()
     ORDER BY priority ASC, run_at ASC
@@ -45,14 +45,14 @@ SET last_error  = $2,
     run_at      = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() + $3::interval END
 WHERE id = $1;
 
--- name: Reap :exec
+-- name: Reap :execrows
 -- Reclaims running jobs stuck beyond the stale threshold.
 -- $1 = queue names, $2 = stale threshold interval (e.g. '300 seconds').
 UPDATE queue_jobs
 SET status = 'pending', updated_at = NOW()
 WHERE id IN (
     SELECT id FROM queue_jobs
-    WHERE queue = ANY($1)
+    WHERE queue_jobs.queue = ANY($1::text[])
       AND status = 'running'
       AND updated_at < NOW() - $2::interval
     FOR UPDATE SKIP LOCKED
