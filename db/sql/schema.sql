@@ -2,7 +2,7 @@
 -- This file is the single source of truth for the DESIRED database schema state.
 -- It is used by:
 --   1. sqlc — reads this to generate type-safe Go code (.sqlc.yaml)
---   2. make db-diff — diffs this against the live DB to generate migration files in db/migrations/
+--   2. make db-compose — to generate migration files in db/migrations/
 -- Migrations are applied via goose: make db-migrate
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────

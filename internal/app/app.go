@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-sum/forge/internal/adapters/authui"
@@ -68,8 +69,9 @@ func New(version string) *App {
 	return &App{container: c}
 }
 
-// Start starts the HTTP server.
+// Start launches all registered background services and the HTTP server.
 func (a *App) Start() error {
+	a.container.StartBackground(context.Background())
 	return server.Start(a.container.Web, a.container.ServerConfig)
 }
 

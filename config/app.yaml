@@ -18,6 +18,25 @@ app:
     auto_migrate: false
     migrations_dir: db/migrations
 
+  queue:
+    enabled: false
+    store: postgres
+    poll_interval: 1
+    shutdown_wait: 30
+    queues:
+      - name: email
+        priority: 10
+        workers: 2
+        max_attempts: 5
+        timeout: 30
+        backoff: 10
+      - name: default
+        priority: 20
+        workers: 1
+        max_attempts: 3
+        timeout: 60
+        backoff: 5
+
   kv:
     enabled: false
     store: redis

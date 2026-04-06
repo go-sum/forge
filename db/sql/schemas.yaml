@@ -1,0 +1,9 @@
+# Schema composition registry.
+# Each entry is a path (relative to repo root) to a SQL file defining
+# desired table state. Files are concatenated in order for pgschema diffing
+# and migration generation.
+#
+# Usage: make db-compose NAME=add_feature
+schemas:
+  - db/sql/schema.sql
+  - pkg/queue/pgstore/sql/schema.sql

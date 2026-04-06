@@ -29,6 +29,7 @@ COPY go.mod go.sum go.work go.work.sum ./
 COPY pkg/auth/go.mod pkg/auth/go.sum /app/pkg/auth/
 COPY pkg/componentry/go.mod pkg/componentry/go.sum /app/pkg/componentry/
 COPY pkg/kv/go.mod pkg/kv/go.sum /app/pkg/kv/
+COPY pkg/queue/go.mod pkg/queue/go.sum /app/pkg/queue/
 COPY pkg/security/go.mod pkg/security/go.sum /app/pkg/security/
 COPY pkg/send/go.mod /app/pkg/send/
 COPY pkg/server/go.mod pkg/server/go.sum /app/pkg/server/

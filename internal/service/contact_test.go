@@ -2,22 +2,45 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/service"
+	"github.com/go-sum/queue"
 	"github.com/go-sum/send"
 	"github.com/go-sum/send/adapters/memory"
 )
 
+// newEmailQueue creates a sync-mode queue client with an email handler
+// backed by the given sender.
+func newEmailQueue(sender send.Sender) *queue.Client {
+	c := queue.New(nil, queue.Config{
+		Queues: []queue.QueueConfig{
+			{Name: "email", MaxAttempts: 1, Timeout: 5},
+		},
+	})
+	c.Register("email", func(ctx context.Context, job queue.Job) error {
+		var p service.EmailPayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil {
+			return err
+		}
+		return sender.Send(ctx, send.Message{
+			To: p.To, From: p.From, Subject: p.Subject, HTML: p.HTML, Text: p.Text,
+		})
+	})
+	return c
+}
+
 func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 	sender := memory.New()
+	q := newEmailQueue(sender)
 	cfg := service.ContactConfig{
 		SendTo:   "admin@example.com",
 		SendFrom: "no-reply@example.com",
 	}
-	svc := service.NewContactService(sender, cfg)
+	svc := service.NewContactService(q, cfg)
 
 	input := model.ContactInput{
 		Name:    "Alice",
@@ -55,10 +78,11 @@ func TestContactService_Submit_sendsNotificationAndConfirmation(t *testing.T) {
 func TestContactService_Submit_propagatesSenderError(t *testing.T) {
 	wantErr := errors.New("send failed")
 	sender := &failSender{err: wantErr}
+	q := newEmailQueue(sender)
 	cfg := service.ContactConfig{
 		SendTo: "admin@example.com",
 	}
-	svc := service.NewContactService(sender, cfg)
+	svc := service.NewContactService(q, cfg)
 
 	err := svc.Submit(context.Background(), model.ContactInput{
 		Name: "Bob", Email: "bob@example.com", Message: "Hi",

@@ -5,7 +5,7 @@ package service
 
 import (
 	"github.com/go-sum/forge/internal/repository"
-	"github.com/go-sum/send"
+	"github.com/go-sum/queue"
 )
 
 // Services is the composition root for all domain services.
@@ -16,9 +16,9 @@ type Services struct {
 
 // NewServices constructs all domain services from the shared infrastructure.
 // Auth is now handled by the auth module's AuthService, wired in container.go.
-func NewServices(repos *repository.Repositories, sender send.Sender, contactCfg ContactConfig) *Services {
+func NewServices(repos *repository.Repositories, q *queue.Client, contactCfg ContactConfig) *Services {
 	return &Services{
 		User:    NewUserService(repos.User),
-		Contact: NewContactService(sender, contactCfg),
+		Contact: NewContactService(q, contactCfg),
 	}
 }

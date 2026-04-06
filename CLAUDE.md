@@ -88,7 +88,7 @@ Tier 3  examples          (any tier)
 ## Database Workflow
 
 1. Edit `db/sql/schema.sql` (single source of truth for desired state)
-2. Create migration: `make db-create NAME=description` or `make db-diff NAME=description` (auto-generates diff)
+2. Create migration: `make db-compose NAME=description` (auto-generates diff)
 3. Apply migrations: `make db-migrate`
 4. Regenerate Go: `make db-gen` (only if queries changed)
 5. Check status: `make db-status` · Rollback: `make db-rollback`

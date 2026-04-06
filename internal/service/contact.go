@@ -7,15 +7,24 @@ import (
 
 	"github.com/go-sum/componentry/email"
 	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/send"
+	"github.com/go-sum/queue"
 
 	g "maragu.dev/gomponents"
 )
 
+// EmailPayload is the JSON structure dispatched to the email queue.
+type EmailPayload struct {
+	To      string `json:"to"`
+	From    string `json:"from"`
+	Subject string `json:"subject"`
+	HTML    string `json:"html"`
+	Text    string `json:"text"`
+}
+
 // ContactService handles the contact form submission workflow.
 type ContactService struct {
-	sender send.Sender
-	cfg    ContactConfig
+	queue *queue.Client
+	cfg   ContactConfig
 }
 
 // ContactConfig contains the delivery addresses the contact workflow needs.
@@ -24,32 +33,35 @@ type ContactConfig struct {
 	SendFrom string
 }
 
-// NewContactService constructs a ContactService.
-func NewContactService(sender send.Sender, cfg ContactConfig) *ContactService {
-	return &ContactService{sender: sender, cfg: cfg}
+// NewContactService constructs a ContactService. The queue client handles
+// both sync and async dispatch transparently.
+func NewContactService(q *queue.Client, cfg ContactConfig) *ContactService {
+	return &ContactService{queue: q, cfg: cfg}
 }
 
-// Submit sends a notification to the configured send_to address and a
-// confirmation reply to the submitter's email address.
+// Submit dispatches a notification to the configured send_to address and a
+// confirmation reply to the submitter's email address via the email queue.
 func (s *ContactService) Submit(ctx context.Context, input model.ContactInput) error {
-	if err := s.sender.Send(ctx, send.Message{
+	notification := EmailPayload{
 		To:      s.cfg.SendTo,
 		From:    s.cfg.SendFrom,
 		Subject: "New contact form submission from " + input.Name,
 		HTML:    renderHTML(notificationBody(input)),
 		Text:    notificationText(input),
-	}); err != nil {
-		return fmt.Errorf("ContactService.Submit: send notification: %w", err)
+	}
+	if err := s.queue.DispatchPayload(ctx, "email", notification); err != nil {
+		return fmt.Errorf("ContactService.Submit: dispatch notification: %w", err)
 	}
 
-	if err := s.sender.Send(ctx, send.Message{
+	confirmation := EmailPayload{
 		To:      input.Email,
 		From:    s.cfg.SendFrom,
 		Subject: "Thanks for reaching out",
 		HTML:    renderHTML(confirmationBody(input)),
 		Text:    confirmationText(input),
-	}); err != nil {
-		return fmt.Errorf("ContactService.Submit: send confirmation: %w", err)
+	}
+	if err := s.queue.DispatchPayload(ctx, "email", confirmation); err != nil {
+		return fmt.Errorf("ContactService.Submit: dispatch confirmation: %w", err)
 	}
 
 	return nil

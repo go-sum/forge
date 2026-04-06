@@ -8,7 +8,7 @@ app:
     port: 3000
 
   security:
-    external_origin: http://localhost:8080
+    external_origin: https://forge.test
     rate_limits:
       auth:
         rate: 0.2   # 5 burst attempts then 1 per 5s

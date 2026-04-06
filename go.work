@@ -10,4 +10,5 @@ use (
 	./pkg/send
 	./pkg/kv
 	./pkg/session
+	./pkg/queue
 )

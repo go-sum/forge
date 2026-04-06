@@ -17,6 +17,7 @@ type AppConfig struct {
 	Server    ServerConfig      `koanf:"server"`
 	Security  SecurityConfig    `koanf:"security"`
 	Database  DatabaseConfig    `koanf:"database"`
+	Queue     QueueConfig       `koanf:"queue"`
 	KV        KVConfig          `koanf:"kv"`
 	Session   SessionConfig     `koanf:"session"`
 	Auth      AuthConfig        `koanf:"auth"`
@@ -118,6 +119,25 @@ type DatabaseConfig struct {
 	URL           string `koanf:"url"`
 	AutoMigrate   bool   `koanf:"auto_migrate"`
 	MigrationsDir string `koanf:"migrations_dir"`
+}
+
+// QueueConfig holds the background job queue configuration.
+type QueueConfig struct {
+	Enabled      bool               `koanf:"enabled"`
+	Store        string             `koanf:"store" validate:"omitempty,oneof=postgres"`
+	PollInterval int                `koanf:"poll_interval"`
+	ShutdownWait int                `koanf:"shutdown_wait"`
+	Queues       []QueueEntryConfig `koanf:"queues"`
+}
+
+// QueueEntryConfig defines a single named queue and its behavior.
+type QueueEntryConfig struct {
+	Name        string `koanf:"name"         validate:"required"`
+	Priority    int    `koanf:"priority"`
+	Workers     int    `koanf:"workers"      validate:"min=0"`
+	MaxAttempts int    `koanf:"max_attempts" validate:"min=0"`
+	Timeout     int    `koanf:"timeout"`
+	Backoff     int    `koanf:"backoff"`
 }
 
 // KVConfig holds the key-value store configuration.

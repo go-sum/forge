@@ -60,50 +60,6 @@ through the GitHub Actions workflows under `.github/workflows/`.
 
 ---
 
-## Adoption Notes From `../examples/r3-cf/`
-
-The review of `../examples/r3-cf/` surfaced several useful patterns worth
-adopting in this repository:
-
-- Strong package-level documentation and explicit public API boundaries.
-- A build-time markdown documentation system with runtime navigation.
-- Reusable site utilities for `robots.txt` and `sitemap.xml`.
-- A predictable font-loading subsystem for remote and self-hosted fonts.
-- Production-ready structured logging with field redaction.
-- Provider-agnostic email delivery with reusable template components.
-- Locale-aware formatting primitives as infrastructure, before full i18n.
-
-The review also surfaced patterns that should **not** be copied directly:
-
-- Cloudflare runtime integration, Worker bindings, and D1-specific plumbing.
-- Remix-specific middleware composition and route contracts.
-- TypeScript-specific Result APIs as a replacement for idiomatic Go errors.
-- Client-island architecture where the current server-rendered + HTMX approach
-  is already sufficient.
-
-Several ideas from `r3-cf` are already represented here and therefore do not
-need separate adoption tasks:
-
-- Content-hashed asset URLs.
-- SVG sprite generation.
-- Theme switching.
-- Flash/toast rendering.
-- CSRF, origin, fetch metadata, and rate-limit protections.
-- Problem-details style JSON error responses.
-
----
-
-## Roadmap Priorities
-
-The roadmap prioritizes **reusable packages first**, then app-level integration
-that demonstrates those packages in the starter itself.
-
-When a new capability can live under `pkg/` without breaking the dependency
-rules, it should be extracted there first. Application routes, config wiring,
-and examples in `internal/` should follow.
-
----
-
 ## Verification Expectations
 
 Every phase should include the appropriate level of verification:
@@ -122,11 +78,6 @@ Every phase should include the appropriate level of verification:
 - Reusable package design takes priority over app-only implementation shortcuts.
 - The starter remains server-rendered and HTMX-first; no SPA runtime is planned.
 - The existing asset pipeline remains Go-driven and Node-free.
-- Theme switching, toast rendering, asset hashing, sprite generation, and core
-  security middleware are considered existing capabilities, not missing features.
-- Email starts with development-safe providers first; external provider support
-  is a follow-up, not a prerequisite.
-- Locale work initially targets formatting primitives only, not translated copy.
 
 ---
 
@@ -137,22 +88,6 @@ Status markers: `[ ]` outstanding · `[x]` completed · `[~]` in progress
 Task ID format: `TXXYY` where `XX` = phase, `YY` = task number within that
 phase. This allows inserting new tasks within any phase without renumbering
 downstream task numbers.
-
----
-
-### Completed / Removed Tasks (audit 2026-04-05)
-
-The following tasks were removed after a codebase audit confirmed they are
-either fully implemented, not applicable, or out of scope:
-
-| Removed | Reason |
-|---------|--------|
-| Admin route group (old T0102) | Implemented: `adminGuarded` group with `LoadUserRole` + `RequireAdmin` in `routes.go` |
-| Frame-like partial navigation (old T1202) | Implemented: `view.Render()` auto-detects HTMX; patterns in `pkg/componentry/patterns/htmx/` |
-| Register validator on Echo (old T1703) | Implemented: `c.Web.Validator` set in `bootstrap.go`; `pkg/server/validate` wraps go-playground/validator |
-| Password recovery flows (old T0902) | Not applicable: auth is email-TOTP only; re-send verification already covers recovery |
-| SSE live updates (old T1201) | Removed: HTMX request-response is sufficient for the starter's server-rendered philosophy |
-| SSE regression coverage (old T1203) | Removed: no SSE to cover |
 
 ---
 

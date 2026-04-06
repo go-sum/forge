@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,6 +24,8 @@ import (
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/kv/redisstore"
+	"github.com/go-sum/queue"
+	"github.com/go-sum/queue/pgstore"
 	secheaders "github.com/go-sum/security/headers"
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
@@ -140,6 +143,67 @@ func (c *Container) initDatabase() {
 	slog.Info("database connected")
 }
 
+// Queue bootstrap. Always creates a queue.Client. When queue.enabled is true,
+// uses a PostgreSQL-backed store for async processing with workers. When false,
+// creates a sync client that executes handlers inline during dispatch.
+func (c *Container) initQueue() {
+	cfg := c.Config.App.Queue
+
+	queueCfgs := make([]queue.QueueConfig, len(cfg.Queues))
+	for i, q := range cfg.Queues {
+		queueCfgs[i] = queue.QueueConfig{
+			Name:        q.Name,
+			Priority:    queue.Priority(q.Priority),
+			Workers:     q.Workers,
+			MaxAttempts: q.MaxAttempts,
+			Timeout:     q.Timeout,
+			Backoff:     q.Backoff,
+		}
+	}
+
+	var store queue.Store
+	if cfg.Enabled {
+		pg := pgstore.New(pgstore.Config{Pool: c.DB})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := pg.Install(ctx); err != nil {
+			panic(fmt.Sprintf("queue: install schema: %v", err))
+		}
+		store = pg
+	}
+
+	c.Queue = queue.New(store, queue.Config{
+		Queues:       queueCfgs,
+		PollInterval: cfg.PollInterval,
+		ShutdownWait: cfg.ShutdownWait,
+	})
+
+	c.AddBackground(c.Queue)
+
+	mode := "sync"
+	if cfg.Enabled {
+		mode = "async"
+	}
+	slog.Info("queue initialized", "mode", mode, "queues", len(cfg.Queues))
+}
+
+// registerQueueHandlers registers job handlers for each configured queue.
+func (c *Container) registerQueueHandlers() {
+	c.Queue.Register("email", func(ctx context.Context, job queue.Job) error {
+		var p service.EmailPayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil {
+			return fmt.Errorf("email job: unmarshal: %w", err)
+		}
+		return c.Sender.Send(ctx, send.Message{
+			To:      p.To,
+			From:    p.From,
+			Subject: p.Subject,
+			HTML:    p.HTML,
+			Text:    p.Text,
+		})
+	})
+}
+
 // KV store bootstrap.
 func (c *Container) initKV() {
 	if !c.Config.App.KV.Enabled {
@@ -235,7 +299,8 @@ func (c *Container) initRepos() {
 
 // Domain services bootstrap.
 func (c *Container) initServices() {
-	c.Services = service.NewServices(c.Repos, c.Sender, service.ContactConfig{
+	c.registerQueueHandlers()
+	c.Services = service.NewServices(c.Repos, c.Queue, service.ContactConfig{
 		SendTo:   c.Config.Service.Send.SendTo,
 		SendFrom: send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery),
 	})

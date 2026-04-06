@@ -47,6 +47,7 @@ func main() {
 		newRollbackCmd(),
 		newStatusCmd(),
 		newCreateCmd(),
+		newComposeCmd(),
 	)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

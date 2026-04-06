@@ -133,7 +133,7 @@ else is implementation.
 Write SQL in `db/sql/`:
 - Schema changes go in `db/sql/schema.sql`
 - New query definitions go in `db/sql/queries/`
-- Run `make db-diff NAME=description` to generate a migration file and preview the schema diff
+- Run `make db-compose NAME=description` to comose sql and generate a migration file
 - Run `make db-migrate` to apply pending migrations, then `make db-gen` to regenerate Go code
 
 Never edit generated files in `db/schema/*.go`.

@@ -7,7 +7,7 @@ tmp_dir = "tmp"
   # when their targets already exist.
   pre_cmd = ["go run ./cli/build assets"]
   cmd = "go build -o ./tmp/server ./cmd/server"
-  entrypoint = "./tmp/server"
+  entrypoint = ["./tmp/server"]
   include_ext = ["go", "toml", "css", "js", "yaml", "html"]
   exclude_dir = ["bin", "cli", "db", "docker", "public", "scripts", "tmp"]
 

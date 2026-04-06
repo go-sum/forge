@@ -19,7 +19,7 @@ RUN_APP   := $(D_COMPOSE) --profile dev run --rm app
 
 .PHONY: help \
         build clean lint vet hash-air-csp \
-        db-create db-diff db-gen db-migrate db-rollback db-status \
+        db-compose db-gen db-migrate db-rollback db-status \
         assets \
         deploy \
         package-list package-push package-release package-status package-sync \
@@ -53,20 +53,14 @@ test: ## Run tests
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-db-create: ## Create a new empty migration file (NAME=add_posts_table)
-	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-create NAME=add_posts_table" >&2; exit 1; }
-	$(RUN_TOOLS) go run ./cli/db create "$(NAME)"
-
-db-diff: ## Generate a migration file and show schema diff (NAME=add_posts_table)
-	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-diff NAME=add_posts_table" >&2; exit 1; }
-	$(RUN_TOOLS) go run ./cli/db create "$(NAME)"
+db-compose: ## Compose schemas and generate migration with diff (NAME=add_queue_jobs)
+	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-compose NAME=add_queue_jobs" >&2; exit 1; }
 	$(RUN_APP) \
 	  -e PGSCHEMA_PLAN_HOST=$$PGHOST \
 	  -e PGSCHEMA_PLAN_DB=$${PGDATABASE}_plan \
 	  -e PGSCHEMA_PLAN_USER=$$PGUSER \
 	  -e PGSCHEMA_PLAN_PASSWORD=$$PGPASSWORD \
-	  pgschema plan --file db/sql/schema.sql --output-human stdout
-	@echo "Review the diff above, then edit the migration file in db/migrations/"
+	  go run ./cli/db compose "$(NAME)"
 
 db-gen: ## Regenerate sqlc Go code from SQL queries
 	$(RUN_TOOLS) sqlc generate -f .sqlc.yaml
