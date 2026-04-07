@@ -35,6 +35,9 @@ services:
       - .:/app
     working_dir: /app
     env_file: .env
+    environment:
+      - GIT_USER_EMAIL
+      - GIT_USER_NAME
     networks:
       - app_network
     profiles: [tools]
