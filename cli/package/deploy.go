@@ -40,6 +40,12 @@ commits, tags, and pushes to trigger the CI build.`,
 			}
 
 			// ── 1. Preflight ────────────────────────────────────────
+			// Reset any deploy artifacts left by a previous interrupted run
+			// before checking for a clean tree.
+			if autoFix {
+				deployArtifacts := []string{".versions", "go.mod", "go.prod.mod", "go.prod.sum"}
+				_ = gitCheckoutHead(cfg.repoRoot, deployArtifacts...)
+			}
 			if err := ensureCleanTree(cfg.repoRoot); err != nil {
 				return err
 			}
@@ -280,6 +286,13 @@ func gitTag(repoRoot, version string) error {
 		return fmt.Errorf("git tag %s: %w", version, err)
 	}
 	return nil
+}
+
+func gitCheckoutHead(repoRoot string, files ...string) error {
+	args := append([]string{"checkout", "HEAD", "--"}, files...)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoRoot
+	return cmd.Run()
 }
 
 func gitPushWithTags(repoRoot, remote, branch string) error {
