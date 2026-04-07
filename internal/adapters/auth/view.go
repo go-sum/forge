@@ -1,4 +1,4 @@
-package authview
+package authadapter
 
 import (
 	"fmt"

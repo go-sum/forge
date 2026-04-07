@@ -10,7 +10,7 @@ import (
 	authmodel "github.com/go-sum/auth/model"
 	auth "github.com/go-sum/auth"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/adapters/authview"
+	authadapter "github.com/go-sum/forge/internal/adapters/auth"
 	"github.com/go-sum/forge/internal/handler"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
@@ -92,11 +92,11 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	}, &service.Services{}, container.Validator)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := auth.NewHandler(nil, auth.HandlerConfig{
-		Sessions:        &sessionManagerAdapter{mgr: sessions},
-		Forms:           &formParserAdapter{v: container.Validator},
-		Flash:           &flashAdapter{},
-		Redirect:        &redirectAdapter{},
-		Pages:           authview.NewRenderer(),
+		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
+		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
+		Flash:           &authadapter.FlashAdapter{},
+		Redirect:        &authadapter.RedirectAdapter{},
+		Pages:           authadapter.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -276,11 +276,11 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 	)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := auth.NewHandler(nil, auth.HandlerConfig{
-		Sessions:        &sessionManagerAdapter{mgr: sessions},
-		Forms:           &formParserAdapter{v: container.Validator},
-		Flash:           &flashAdapter{},
-		Redirect:        &redirectAdapter{},
-		Pages:           authview.NewRenderer(),
+		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
+		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
+		Flash:           &authadapter.FlashAdapter{},
+		Redirect:        &authadapter.RedirectAdapter{},
+		Pages:           authadapter.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
@@ -450,11 +450,11 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 	)
 	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := auth.NewHandler(nil, auth.HandlerConfig{
-		Sessions:        &sessionManagerAdapter{mgr: sessions},
-		Forms:           &formParserAdapter{v: container.Validator},
-		Flash:           &flashAdapter{},
-		Redirect:        &redirectAdapter{},
-		Pages:           authview.NewRenderer(),
+		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
+		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
+		Flash:           &authadapter.FlashAdapter{},
+		Redirect:        &authadapter.RedirectAdapter{},
+		Pages:           authadapter.NewRenderer(),
 		CSRFField:       cfg.App.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",

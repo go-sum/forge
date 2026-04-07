@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	auth "github.com/go-sum/auth"
-	"github.com/go-sum/forge/internal/adapters/authview"
+	authadapter "github.com/go-sum/forge/internal/adapters/auth"
 	"github.com/go-sum/forge/internal/handler"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
@@ -42,11 +42,11 @@ func New(version string) *App {
 	authH := auth.NewHandler(
 		c.AuthService,
 		auth.HandlerConfig{
-			Sessions:           &sessionManagerAdapter{mgr: c.Sessions},
-			Forms:              &formParserAdapter{v: c.Validator},
-			Flash:              &flashAdapter{},
-			Redirect:           &redirectAdapter{},
-			Pages:              authview.NewRenderer(),
+			Sessions:           &authadapter.SessionManagerAdapter{Mgr: c.Sessions},
+			Forms:              &authadapter.FormParserAdapter{V: c.Validator},
+			Flash:              &authadapter.FlashAdapter{},
+			Redirect:           &authadapter.RedirectAdapter{},
+			Pages:              authadapter.NewRenderer(),
 			CSRFField:          c.Config.App.Security.CSRF.FormField,
 			SigninPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
 			SignupPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },

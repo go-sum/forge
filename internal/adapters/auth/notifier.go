@@ -1,4 +1,4 @@
-package authmail
+package authadapter
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ type Notifier struct {
 	sendFrom string
 }
 
-func New(sender send.Sender, sendFrom string) *Notifier {
+func NewNotifier(sender send.Sender, sendFrom string) *Notifier {
 	return &Notifier{sender: sender, sendFrom: sendFrom}
 }
 

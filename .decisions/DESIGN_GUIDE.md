@@ -64,26 +64,170 @@ The current app is a hybrid:
 - some domains are package-owned and integrated into the app, such as auth and queue storage
 - some behavior is app-owned, such as contact flow, availability handling, page composition, and route assembly
 
-Do not document Forge as if every domain is already fully app-owned. That is a
-future design direction, not the complete current state.
-
-### Package-Owned Domains vs App-Owned Domains
-
-Use this distinction before deciding where code belongs:
-
-- package-owned domains keep their reusable business logic, persistence, and any
-  package-owned transport helpers inside the package
-- app-owned domains keep their orchestration, transport, rendering, and
-  app-specific persistence in `internal/`
-
-Current examples:
-
-- package-owned: auth, queue storage, site handler generation
-- app-owned: contact workflow, docs surface, availability handling, app layout and pages
+See [3](#3-domain-ownership-decision-framework) for the decision framework that governs which pattern to use.
 
 ---
 
-## 3. Composition Root
+## 3. Domain Ownership Decision Framework
+
+Every feature in Forge is either **package-owned** or **app-owned**. This
+distinction drives where code lives, who owns the schema, how types flow
+through the system, and how the feature is tested.
+
+### 3.1 The two ownership models
+
+**Package-owned** — the domain lives in `pkg/<name>/` as a self-contained,
+extractable module. The package owns its schema, queries, generated code, model
+types, error sentinels, store interfaces, and any package-specific service or
+transport code. The host app integrates the package through its public API and
+wires it in `internal/app`.
+
+**App-owned** — the domain lives in `internal/`. The app owns its model types,
+error sentinels, persistence, service orchestration, handlers, and views.
+
+### 3.2 Decision criteria
+
+Answer these questions in order. The first "yes" determines ownership.
+
+| # | Question | If yes → |
+|---|----------|----------|
+| 1 | Could this domain deploy cleanly in a different Go application with zero `internal/` dependencies? | **Package-owned** |
+| 2 | Does this domain define a schema contract that other apps would consume identically? | **Package-owned** |
+| 3 | Does the domain already exist as a `pkg/` module? | **Package-owned** — extend it rather than duplicating in `internal/` |
+| 4 | Is this domain specific to this application's product logic, policies, or workflows? | **App-owned** |
+| 5 | Does the domain exist only to orchestrate or compose package-owned capabilities? | **App-owned** |
+
+If none of the above resolves clearly, default to **app-owned** and extract
+later if reuse demand materializes. Premature extraction into `pkg/` is harder
+to undo than a later promotion from `internal/`.
+
+### 3.3 What each owner controls
+
+| Concern | Package-owned | App-owned |
+|---------|--------------|-----------|
+| Domain types (structs, enums) | `pkg/<name>/model/` | `internal/model/` |
+| Error sentinels | `pkg/<name>/model/` | `internal/model/` |
+| SQL schema | `pkg/<name>/pgstore/sql/schema.sql` | `db/sql/schema.sql` |
+| SQL queries | `pkg/<name>/pgstore/sql/queries.sql` | `db/sql/queries/*.sql` |
+| sqlc config + generated code | `pkg/<name>/pgstore/.sqlc.yaml` → `pkg/<name>/pgstore/db/` | `.sqlc.yaml` → `db/schema/` |
+| Store interfaces | `pkg/<name>/repository/` | `internal/repository/` |
+| Store implementation | `pkg/<name>/pgstore/` | `internal/repository/` |
+| Business logic | `pkg/<name>/service/` (if any) | `internal/service/` |
+| HTTP handlers | `pkg/<name>/` (if package exposes transport) | `internal/handler/` |
+| Views / UI | n/a (app always owns page composition) | `internal/view/` |
+| Route registration | wired by `internal/app/routes.go` | wired by `internal/app/routes.go` |
+
+### 3.4 Type boundaries between `pkg/` and `internal/`
+
+When the app consumes a package-owned domain, there are two valid patterns for
+how the package's types flow through app layers. Choose based on the criteria
+below — neither is the universal default.
+
+#### Pattern A: Direct use of package types
+
+App layers (handlers, services, views) import and use the package's model types
+directly. No app-layer wrapper or conversion function exists.
+
+```go
+// internal/service/user.go
+import authmodel "github.com/go-sum/auth/model"
+
+func (s *UserService) List(ctx context.Context, ...) ([]authmodel.User, error)
+```
+
+**Use when:**
+
+- the app adds no fields, computed properties, or semantic differences to the package type
+- the package type is stable and the app is unlikely to diverge from it
+- the domain is fundamentally owned by the package — the app is a consumer, not a co-owner
+
+**Current example:** user management — `internal/handler`, `internal/service`,
+and `internal/view` all use `authmodel.User` directly.
+
+#### Pattern B: App-owned wrapper type with boundary conversion
+
+The app defines its own domain type in `internal/model/` and maps at the
+boundary where package types enter the app.
+
+```go
+// internal/model/
+type Project struct { ... }   // app-owned, not a copy of any package type
+
+// internal/service/
+func toProject(p somepkg.RawProject) model.Project { ... }
+```
+
+**Use when:**
+
+- the app needs fields, computed values, or semantics the package type does not provide
+- the domain has app-specific invariants or policies that should be expressed in the type
+- the app is a co-owner of the domain's shape — it may diverge from the package over time
+- multiple packages contribute data to the same app-level concept
+
+**Practical example:** if the app ever adds `LastLoginAt`, `Preferences`, or
+`Subscription` fields to its notion of a user, those belong in an app-owned
+type — not in `pkg/auth/model.User`.
+
+#### When to convert from A to B
+
+Start with Pattern A. Introduce Pattern B when the app first needs a field or
+semantic that does not belong in the package. Do not pre-create wrapper types
+in anticipation of future divergence.
+
+### 3.5 Error sentinel ownership
+
+Error sentinels follow the same ownership rule as domain types:
+
+- package-owned domains define their sentinels in `pkg/<name>/model/`
+- app-owned domains define their sentinels in `internal/model/`
+
+When using Pattern A (direct package types), app code imports package error
+sentinels directly. Do not re-export package sentinels in `internal/model/`
+unless the app needs to add a distinct error that does not belong in the
+package.
+
+**Current example:** `authmodel.ErrUserNotFound` is used directly in handlers.
+`model.ErrAdminExists` is app-owned because admin elevation policy belongs to
+the app, not to `pkg/auth`.
+
+### 3.6 Interface ownership for cross-boundary consumption
+
+When the app depends on a package store, the interface is defined in the
+package's `repository/` sub-package. The app should not redefine the interface
+in `internal/`.
+
+The composition root in `internal/app` may define a **combined interface** when
+it needs to expose multiple package-defined interfaces through a single
+container field:
+
+```go
+// internal/app/container.go
+type AuthStore interface {
+    authrepo.UserStore   // auth flows
+    authrepo.AdminStore  // admin CRUD
+}
+```
+
+This combined interface is wiring glue, not domain ownership. The individual
+interfaces remain owned by the package.
+
+### 3.7 Anti-patterns
+
+- **Mirror schemas.** Do not maintain a copy of a package-owned table in
+  `db/sql/sqlc_schema.sql` for root code generation. If the app needs to query
+  a package-owned table, add the query to the package.
+- **Re-exported sentinels.** Do not alias package errors in `internal/model/`
+  (`var ErrUserNotFound = authmodel.ErrUserNotFound`). Import them directly.
+- **Duplicate mappers.** Do not write a second `toUserModel()` in
+  `internal/repository` that converts the same DB row the package already
+  converts. Extend the package's store interface instead.
+- **Premature wrapper types.** Do not create `internal/model.User` as a
+  field-for-field copy of `authmodel.User` with only a conversion function.
+  Wait until the app actually needs different fields or semantics.
+
+---
+
+## 4. Composition Root
 
 `internal/app` is the composition root. It is the only place that should know
 how the full application is assembled.
@@ -101,11 +245,21 @@ how the full application is assembled.
 ### `internal/app` currently consists of
 
 - `app.go`: app construction, route registration, lifecycle start/shutdown
-- `bootstrap.go`: config, logger, assets, DB, auth, queue, session, validator, services
+- `bootstrap_infra.go`: config, logger, assets, sender, web/Echo initialization
+- `bootstrap_data.go`: database, auth store, queue, KV store initialization
+- `bootstrap_services.go`: session, validator, and domain services initialization
 - `container.go`: shared dependency container and background-service lifecycle
-- `routes.go`: route groups and route registration, including degraded startup routes
-- `authadapter.go`: adapters between app-local dependencies and `pkg/auth` interfaces
+- `routes.go`: route group definitions and orchestration (delegates to feature files)
+- `routes_public.go`: unauthenticated read-only routes (home, docs, health, site files)
+- `routes_auth.go`: auth flows, session management, account routes, contact POST
+- `routes_admin.go`: admin-only user management routes with ETag caching
 - `docs.go`: docs static-file handler for `/docs`
+
+Auth-domain adapters live in `internal/adapters/auth/` (package `authadapter`):
+
+- `adapters.go`: session, form, flash, and redirect adapters for `pkg/auth` interfaces
+- `notifier.go`: email verification notifier
+- `view.go`: auth page renderer using componentry
 
 ### Rules
 
@@ -116,7 +270,7 @@ how the full application is assembled.
 
 ---
 
-## 4. Layer Rules Inside `internal/`
+## 5. Layer Rules Inside `internal/`
 
 The application-specific part of the repo still follows a layered model, but
 it is narrower than older docs implied.
@@ -128,6 +282,25 @@ Repository  internal/repository/      App-owned persistence helpers
 View        internal/view/            Request state, pages, partials, layouts
 Model       internal/model/           App-owned domain errors and shared types
 ```
+
+### Feature-oriented file naming convention
+
+Within each flat package, one file per feature domain. File names must match the
+feature they serve: `user.go`, `contact.go`, `admin.go`, `account.go`, etc.
+
+| Layer | File naming | Example |
+|-------|------------|---------|
+| `internal/handler/` | `{feature}.go` | `user.go`, `contact.go` |
+| `internal/service/` | `{feature}.go` | `user.go`, `contact.go` |
+| `internal/view/page/` | `{feature}.go` | `users.go`, `contact.go` |
+| `internal/view/partial/` | `{feature}partial/` | `userpartial/`, `contactpartial/` |
+
+**Split triggers** — introduce a second file for a feature when:
+- The file grows beyond ~250 lines: split into `{feature}.go` + `{feature}_helpers.go`
+- The feature needs private types that could collide with other features
+
+**Subpackage trigger** — introduce a subpackage (e.g., `handler/billing/`) only when
+a feature has 3+ files or requires package-private types that cannot be shared.
 
 ### Transport layer — `internal/handler/`
 
@@ -179,14 +352,14 @@ stores exist and are first-class.
 
 ### Model layer — `internal/model/`
 
-`internal/model` currently owns:
+`internal/model` owns:
 
-- app-owned sentinel errors
-- small shared app-domain structs such as contact inputs
+- app-owned sentinel errors (e.g. `ErrAdminExists`, `ErrForbidden`)
+- app-owned domain structs (e.g. `ContactInput`)
 
-It does **not** yet fully own every domain type used by the app. For example,
-the user-management surface still relies on `pkg/auth/model` types. Treat that
-as current state, not as proof that the app-domain boundary is complete.
+For package-owned domains, the app uses the package's model types directly
+(Pattern A in [3.4](#34-type-boundaries-between-pkg-and-internal)) unless the app needs its own fields or semantics (Pattern
+B). See [3](#3-domain-ownership-decision-framework) for the decision criteria.
 
 ### View layer — `internal/view/`
 
@@ -202,7 +375,7 @@ It is the app-owned presentation layer above `pkg/componentry`.
 
 ---
 
-## 5. `pkg/` Module Boundary
+## 6. `pkg/` Module Boundary
 
 Top-level reusable packages under `pkg/` are extractable modules. They must not
 import `internal/`.
@@ -237,7 +410,7 @@ the component package itself.
 
 ---
 
-## 6. Persistence Ownership Model
+## 7. Persistence Ownership Model
 
 Forge uses distributed schema ownership.
 
@@ -253,15 +426,12 @@ Forge uses distributed schema ownership.
 
 ### Query ownership
 
-There are two query-generation patterns in the repo:
+Each package-owned store has its own sqlc config and generated code:
 
-- root sqlc config in `.sqlc.yaml`, which targets `db/sql/queries/` and emits to `db/schema`
-- package-local sqlc configs in `pkg/*/pgstore/.sqlc.yaml`, which emit generated code inside the owning package
+- `pkg/auth/pgstore/.sqlc.yaml` → `pkg/auth/pgstore/db/`
+- `pkg/queue/pgstore/.sqlc.yaml` → `pkg/queue/pgstore/db/`
 
-Current active package-owned stores:
-
-- `pkg/auth/pgstore`
-- `pkg/queue/pgstore`
+A root sqlc config (`.sqlc.yaml`) is reserved for future app-owned tables. Currently no root queries exist.
 
 ### Rules
 
@@ -272,29 +442,15 @@ Current active package-owned stores:
 - Every new table or query surface must declare its owner before implementation: `internal` or a specific package.
 - Do not add runtime schema-install hooks in stores. Schema changes flow through migrations and `db/sql/schemas.yaml`.
 
-### When to use `internal/repository` vs `pkg/*/pgstore`
+### Choosing between `internal/repository` and `pkg/*/pgstore`
 
-Use `internal/repository` when:
-
-- the domain is app-specific
-- the schema is app-owned
-- the query shape is not intended for extraction
-
-Use `pkg/*/pgstore` when:
-
-- the domain is intentionally package-owned
-- the package owns the schema contract
-- the package is meant to be reusable across apps
-
-### Current reality note
-
-The repo currently leans heavily on package-owned persistence for auth and queue
-domains. Do not write guidance that assumes every feature must first create an
-internal repository.
+Apply the decision criteria in [3.2](#32-decision-criteria). In short: if the domain is extractable
+and reusable, its persistence belongs in `pkg/*/pgstore`. If the domain is
+app-specific, its persistence belongs in `internal/repository`.
 
 ---
 
-## 7. Routing Model
+## 8. Routing Model
 
 Route registration currently lives in `internal/app/routes.go`.
 
@@ -304,16 +460,32 @@ The durable contract is instead:
 - routes are registered with names in `internal/app/routes.go`
 - links and redirects are generated by reversing those names against the live route table
 
+### Route file structure
+
+Route registration is split across feature files within `internal/app/`:
+
+- `routes.go` — group definitions, middleware wiring, orchestration
+- `routes_public.go` — unauthenticated read-only pages, health, docs, site files
+- `routes_auth.go` — auth flows, session management, account routes
+- `routes_admin.go` — admin-only user management with ETag caching
+
 ### Current route groups
 
-`RegisterRoutes` currently assembles these groups:
+| Group | Middleware stack | Use for |
+|-------|-----------------|---------|
+| `public` (global `c.Web`) | (global middleware only) | Unauthenticated read-only pages |
+| `publicPost` | CrossOriginGuard + RateLimit("auth") | Unauthenticated mutations (signin, signup, contact) |
+| `authGuarded` | RateLimit("server") + RequireAuthPath | Authenticated read pages |
+| `authGuardedPost` | (authGuarded) + CrossOriginGuard | Authenticated mutations (signout, account changes) |
+| `adminGuarded` | (authGuarded) + LoadUserRole + RequireAdmin | Admin read pages |
+| `adminGuardedPost` | (adminGuarded) + CrossOriginGuard | Admin mutations |
 
-- static assets under the public prefix
-- `publicPost` for cross-origin-guarded public POST routes
-- `authGuarded` for authenticated routes
-- `authGuardedPost` for authenticated unsafe methods
-- `adminGuarded` for authenticated admin-only routes
-- `adminGuardedPost` for authenticated admin-only unsafe methods
+Future groups (not yet registered):
+
+| Group | Purpose |
+|-------|---------|
+| `apiV1` | Bearer token auth, JSON responses, rate-limited |
+| `webhookInbound` | Signature verification, no session, rate-limited |
 
 This admin grouping is already implemented. Do not describe admin grouping as a
 future-only concept.
@@ -336,10 +508,26 @@ Use named route reversal through:
 
 ---
 
-## 8. Rendering Model
+## 9. Rendering Model
 
 Forge supports multiple HTML response modes without splitting the app into
 separate rendering stacks.
+
+### Canonical rendering modes
+
+| Mode | Handler pattern | Error behavior |
+|------|----------------|----------------|
+| Full page | `view.Render(c, req, fullPage, partial)` — `partial` may be `nil` | HTML error page |
+| HTMX fragment | `view.Render(c, req, fullPage, partial)` — auto-detected via `HX-Request` header | OOB toast fragment |
+| Fragment-only | `render.Fragment(c, node)` or `render.FragmentWithStatus(c, status, node)` | OOB toast fragment |
+| JSON/problem | Automatic — error handler detects `Accept: application/json` | RFC 7807 problem JSON |
+| Redirect | `redirect.New(w, r).To(url).Go()` | HTMX-aware redirect |
+
+**Decision rule:** call `view.Render` for dual-mode endpoints (same handler serves
+both full-page and HTMX requests), and `render.Fragment` for endpoints whose sole
+purpose is a fragment swap. Never manually branch on HTMX headers for error
+responses — the global error handler in `internal/server/error.go` routes those
+automatically.
 
 ### Full page and fragment rendering
 
@@ -383,7 +571,7 @@ Handlers should return classified errors rather than reimplementing this branchi
 
 ---
 
-## 9. Security and Middleware Model
+## 10. Security and Middleware Model
 
 Middleware registration currently lives in `internal/server/middleware.go`.
 
@@ -404,7 +592,7 @@ Security composition currently lives in `internal/server/security.go` and includ
 
 ---
 
-## 10. Background Services and Startup Degradation
+## 11. Background Services and Startup Degradation
 
 Forge has first-class background-service support.
 
@@ -439,7 +627,7 @@ Current flow:
 
 ---
 
-## 11. Configuration Architecture
+## 12. Configuration Architecture
 
 Config is loaded from `config/` through `config.Load(...)`, which is built on
 `pkg/server/config`.
@@ -469,7 +657,7 @@ Config is loaded from `config/` through `config.Load(...)`, which is built on
 
 ---
 
-## 12. Feature Development Workflow
+## 13. Feature Development Workflow
 
 Follow the owning-domain path rather than a stale one-size-fits-all sequence.
 
@@ -495,16 +683,12 @@ Follow the owning-domain path rather than a stale one-size-fits-all sequence.
 
 ### Decision rule
 
-Before writing code, answer this explicitly:
-
-- Is the domain app-owned?
-- Is the domain package-owned?
-
-If that answer is unclear, stop and resolve ownership before implementation.
+Before writing code, apply the ownership criteria in [3.2](#32-decision-criteria). If ownership is
+unclear, stop and resolve it before implementation.
 
 ---
 
-## 13. Operational Readiness and Test Modes
+## 14. Operational Readiness and Test Modes
 
 Operational readiness should be treated as a design concern, not just an ops
 afterthought.
@@ -577,12 +761,13 @@ Use integration tests for:
 
 ---
 
-## 14. Quick Reference
+## 15. Quick Reference
 
 ### Ownership checklist
 
-- [ ] Is this app-owned or package-owned?
+- [ ] Is this app-owned or package-owned? ([3.2](#32-decision-criteria))
 - [ ] Does the schema owner match the package/code owner?
+- [ ] Are package types used directly (Pattern A) or wrapped (Pattern B)? ([3.4](#34-type-boundaries-between-pkg-and-internal))
 - [ ] Does the route belong in `internal/app/routes.go`?
 - [ ] Is the URL generated from a route name instead of a hardcoded string?
 - [ ] Is the rendering path page-only, dual-mode, or fragment-only?
