@@ -91,6 +91,8 @@ assets: ## Build all generated frontend assets
 
 deploy: ## Validate and deploy (AUTO=1 to auto-release and push)
 	$(RUN_TOOLS) tools sh -c '\
+	  git config --global user.email "$${GIT_USER_EMAIL}" && \
+	  git config --global user.name "$${GIT_USER_NAME}" && \
 	  git config --global url."https://x-access-token:$${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" && \
 	  go run ./cli/package deploy $(if $(AUTO),--auto) $(if $(VERSION),"$(VERSION)")'
 
