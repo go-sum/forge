@@ -222,7 +222,7 @@ func printCheckTable(cmd *cobra.Command, checks []packageCheck) {
 // ── Git helpers ─────────────────────────────────────────────────────────────
 
 func ensureCleanTree(repoRoot string) error {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := exec.Command("git", "-c", "core.fileMode=false", "status", "--porcelain")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
