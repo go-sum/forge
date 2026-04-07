@@ -1,8 +1,8 @@
 # CLAUDE.md — Architectural Constitution
 
-> **starter** is a high-performance Go web application built on server-rendered HTML,
-> progressive enhancement, and reusable packages under `pkg/`.
-> Before writing code, consult: [`DESIGN_GUIDE.md`](.decisions/DESIGN_GUIDE.md) · [`UI_GUIDE.md`](.decisions/UI_GUIDE.md) · [`API_RULES.md`](.decisions/API_RULES.md)
+> **starter** is a Go web application starter built around server-rendered HTML,
+> HTMX progressive enhancement, explicit package boundaries, and PostgreSQL.
+> Versions are maintained in `.versions`.
 
 ---
 
@@ -23,9 +23,18 @@
 
 ---
 
+## Guide Index
+> Before writing code, depending on the requirement consult:
+- [`DESIGN_GUIDE.md`](.decisions/DESIGN_GUIDE.md): current project architecture, composition root, layer rules,
+  persistence ownership, routing, rendering, config, and testing patterns.
+- [`UI_GUIDE.md`](.decisions/UI_GUIDE.md): visual design and UI composition guidance.
+- [`API_RULES.md`](.decisions/API_RULES.md): Echo v5 handler signatures, binding rules, and HTTP API specifics.
+
+---
+
 ## MCP Server — gomcp (LSP)
 
-Registered in `.mcp.json`. Available in all agents. **Prefer over Grep/Glob for Go.**
+Registered in `.mcp.json`. Available in all agents. Prefer over Grep/Glob for Go.
 
 | Tool | Use |
 |------|-----|
@@ -34,116 +43,6 @@ Registered in `.mcp.json`. Available in all agents. **Prefer over Grep/Glob for 
 | `mcp__gomcp__lsp_definition` | Jump to any symbol definition |
 | `mcp__gomcp__lsp_document_symbols` | Inventory all symbols in a file |
 | `mcp__gomcp__ping` | Verify server availability |
-
----
-
-## Technology Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Language | Go |
-| HTTP Framework | Echo |
-| Database | PostgreSQL |
-| DB Driver | pgx |
-| Query Codegen | sqlc |
-| Migrations | goose (via `cli/db`) |
-| HTML Rendering | Gomponents |
-| Frontend | HTMX |
-| CSS | Tailwind |
-| Components | `pkg/componentry` |
-
-Versions are maintained in .versions file.
-Go toolchain: `/usr/local/go/bin/go` if `go` is not in `PATH`.
-
----
-
-## Layered Architecture
-
-Data flows **down only** — each layer talks only to the one directly below it.
-
-| Layer | Location | Responsibility |
-|-------|----------|---------------|
-| Transport | `internal/handler/` | Parse request · validate · call service · render |
-| Service | `internal/service/` | Business rules · orchestration · domain types |
-| Repository | `internal/repository/` | SQL via sqlc · map `db.*` → `model.*` |
-| Database | `db/sql/` + `db/schema/` | Human SQL + generated Go (do not edit schema/) |
-
-Domain types and error sentinels live in `internal/model/`. Handlers never import repository. Services never import handlers. `internal/` is thin wiring — general logic belongs in `pkg/`.
-
----
-
-## Package Rules
-
-**`pkg/` module-boundary leaf rule** — top-level reusable modules under `pkg/` (`auth`, `componentry`, `security`, `send`, `server`, `site`) MUST NOT import each other or `internal/`. Inside a given module family, package-local layering may be used when documented by that module.
-
-**Component DAG** (`pkg/componentry/`) — imports flow downward only:
-```
-Tier 0  ui/core           (external only)
-Tier 1  ui/{data,feedback,layout}, form/*, interactive/*   (+ Tier 0)
-Tier 2  patterns/*        (+ Tier 0 + Tier 1)
-Tier 3  examples          (any tier)
-```
-
----
-
-## Database Workflow
-
-Schema is **distributed** — each self-contained `pkg/*/pgstore` owns its own SQL schema file alongside its queries and Go code. `db/sql/schemas.yaml` is the composition registry that lists every migration-owned schema file; `make db-compose` reads it, concatenates all schemas in order, and generates a migration diff.
-
-### Schema ownership
-
-| Table | Canonical schema file | Owned by |
-|-------|----------------------|----------|
-| `users` | `pkg/auth/pgstore/sql/schema.sql` | `pkg/auth` |
-| `queue_jobs` | `pkg/queue/pgstore/sql/schema.sql` | `pkg/queue` |
-| app tables | `db/sql/schema.sql` | `internal/` |
-
-### Query code ownership
-
-Each `pkg/*/pgstore` owns its SQL queries and generates its own Go code locally via a co-located `.sqlc.yaml`. Generated code lives in a `db/` sub-package within the same module — no module boundary is crossed.
-
-| Package | Config | Generated output | Import path |
-|---------|--------|-----------------|-------------|
-| `pkg/auth/pgstore` | `pkg/auth/pgstore/.sqlc.yaml` | `pkg/auth/pgstore/db/` | `github.com/go-sum/auth/pgstore/db` |
-| `pkg/queue/pgstore` | `pkg/queue/pgstore/.sqlc.yaml` | `pkg/queue/pgstore/db/` | `github.com/go-sum/queue/pgstore/db` |
-
-`make db-gen` regenerates both. Never hand-edit files in any `db/` generated output directory. The root `.sqlc.yaml` is reserved for future app-specific tables; currently no root queries exist.
-
-### Store interfaces
-
-`pkg/auth/pgstore.PgStore` implements both `authrepo.UserStore` (auth flows) and `authrepo.AdminStore` (admin CRUD). `internal/` consumes these via the `app.AuthStore` combined interface.
-
-### Steps
-
-1. Edit the right schema file:
-   - **App tables** → `db/sql/schema.sql`
-   - **Existing `pkg/` table** → `pkg/<name>/pgstore/sql/schema.sql`
-   - **New `pkg/` table** → create `pkg/<name>/pgstore/sql/schema.sql`, then add it to `db/sql/schemas.yaml`
-2. Create migration: `make db-compose NAME=description` (reads `schemas.yaml`, diffs concatenated state)
-3. Apply migrations: `make db-migrate`
-4. Regenerate Go: `make db-gen` (regenerates all `pkg/*/pgstore/db/` outputs)
-5. Check status: `make db-status` · Rollback: `make db-rollback`
-
-Do not add startup-time `Install()` hooks in stores. Schema changes flow through `db/sql/schemas.yaml`, migrations, and `make db-migrate`.
-
-Migrations live in `db/migrations/` and are applied via goose. Extensions (`pgcrypto`, `citext`) are managed via `db/init/01-extensions.sql`.
-
----
-
-## Config Files
-
-| File | Purpose | Required |
-|------|---------|----------|
-| `config/app.yaml` | Base config — no secrets | **Yes** |
-| `config/app.development.yaml` | Dev overrides (Docker hostnames, debug log) | No |
-| `config/site.yaml` | Site metadata, fonts, robots, sitemap | **Yes** |
-| `config/nav.yaml` | Navigation structure | No |
-
-Secrets via env vars: `encrypt_key: ${AUTH_SESSION_ENCRYPT_KEY}`
-
-All duration-valued config fields (`expires_in`, `ttl`, `max_age`, `timeout`, etc.)
-ALWAYS use **integer seconds**. NEVER use `time.Duration` string values (`"3m"`, `"1h"`) in YAML.
-If required, convert to `time.Duration` at the adapter boundary: `time.Duration(n) * time.Second`.
 
 ---
 
@@ -158,6 +57,6 @@ Invoke the right agent for each phase. Each agent reads its paired rules file fi
 | Testing | `cc-test` | `.claude/rules/r-test.md` | After implementation — happy-path + failure tests |
 | Architecture Review | `cc-plan` | `.claude/rules/r-plan.md` | After tests pass — refactor planning |
 
-**Agent flow:** `cc-plan` → `cc-dev` → `cc-test` → (if issues) back to `cc-plan`
+Agent flow: `cc-plan` → `cc-dev` → `cc-test` → (if issues) back to `cc-plan`
 
 Agents and rules live in `.claude/agents/` and `.claude/rules/`.

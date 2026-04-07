@@ -1,810 +1,612 @@
 ---
 title: Design Principles
-description: Layering, feature development rules, and architectural decision guidance for Forge.
+description: Current project architecture, composition rules, persistence ownership, and implementation guidance for Forge.
 weight: 20
 ---
 
 # Design Principles
 
-> This guide prescribes **how to think and build** when using this starter.
-> It covers architecture, feature development process, layer patterns, error design,
-> HTMX rendering strategy, form handling, and testing.
+> This guide is the authoritative source for Forge's project-specific design
+> rules. It documents the architecture that is implemented in this repo today,
+> with transitional notes called out explicitly where the current state is still
+> evolving.
 >
-> It reinforces [CLAUDE.md](../CLAUDE.md) from a process perspective — read both.
-> Unless a section explicitly says otherwise, this guide describes the current
-> implemented architecture of the starter, not aspirational future structure.
->
-> **This guide does not document `pkg/` features.** Refer to the package source and
-> its tests for the API surface.
->
-> **For visual and UI design decisions,** refer to [UI_GUIDE.md](./UI_GUIDE.md).
-> This guide covers architectural UI decisions (where code lives, how state flows)
-> but not visual hierarchy, spacing, typography, or component selection.
+> Read this together with [`CLAUDE.md`](../CLAUDE.md),
+> [`UI_GUIDE.md`](./UI_GUIDE.md), and [`API_RULES.md`](./API_RULES.md).
 
 ---
 
-## 1. Philosophy
+## 1. Purpose
 
-This starter is designed for high-performance modern web applications that favor
-server rendering, progressive enhancement, and reusable supporting packages.
-`internal/` contains app-specific code; `pkg/` contains reusable packages with
-strict dependency boundaries.
+Forge is a server-rendered Go web application starter built around:
 
-### The core constraint: layers only talk to the layer directly below them
+- Echo v5 for HTTP transport
+- Gomponents for HTML rendering
+- HTMX for progressive enhancement
+- PostgreSQL + pgx + sqlc for persistence
+- reusable extractable packages under `pkg/`
 
-Every architecture decision in this project flows from a single constraint: each layer
-may only depend on the one immediately below it. This is not a style preference — it is
-what makes the system testable without a database, changeable without ripple effects,
-and readable without context-switching across concerns.
+This guide answers:
 
-Violating this constraint is always locally convenient and always globally costly.
-Before importing a package, ask: is this the right layer for this dependency?
+- where code belongs
+- who owns data and routes
+- how the app is assembled at runtime
+- how full-page and fragment rendering coexist
+- how to extend the repo without fighting its boundaries
 
-### Three questions before writing code
-
-1. **Which layer does this belong to?**
-   Transport (HTTP parsing, rendering), Service (business rules), or Repository
-   (data access)? If you cannot answer immediately, the code is probably in the
-   wrong place.
-
-2. **Does this already exist?**
-   Check `internal/model/` for domain types, `internal/routes/` for URL patterns,
-   `pkg/components/` for UI primitives. Duplication is always worse than a dependency.
-
-3. **What is the minimum needed right now?**
-   YAGNI is a hard rule here. No parameters, fields, or abstractions for hypothetical
-   future callers. The right structure is what current callers require — nothing more.
+This guide does **not** document every exported package API. For package
+surfaces, read the package source and tests.
 
 ---
 
-## 2. Architecture: The Four-Layer Rule
+## 2. Current Architecture Overview
 
-```
-Transport   internal/handler/          HTTP in, HTML/JSON out. Knows Echo.
-Service     internal/service/          Business logic. Knows nothing about HTTP.
-Repository  internal/repository/       Data access. Knows nothing about services.
-Database    db/schema/ (generated)     sqlc output. Do not edit.
-```
+The repo has two distinct design zones:
 
-Each layer communicates through types defined in `internal/model/`. No layer may
-import from a layer above it. No layer may skip a layer below it.
+- `internal/` for application-specific composition and app-owned behavior
+- `pkg/` for extractable modules that can outlive this application
 
-### What each layer owns
+Current runtime assembly is centered in `internal/app`. That composition root
+wires:
 
-**Transport layer** — `internal/handler/`
-- Parse path params, query params, and form bodies
-- Validate input using the validator
-- Call exactly one service method (or a small coordinated sequence)
-- Render the response using `view.Render` or `render.Fragment`
-- Translate service errors to HTTP responses via `apperr`
-- Own nothing stateful beyond request lifetime
+- config loading
+- logging
+- assets
+- security and middleware
+- database pool
+- sessions
+- queue client and background services
+- package-owned auth and site handlers
+- app-owned handlers and services
 
-**Service layer** — `internal/service/`
-- Own all business rules (defaults, caps, invariants)
-- Orchestrate repository calls, including transactions
-- Return domain types and domain errors (`model.Err*`)
-- Never inspect HTTP headers, context keys, or response writers
-- Accept only domain types as input — never Echo types
+The current app is a hybrid:
 
-**Repository layer** — `internal/repository/`
-- Wrap sqlc-generated queries
-- Map `db.*` structs to `model.*` structs (the `toXxxModel` function pattern)
-- Translate database errors to domain errors (e.g., `pgError 23505` → `model.ErrEmailTaken`)
-- Expose clean interfaces; hide implementation details from callers
-- Never apply business rules — that belongs to the service
+- some domains are package-owned and integrated into the app, such as auth and queue storage
+- some behavior is app-owned, such as contact flow, availability handling, page composition, and route assembly
 
-**Domain model** — `internal/model/`
-- Define Go structs for domain entities (`User`, `Password`)
-- Define input structs with `form:` and `validate:` struct tags
-- Define sentinel error variables (`ErrUserNotFound`, `ErrEmailTaken`)
-- Define shared constants (`RoleUser`, `RoleAdmin`)
-- Import nothing from `internal/`
+Do not document Forge as if every domain is already fully app-owned. That is a
+future design direction, not the complete current state.
 
-### The `pkg/` boundary
+### Package-Owned Domains vs App-Owned Domains
 
-Infrastructure packages (`pkg/auth`, `pkg/database`, `pkg/validate`, etc.) are
-strict leaf nodes — they must not import from `internal/`. They are designed to
-be extractable as standalone modules.
+Use this distinction before deciding where code belongs:
 
-Component packages (`pkg/components/`) follow a tiered DAG. Imports are only
-allowed downward through the tiers (Tier 0 → Tier 1 → Tier 2 → Tier 3).
-See [CLAUDE.md](../CLAUDE.md) for the full tier specification.
+- package-owned domains keep their reusable business logic, persistence, and any
+  package-owned transport helpers inside the package
+- app-owned domains keep their orchestration, transport, rendering, and
+  app-specific persistence in `internal/`
+
+Current examples:
+
+- package-owned: auth, queue storage, site handler generation
+- app-owned: contact workflow, docs surface, availability handling, app layout and pages
 
 ---
 
-## 3. Feature Development Process
+## 3. Composition Root
 
-Follow this sequence when adding any new feature. Each step should be completable
-and reviewable independently.
+`internal/app` is the composition root. It is the only place that should know
+how the full application is assembled.
 
-### Step 1: Define the domain model
+### `internal/app` owns
 
-Start in `internal/model/`. Add or extend:
-- Entity structs for new domain types
-- Input structs for new operations (with `form:` and `validate:` tags)
-- Sentinel error variables for expected failure modes
-- Role or status constants if the feature introduces new named values
+- bootstrap order and startup wiring
+- dependency construction
+- package integration
+- middleware registration
+- route registration
+- startup degradation behavior
+- background service lifecycle
 
-Do not touch any other layer yet. The model defines the contract — everything
-else is implementation.
+### `internal/app` currently consists of
 
-### Step 2: Design the SQL
+- `app.go`: app construction, route registration, lifecycle start/shutdown
+- `bootstrap.go`: config, logger, assets, DB, auth, queue, session, validator, services
+- `container.go`: shared dependency container and background-service lifecycle
+- `routes.go`: route groups and route registration, including degraded startup routes
+- `authadapter.go`: adapters between app-local dependencies and `pkg/auth` interfaces
+- `docs.go`: docs static-file handler for `/docs`
 
-Write SQL in `db/sql/`:
-- Schema changes go in `db/sql/schema.sql`
-- New query definitions go in `db/sql/queries/`
-- Run `make db-compose NAME=description` to comose sql and generate a migration file
-- Run `make db-migrate` to apply pending migrations, then `make db-gen` to regenerate Go code
+### Rules
 
-Never edit generated files in `db/schema/*.go`.
-
-### Step 3: Implement the repository
-
-In `internal/repository/`:
-- Add the new operation to the appropriate `Repository` interface
-- Implement it on the private `*repository` struct
-- Write a `toXxxModel` mapper if the feature introduces a new entity
-- Map database constraint errors to domain errors in the mapper
-
-Test by examining the interface contract: does it accept and return only domain
-types? Does it map all known database errors to sentinel errors?
-
-### Step 4: Implement the service
-
-In `internal/service/`:
-- Add the new operation to the `*Service` struct
-- Apply business rules (defaults, validation beyond struct tags, caps, ordering)
-- Wrap repository calls in a transaction when atomicity is required (use
-  `Repositories.WithTx`)
-- Return domain types and domain errors — never wrap HTTP context into service
-  return values
-
-Write unit tests against a fake repository. Service tests should never touch
-a real database.
-
-### Step 5: Define the route
-
-In `internal/routes/routes.go`:
-- Add a new path constant
-- Add a URL builder function if the path has dynamic segments
-
-In `internal/server/routes.go`:
-- Add the handler method to the `Handlers` interface
-- Register the route in `RegisterRoutes`, in the correct active group (`public`
-  or `protected`). If the route is truly admin-only, track that work against the
-  planned admin route-group task in `PROJECT_PLAN.md` until the admin group is
-  wired into the router.
-
-Both files must be updated together. A route registered without a `Handlers`
-method, or vice versa, will not compile.
-
-### Step 6: Implement the handler
-
-In `internal/handler/`:
-- Add a method to `*Handler`
-- Parse input (path params, form body, query string)
-- Submit forms through `pkgform.New(h.validator.Validate())`
-- Check `sub.IsValid()` before calling the service
-- Translate service errors via `apperr.Resolve(err)` or explicit `errors.Is`
-  checks for domain-specific responses
-- Render using `view.Render(c, req, fullPage, region)` — pass `nil` as
-  `region` only when there is no meaningful partial version
-
-### Step 7: Build the views
-
-In `internal/view/page/` for full-page constructors, or
-`internal/view/partial/` for HTMX-swappable regions:
-- Accept `view.Request` as the first parameter for pages
-- Use `req.Page(title, children...)` to wrap content in the base layout
-- Use `view.FormError(messages)` for top-of-form error banners
-- Use component library primitives from `pkg/components/`
-
-For visual design decisions at this step, consult [UI_GUIDE.md](./UI_GUIDE.md).
-
-### Step 8: Write tests
-
-- Handler tests: fake the service interfaces, test each HTTP outcome
-- Service tests: fake the repository interfaces, test business rules
-- Middleware tests: test the middleware function directly with `echo.New()`
-- View tests: assert rendered HTML contains expected strings
-
-Tests are complete when every distinct outcome path (validation error, domain
-error, success, HTMX vs. full-page) has a corresponding test case.
+- Do not make feature packages reach up into the composition root.
+- Do not hide runtime registration behind implicit magic.
+- New background workers, route groups, and package integrations must be wired explicitly here.
+- If a package needs app configuration, pass it in from `internal/app`; do not make the package read `config.App` directly.
 
 ---
 
-## 4. Layer Implementation Patterns
+## 4. Layer Rules Inside `internal/`
 
-### Handler pattern
-
-Every handler follows the same structure:
+The application-specific part of the repo still follows a layered model, but
+it is narrower than older docs implied.
 
 ```
-1. Build req := h.request(c)
-2. Parse path/query params — return apperr.BadRequest on parse failure
-3. [For mutations] Bind and validate form input via pkgform
-4. [If invalid] Re-render form with validation errors, status 422
-5. Call exactly one service method (or a small coordinated sequence)
-6. [On domain error] Return the appropriate apperr or re-render with errors
-7. [On success] Render response or redirect
+Transport   internal/handler/         App-owned HTTP handlers
+Service     internal/service/         App-owned business orchestration
+Repository  internal/repository/      App-owned persistence helpers
+View        internal/view/            Request state, pages, partials, layouts
+Model       internal/model/           App-owned domain errors and shared types
 ```
 
-Handlers may not contain business logic. A handler that calls two unrelated
-services is a signal that the service layer needs a new method that composes them.
+### Transport layer — `internal/handler/`
 
-A handler that applies a business rule (e.g., "cap per_page at 100") is a
-signal that rule belongs in the service.
+Handlers own:
 
-### Service pattern
+- request parsing
+- form binding and validation
+- calling the next layer down
+- response rendering and redirects
+- mapping domain failures to transport outcomes
 
-Services own rules. Every business invariant that is not enforced by the
-database schema or struct validation tags belongs here:
+Handlers must not:
 
-- Default values (`if role == "" { role = model.RoleUser }`)
-- Cross-field constraints not expressible in struct tags
-- Pagination arithmetic (offset = (page-1) * perPage)
-- Caps and limits (perPage capped at 100)
-- Transactional boundaries (create user + create password atomically)
+- own business policy
+- construct SQL
+- directly own infrastructure lifecycle
 
-Services must never accept or return HTTP types. The service signature is a
-contract with the business domain, not with HTTP.
+### Service layer — `internal/service/`
 
-### Repository pattern
+Services own:
 
-The repository's one job is to translate between the persistence layer and the
-domain layer. The interface must be expressible in terms of domain types only.
+- app-specific orchestration
+- business rules for app-owned features
+- pagination and caps
+- queue dispatch orchestration for app workflows
 
-**The `toXxxModel` mapper function** is the boundary. Everything below it is
-database-coupled. Everything above it is domain-clean.
+Today this layer is mixed in an important way:
 
-Error mapping belongs in the repository, not in the service:
+- app-owned services exist in `internal/service`
+- package-owned services also exist, for example `pkg/auth/service`
 
-```go
-// In repository: translate database constraint to domain error
-func mapUserErr(err error) error {
-    var pgErr *pgconn.PgError
-    if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-        return model.ErrEmailTaken
-    }
-    return err
-}
-```
+That means `internal/service` is not the only place business logic can live.
+Document and implement based on ownership, not on an outdated rule that every
+service must be internal.
 
-The service should never inspect `pgconn.PgError`. If it does, the repository
-has leaked its implementation detail upward.
+### Repository layer — `internal/repository/`
 
-### Transaction pattern
+`internal/repository` is currently small and app-specific. It is not the
+primary home of all persistence in this repo.
 
-When an operation must be atomic, use `Repositories.WithTx`:
+Use it for:
 
-```go
-tx, err := s.pool.Begin(ctx)
-defer tx.Rollback(ctx) // always deferred; no-op after Commit
-txRepos := s.factory.WithTx(tx)
-// use txRepos.User, txRepos.Password — they share the transaction
-if err := tx.Commit(ctx); err != nil { ... }
-```
+- app-owned persistence code
+- app-owned DB checks and app-specific query helpers
+- mapping infrastructure failures to app-owned errors where the owning domain is internal
 
-The `defer tx.Rollback` pattern is idiomatic and safe: it is a no-op if
-`Commit` already succeeded. Never omit it.
+Do not pretend all database access flows through this layer today. Package-owned
+stores exist and are first-class.
+
+### Model layer — `internal/model/`
+
+`internal/model` currently owns:
+
+- app-owned sentinel errors
+- small shared app-domain structs such as contact inputs
+
+It does **not** yet fully own every domain type used by the app. For example,
+the user-management surface still relies on `pkg/auth/model` types. Treat that
+as current state, not as proof that the app-domain boundary is complete.
+
+### View layer — `internal/view/`
+
+`internal/view` owns:
+
+- request-scoped presentation state via `view.Request`
+- full-page constructors
+- partial constructors
+- shared layout composition
+- request-aware route reversal in the view layer
+
+It is the app-owned presentation layer above `pkg/componentry`.
 
 ---
 
-## 5. Error Design
+## 5. `pkg/` Module Boundary
 
-### The error taxonomy
+Top-level reusable packages under `pkg/` are extractable modules. They must not
+import `internal/`.
 
-There are three error categories in this application:
+Current module families include:
 
-| Category | Lives in | Purpose |
-|---|---|---|
-| Domain errors | `internal/model/errors.go` | Named sentinel errors for expected failure modes |
-| Application errors | `internal/apperr/` | Transport-facing errors with HTTP status, code, and safe message |
-| Infrastructure errors | returned raw | Unexpected failures (DB timeout, etc.) |
+- `pkg/auth`
+- `pkg/componentry`
+- `pkg/kv`
+- `pkg/queue`
+- `pkg/security`
+- `pkg/send`
+- `pkg/server`
+- `pkg/session`
+- `pkg/site`
 
-### Domain errors express expected failure modes
+### Rules
 
-When a user is not found, a signin fails, or an email is already taken — these
-are expected outcomes, not exceptional conditions. Name them:
+- `pkg/` modules are leaf modules relative to `internal/`.
+- Package APIs must accept configuration and collaborators from the host app rather than reaching back into app state.
+- Package-owned handlers are allowed when the package intentionally exposes an HTTP surface, such as `pkg/auth` and `pkg/site/handlers`.
+- Package-owned persistence is allowed when the package intentionally owns a reusable domain and its schema, such as `pkg/auth/pgstore` and `pkg/queue/pgstore`.
 
-```go
-var (
-    ErrUserNotFound       = errors.New("user not found")
-    ErrEmailTaken         = errors.New("email already in use")
-    ErrInvalidCredentials = errors.New("invalid credentials")
-)
-```
+### `pkg/componentry`
 
-Services return them. Handlers inspect them with `errors.Is`.
+`pkg/componentry` is the shared UI/component library. Use it instead of the old
+`pkg/components` name referenced in stale docs.
 
-### Application errors express HTTP responses
-
-`apperr` constructors build transport-facing errors with an HTTP status code,
-a machine-readable code, a title, and a safe public message:
-
-```go
-apperr.NotFound("The requested user could not be found.")
-apperr.Unauthorized("Your session is invalid. Please sign in again.")
-apperr.Unavailable("Unable to load users right now.", err)
-apperr.Internal(err) // always shows a generic message — never the raw error
-```
-
-Use `apperr.Resolve(err)` as the default error return in handlers. It maps
-known domain errors to application errors and falls back to `Internal` for
-anything unrecognised.
-
-### Never expose infrastructure errors to users
-
-`apperr.Internal` wraps the cause for logging but always returns the generic
-message: "Something went wrong on our side. Please try again." The raw cause
-is only visible in debug mode and in server logs.
-
-### The error handler is the final safety net
-
-The global error handler (`internal/server/error_handler.go`) provides
-tri-mode dispatch:
-
-- **HTMX partial request** → out-of-band toast fragment
-- **JSON Accept header** → RFC 7807 `application/problem+json`
-- **HTML request** → rendered error page
-
-Do not attempt to replicate this logic in handlers. Return an error; let the
-error handler render it.
+Its import hierarchy is governed by the component DAG documented in code and
+package docs. App-specific page composition belongs in `internal/view`, not in
+the component package itself.
 
 ---
 
-## 6. HTMX Rendering Strategy
+## 6. Persistence Ownership Model
 
-### The fundamental duality
+Forge uses distributed schema ownership.
 
-Every user-facing route that returns HTML has two response modes:
+### Canonical ownership
 
-- **Full-page response**: The base layout wraps the page content. Used on
-  direct navigation, browser refresh, and first-load.
-- **Partial response**: Only the changed region is returned. Used when HTMX
-  drives the request.
+| Domain | Canonical schema file | Owner |
+|-------|------------------------|-------|
+| app-owned shared DB objects | `db/sql/schema.sql` | `internal/` |
+| users | `pkg/auth/pgstore/sql/schema.sql` | `pkg/auth` |
+| queue jobs | `pkg/queue/pgstore/sql/schema.sql` | `pkg/queue` |
 
-The `view.Render(c, req, full, partial)` call handles both. When `partial` is
-`nil`, the full-page component is used for both modes.
+`db/sql/schemas.yaml` is the composition registry used for migration diffing.
 
-### Design regions for independent replacement
+### Query ownership
 
-When a page contains content that HTMX will update, extract that content into
-a named region function:
+There are two query-generation patterns in the repo:
 
-```go
-// Full page — includes layout
-func UserListPage(req view.Request, data UserListData) g.Node {
-    return req.Page("Users",
-        h.H1(...),
-        UserListRegion(data),  // reused below
-    )
-}
+- root sqlc config in `.sqlc.yaml`, which targets `db/sql/queries/` and emits to `db/schema`
+- package-local sqlc configs in `pkg/*/pgstore/.sqlc.yaml`, which emit generated code inside the owning package
 
-// HTMX region — returned for partial requests
-func UserListRegion(data UserListData) g.Node {
-    return h.Div(h.ID("users-list-region"), ...)
-}
-```
+Current active package-owned stores:
 
-The handler then passes both to `view.Render`:
+- `pkg/auth/pgstore`
+- `pkg/queue/pgstore`
 
-```go
-return view.Render(c, req, page.UserListPage(req, data), page.UserListRegion(data))
-```
+### Rules
 
-Name regions with the `Region` suffix. Give them a stable HTML `id`. The `id`
-is the contract between the server and the HTMX `hx-target` attribute.
+- App-owned tables belong in `db/sql/schema.sql`.
+- Package-owned tables belong beside the owning package.
+- App-owned query code belongs in root sqlc inputs and outputs when the domain is internal.
+- Package-owned query code belongs inside the owning package and must not cross module boundaries.
+- Every new table or query surface must declare its owner before implementation: `internal` or a specific package.
+- Do not add runtime schema-install hooks in stores. Schema changes flow through migrations and `db/sql/schemas.yaml`.
 
-### HTMX attributes belong in the view, not in handlers
+### When to use `internal/repository` vs `pkg/*/pgstore`
 
-Never construct HTMX attributes in a handler. They belong in the component
-that renders the element. The handler knows nothing about `hx-get`, `hx-target`,
-or `hx-swap`.
+Use `internal/repository` when:
 
-The component knows its own swap target (`"closest tr"`) because it renders
-both the element and the context it lives in. The handler only knows the URL.
+- the domain is app-specific
+- the schema is app-owned
+- the query shape is not intended for extraction
 
-### Fragment returns for HTMX-only endpoints
+Use `pkg/*/pgstore` when:
 
-Some endpoints exist solely to serve HTMX swaps — they have no meaningful
-full-page version. Use `render.Fragment` directly:
+- the domain is intentionally package-owned
+- the package owns the schema contract
+- the package is meant to be reusable across apps
 
-```go
-return render.Fragment(c, userpartial.UserRow(props))
-```
+### Current reality note
 
-These are typically sub-resource endpoints: a row after editing, a form
-before editing, a paginated region after navigation.
-
-### Redirects from HTMX forms
-
-When an HTMX form submission should navigate the browser (e.g., signin
-success), use `pkg/components/patterns/redirect`. It detects whether the
-request is an HTMX partial and emits either `HX-Redirect` (for HTMX) or a
-standard `303 See Other` redirect automatically.
+The repo currently leans heavily on package-owned persistence for auth and queue
+domains. Do not write guidance that assumes every feature must first create an
+internal repository.
 
 ---
 
-## 7. Form Handling
+## 7. Routing Model
 
-### Validation is a two-step process
+Route registration currently lives in `internal/app/routes.go`.
 
-**Step 1: Struct-tag validation** — runs first via `pkgform.Submission.Submit`.
-This catches format errors (email format, min/max length, required fields).
-Return a `422 Unprocessable Entity` response with the form re-rendered.
+There is no separate `internal/routes/routes.go` source of truth at present.
+The durable contract is instead:
 
-**Step 2: Domain validation** — runs when the service is called. Business
-rules that require data (is this email already taken?) cannot be expressed in
-struct tags. The handler must check for the relevant domain error and attach it
-to the form via `sub.SetFieldError` or `sub.SetFormError`.
+- routes are registered with names in `internal/app/routes.go`
+- links and redirects are generated by reversing those names against the live route table
 
-### Always re-render the form on failure
+### Current route groups
 
-On any validation failure — whether from struct tags or domain rules — re-render
-the form, not a redirect. The user should see their input preserved and the error
-in context. Use `view.RenderWithStatus` with the appropriate HTTP status code:
+`RegisterRoutes` currently assembles these groups:
 
-- `422` for input validation failures (format, required fields)
-- `409` for conflict errors (email already taken)
-- `401` for credential failures (wrong password)
+- static assets under the public prefix
+- `publicPost` for cross-origin-guarded public POST routes
+- `authGuarded` for authenticated routes
+- `authGuardedPost` for authenticated unsafe methods
+- `adminGuarded` for authenticated admin-only routes
+- `adminGuardedPost` for authenticated admin-only unsafe methods
 
-### CSRF injection
+This admin grouping is already implemented. Do not describe admin grouping as a
+future-only concept.
 
-CSRF tokens are injected via two paths:
-- **Form submissions**: an `<input type="hidden" name="_csrf">` with `req.CSRFToken`
-- **HTMX requests**: the `hx-headers` attribute on `<body>` injects `X-CSRF-Token`
-  for all HTMX requests automatically
+### Route reversal
 
-Do not add a CSRF hidden field to forms that will be submitted exclusively via HTMX.
-Do add it to standard HTML form submissions.
+Use named route reversal through:
 
-### Validation tag contracts
+- `pkg/server/route.Reverse(...)`
+- `pkg/server/route.ReverseWithQuery(...)`
+- `view.Request.Path(...)`
+- `view.Request.PathWithQuery(...)`
 
-Input struct tags define the shape of valid data:
+### Rules
 
-```go
-type SignupInput struct {
-    Email       string `form:"email"        validate:"required,email,max=255"`
-    DisplayName string `form:"display_name" validate:"required,min=1,max=255"`
-    Password    string `form:"password"     validate:"required,min=8"`
-    Role        string `form:"role"         validate:"omitempty,oneof=user admin"`
-}
-```
-
-The `form:` tag maps form field names to struct fields. The `validate:` tag
-defines constraints. Struct tag validate strings cannot reference Go constants —
-keep the literals in sync with the constants in `internal/model/`.
+- Do not hardcode application route paths when a named route already exists.
+- Register every app route with a stable route name.
+- Resolve URLs from route names at the point of use.
+- Package-owned handlers may be registered directly by the composition root.
 
 ---
 
-## 8. Route Design
+## 8. Rendering Model
 
-### Routes are a shared contract
+Forge supports multiple HTML response modes without splitting the app into
+separate rendering stacks.
 
-`internal/routes/routes.go` is the single source of truth for all URL patterns.
-Both the router registration and the view layer import from it. This means:
+### Full page and fragment rendering
 
-- A URL change requires editing exactly one file
-- A view that links to `/users/123/edit` cannot diverge from the route the
-  router knows about
+The standard pattern is:
 
-**Rule:** Never hardcode a URL path string outside of `internal/routes/`.
+- build `req := view.NewRequest(...)`
+- render with `view.Render(...)` or `view.RenderWithStatus(...)`
+- pass both a full page and, when needed, a fragment region
 
-### Use builder functions for parameterised URLs
+`view.Render` chooses between:
 
-Route constants use Echo's parameter syntax (`:id`). View code uses builder
-functions that return concrete URLs:
+- full-page rendering for normal requests
+- fragment rendering for HTMX partial requests
 
-```go
-// Route constant — for router registration
-UserEdit = "/users/:id/edit"
+If there is no meaningful fragment variant, pass `nil` for the partial and the
+full component will be used for both.
 
-// Builder function — for view href attributes
-func UserEditPath(id string) string { return "/users/" + id + "/edit" }
-```
+### HTMX-only fragment endpoints
 
-### Group routes by authorization requirement
+Use `render.Fragment(...)` or `render.FragmentWithStatus(...)` for endpoints
+whose only purpose is a fragment swap.
 
-Routes in today's `RegisterRoutes` implementation are organized into two active
-groups:
+Current examples include row/form fragment handlers in the user-management flow.
 
-| Group | Middleware | Who can access |
-|---|---|---|
-| Public | `LoadSession` only | Anyone |
-| `protected` | `RequireAuth` + `LoadUserContext` | Authenticated users |
+### Redirect behavior
 
-Place a new route in the most restrictive implemented group appropriate for it.
-Routes that need authentication belong in `protected`.
+Use the established HTMX-aware redirect helpers where the flow needs to support
+both boosted/partial and normal navigation.
 
-`RequireAdmin` middleware already exists, but an explicit `admin` route group is
-not yet wired into `RegisterRoutes`. That work is tracked in
-`PROJECT_PLAN.md`. Until it lands, do not document the router as if the admin
-group already exists.
+### Error rendering
 
----
+The global error handler lives in `internal/server/error.go`.
 
-## 9. Testing Strategy
+It currently selects among:
 
-### Test at the boundary, not the implementation
+- RFC 7807 problem JSON for JSON/problem requests
+- out-of-band HTMX flash/toast fragments for partial requests
+- rendered HTML error pages for normal browser requests
 
-Tests verify observable behavior, not implementation details. A handler test
-should not assert that a specific service method was called — it should assert
-that the response has the correct status code and contains the expected content.
-
-### Use fakes, not mocks
-
-Interface fakes with optional function fields are the preferred test double:
-
-```go
-type fakeUserService struct {
-    listFn  func(context.Context, int, int) ([]model.User, error)
-    getByID func(context.Context, uuid.UUID) (model.User, error)
-    // ... one field per method
-}
-```
-
-Unset function fields should return `errors.New("unexpected X call")`. This
-makes test failures clearly describe which operation was unexpectedly invoked,
-without requiring a mock library.
-
-### What each layer tests
-
-**Handler tests** (`internal/handler/*_test.go`):
-- Use `newTestHandler(fakeSvc)` to build the handler with fakes
-- Use `newFormContext` / `newRequestContext` to build the request
-- Assert: status code, redirect location, presence of content in body
-- Cover: validation failure (422), each domain error path, success
-
-**Service tests** (`internal/service/*_test.go`):
-- Inject fake repositories
-- Assert: correct values passed to the repo, correct model returned
-- Cover: business rule enforcement (caps, defaults, transaction commit/rollback)
-
-**Middleware tests** (`internal/middleware/*_test.go`):
-- Invoke the middleware function directly with a test context
-- Assert: context values set, next handler called or not called
-- Cover: unauthenticated, invalid session, HTMX vs non-HTMX redirect
-
-**View tests** (`internal/view/*_test.go`, `internal/view/page/*_test.go`):
-- Render the component to a string
-- Assert presence of expected HTML content (text, attributes, structure)
-- Do not test visual styling — test semantics (the `id` is there, the form
-  action is correct)
-
-### Test table format for multi-outcome scenarios
-
-When a function has several distinct outcome paths, use table-driven tests:
-
-```go
-tests := []struct {
-    name       string
-    input      SomeInput
-    mockSetup  func() fakeRepo
-    wantErr    error
-    wantResult model.User
-}{...}
-for _, tc := range tests {
-    t.Run(tc.name, func(t *testing.T) { ... })
-}
-```
-
-Name each case for its outcome, not its input: `"user not found"`, `"email
-taken"`, `"success"` — not `"test case 1"`.
+Handlers should return classified errors rather than reimplementing this branching.
 
 ---
 
-## 10. Code Style Rules
+## 9. Security and Middleware Model
 
-### Single Responsibility
+Middleware registration currently lives in `internal/server/middleware.go`.
 
-Each function does one thing. Distinct concerns are extracted into named functions.
-`main()` orchestrates — it does not implement. A function whose name cannot capture
-what it does in a single verb phrase is doing too much.
+Security composition currently lives in `internal/server/security.go` and includes:
 
-### DRY
+- secure headers
+- CSRF protection
+- CORS helpers for opt-in groups
+- origin and fetch-metadata guards
+- request logging and recovery
 
-Values that appear in more than one place become constants. Logic that appears in
-more than one place becomes a function. String literals used as identifiers (URL
-prefixes, role names, header values) are defined once at the narrowest applicable
-scope — never scattered across files.
+### Rules
 
-### YAGNI
-
-No parameters, fields, or abstractions for hypothetical future callers. No
-single-field wrapper structs. The right amount of structure is what current callers
-require — nothing more.
-
-### Naming
-
-- **Functions**: verb-first. `initLogger`, `parseLogLevel`, `toUserModel`.
-- **Variables**: noun describing content. `dev`, `pool`, `opts`, `srvCfg`.
-- **Constants**: descriptive noun phrase. `staticPrefix`, `cacheImmutable`, `hstsOneYear`.
-- **Interfaces**: named for their capability, not their implementor. `userContextLoader`,
-  not `UserServiceInterface`.
-- **Constructors**: `New` for public, `new` for package-private.
-  `NewUserService`, `newUserRepository`.
-- **Fakes in tests**: prefix with `fake`. `fakeUserService`, `fakeAuthRepo`.
-
-### Magic values
-
-Any string or number that has a non-obvious meaning, or that appears more than once,
-becomes a named constant scoped to the narrowest applicable level.
-
-Role strings (`"admin"`, `"user"`) that appear in middleware, services, and views
-belong in `internal/model/` as `RoleAdmin` and `RoleUser`. URL prefixes that appear
-in multiple middleware calls belong as `const` in the file that uses them.
-
-### Readability
-
-Repeated expressions become named variables rather than inline calls:
-
-```go
-dev := cfg.IsDevelopment()  // evaluated once, used in multiple branches
-```
-
-Shared struct literals are assigned once, not duplicated across `if` branches:
-
-```go
-opts := &slog.HandlerOptions{Level: level}
-// then: slog.NewTextHandler(os.Stderr, opts) or slog.NewJSONHandler(os.Stdout, opts)
-```
-
-### Consistency
-
-New code follows established layer patterns exactly. When a pattern is insufficient,
-update it everywhere — not just where you need it. A second way to do the same thing
-compounds confusion with every file added.
-
-### Comments
-
-Comments explain what the code cannot say for itself. They are not required
-everywhere — only where behavior is non-obvious, where a constraint would surprise a
-reader, or where an unusual pattern needs justification.
-
-**Add a comment when it reveals something the name or signature does not:**
-
-- `// Port and GracefulTimeout are int (YAML integers); callers convert as needed` —
-  the type alone does not reveal the conversion contract
-- `// ContentFiles are loaded after env vars` — a precedence rule invisible in the
-  field type
-- `// Missing files are silently skipped` — a surprising absence of an error return
-  warrants a note
-- `// defer tx.Rollback` would look like a bug without a note — the comment
-  clarifies the deliberate no-op-after-commit pattern
-
-**Omit a comment when the name says it:**
-
-- `// ServerConfig holds HTTP server settings` — the name says this
-- `// IsDevelopment reports whether the app is in development mode` — the signature
-  says this
-- `// toUserModel maps a db.User to a model.User` — obvious from the function name
-
-Name things clearly enough that a comment restating the name is unnecessary. Prefer
-a single precise sentence over a verbose paragraph. Exported symbols that are
-self-describing need no doc comment.
-
-### Early returns over nesting
-
-Validate inputs and handle errors first. The happy path should be at the
-leftmost indentation level:
-
-```go
-// preferred
-id, err := uuid.Parse(c.Param("id"))
-if err != nil {
-    return apperr.BadRequest("...")
-}
-user, err := h.services.User.GetByID(ctx, id)
-if err != nil {
-    return apperr.Resolve(err)
-}
-return render.Fragment(c, userpartial.UserRow(...))
-
-// avoid
-if id, err := uuid.Parse(...); err == nil {
-    if user, err := h.services.User.GetByID(...); err == nil {
-        return render.Fragment(...)
-    } else {
-        return apperr.Resolve(err)
-    }
-}
-```
+- Use `pkg/security` primitives rather than hand-rolling security checks.
+- Apply cross-origin protections at unsafe route boundaries.
+- Keep app-specific middleware composition in `internal/server`, not in reusable packages.
+- Keep generic middleware implementations in `pkg/server` or `pkg/security` when they are extractable.
 
 ---
 
-## 11. Extending the Architecture
+## 10. Background Services and Startup Degradation
 
-### Adding a new entity
+Forge has first-class background-service support.
 
-1. Define the model struct, input structs, and sentinel errors in `internal/model/`
-2. Write schema SQL, run `make db-migrate`, run `make db-gen`
-3. Add a `XxxRepository` interface and implementation in `internal/repository/`
-4. Add the repo to `Repositories` and `NewRepositories`
-5. Add a `XxxService` in `internal/service/` with `NewXxxService`
-6. Add the service to `Services` and `NewServices`
-7. Add the service interface to `handler.go`'s handler struct and `New` constructor
-8. Register routes, implement handlers, build views
+### Background service lifecycle
 
-### Adding a new middleware
+`internal/app/container.go` defines the background-service contract:
 
-Middleware in `internal/middleware/` may import `internal/` packages.
-Define a minimal interface for the dependency (not the concrete service type):
+- services self-register through `Container.AddBackground(...)`
+- `App.Start()` calls `StartBackground(...)` before the HTTP server starts
+- shutdown stops background services in reverse registration order
 
-```go
-type userContextLoader interface {
-    GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
-}
-```
+Current background service example:
 
-This keeps the middleware testable with a simple fake, independent of the
-full service struct. Register the middleware in `internal/server/routes.go`
-in the appropriate group.
+- the queue client, when configured in async mode
 
-### Adding a new pkg/ package
+### Startup degradation
 
-Infrastructure packages in `pkg/` must satisfy the leaf-node rule: no imports
-from `internal/`, no imports from other `pkg/` packages. If the package needs
-application configuration, accept it as a constructor parameter — do not reach
-into `config.App`.
+The app intentionally supports degraded startup when required dependencies are
+not ready.
 
-Component packages in `pkg/components/` must respect the tier hierarchy. A new
-Tier 1 component may use Tier 0 primitives but not other Tier 1 components.
+Current flow:
 
-### Refactoring vs. extending
+- `initDatabase()` records `StartupError` instead of always panicking
+- `App.New(...)` selects `RegisterStartupRoutes(...)` when startup cannot fully wire the app
+- `AvailabilityHandler` serves `/health` and degraded responses
 
-Prefer refactoring an existing pattern over introducing a parallel one. If two
-handlers share identical validation logic, extract it into a helper in the
-handler package. If two services share a business rule, define it once in the
-service or model package.
+### Rules
 
-When an existing pattern is insufficient, update the pattern everywhere rather
-than introducing a second way to do the same thing. Inconsistency has a
-compounding cost.
+- Infrastructure that can fail at startup must report clearly through startup checks.
+- Degraded startup routes must stay minimal and safe.
+- Do not assume the app either fully boots or fully crashes; degraded mode is part of the design.
 
 ---
 
-## Quick Reference
+## 11. Configuration Architecture
 
-### New feature checklist
+Config is loaded from `config/` through `config.Load(...)`, which is built on
+`pkg/server/config`.
 
-- [ ] Domain types and error sentinels defined in `internal/model/`
-- [ ] SQL written, `make db-migrate` run, `make db-gen` run
-- [ ] Repository interface extended, implementation added, db errors mapped
-- [ ] Service method added, business rules applied, transaction used if atomic
-- [ ] Route constant added to `internal/routes/`
-- [ ] `Handlers` interface and `RegisterRoutes` updated
-- [ ] Handler implemented: parse → validate → service → render/redirect
-- [ ] Views built: page constructor and region constructor (if HTMX-replaceable)
-- [ ] Tests cover: each validation outcome, each domain error, success, HTMX path
+### Current file roles
 
-### Layer dependency map
+| File | Purpose | Required |
+|------|---------|----------|
+| `config/app.yaml` | base app runtime config | Yes |
+| `config/app.development.yaml` | development overlay | No |
+| `config/site.yaml` | site metadata, fonts, robots, sitemap | Yes |
+| `config/nav.yaml` | navigation config | No |
+| `config/service.yaml` | service/provider config | Yes |
 
-```
-cmd/server/main.go
-  - internal/app  (composition root: wires all layers)
-    - internal/handler    → internal/service (interfaces)
-                          → internal/view
-                          → internal/model
-    - internal/service    → internal/repository (interfaces)
-                          → internal/model
-    - internal/repository → db/schema (sqlc)
-                          → internal/model
-    - internal/server     → internal/handler (Handlers interface)
-                          → internal/middleware
-                          → internal/routes
-```
+### Rules
 
-### Error return guide
+- Base YAML files contain structure, not secrets.
+- Secrets enter through env expansion.
+- Duration-valued YAML fields use integer seconds.
+- Convert to `time.Duration` at the adapter boundary.
+- If a config struct changes, trace every caller and every YAML mapping.
 
-| Situation | Return |
-|---|---|
-| Bad URL parameter (parse failure) | `apperr.BadRequest("...")` |
-| User typed invalid input (validation) | re-render form, `422` |
-| Resource does not exist | `apperr.Resolve(err)` (maps `ErrNotFound`) |
-| Email/unique conflict after service call | re-render form with field error, `409` |
-| Auth required, not present | `apperr.Unauthorized("...")` |
-| Admin required, user is not admin | `apperr.Forbidden("...")` |
-| Service or database unavailable | `apperr.Unavailable("...", err)` |
-| Unexpected infrastructure failure | `apperr.Internal(err)` |
-| Any unclassified service error | `apperr.Resolve(err)` |
+### Ownership
+
+- app runtime config structs live in `config/`
+- reusable config loading mechanics live in `pkg/server/config`
+
+---
+
+## 12. Feature Development Workflow
+
+Follow the owning-domain path rather than a stale one-size-fits-all sequence.
+
+### App-owned feature flow
+
+1. Define or extend app-owned types in `internal/model` when the feature truly belongs to the app.
+2. Decide schema ownership.
+3. Add app-owned SQL and generated code if the persistence is app-owned.
+4. Add or extend `internal/repository` only when the persistence contract is app-owned.
+5. Add or extend `internal/service`.
+6. Add handlers in `internal/handler`.
+7. Add full pages and fragments in `internal/view`.
+8. Register routes in `internal/app/routes.go`.
+9. Add tests at the handler, service, and view boundaries.
+
+### Package-owned feature flow
+
+1. Confirm that the feature belongs in a reusable package.
+2. Keep domain, persistence, and package-specific transport inside that package.
+3. Expose a narrow package API to the app.
+4. Wire the package into `internal/app`.
+5. Add app-level route registration, config plumbing, and integration tests.
+
+### Decision rule
+
+Before writing code, answer this explicitly:
+
+- Is the domain app-owned?
+- Is the domain package-owned?
+
+If that answer is unclear, stop and resolve ownership before implementation.
+
+---
+
+## 13. Operational Readiness and Test Modes
+
+Operational readiness should be treated as a design concern, not just an ops
+afterthought.
+
+### Readiness modes
+
+The app currently has multiple meaningful runtime modes:
+
+- fully started
+- degraded startup with availability-only routes
+- sync queue mode
+- async queue mode
+- cookie-backed session mode
+- server-backed session mode
+
+Design changes should account for which of these modes they affect.
+
+### Test modes
+
+The repo also has multiple meaningful verification modes:
+
+- pure unit tests for package and app logic
+- route/middleware integration tests
+- persistence-backed tests where SQL and stores are the thing being verified
+- environment-dependent checks for assets, docs, or external build tooling
+
+### Testing strategy
+
+Test at the boundary that owns behavior.
+
+### Handler tests
+
+Use fakes and assert:
+
+- status code
+- redirect target
+- rendered body content
+- HTMX vs non-HTMX behavior where relevant
+
+### Service tests
+
+Use fakes and assert:
+
+- business rules
+- pagination and caps
+- queue dispatch orchestration
+- domain error mapping
+
+### View tests
+
+Render nodes and assert:
+
+- exact content
+- expected action/href values
+- presence of structural IDs/attributes that matter to behavior
+
+Remember:
+
+- account for HTML-encoded output in assertions
+- prefer exact-match assertions over substring-only assertions where feasible
+
+### Integration tests
+
+Use integration tests for:
+
+- route registration behavior
+- startup/degraded mode behavior
+- auth/session integration boundaries
+- persistence-backed package behavior where unit tests are insufficient
+
+---
+
+## 14. Quick Reference
+
+### Ownership checklist
+
+- [ ] Is this app-owned or package-owned?
+- [ ] Does the schema owner match the package/code owner?
+- [ ] Does the route belong in `internal/app/routes.go`?
+- [ ] Is the URL generated from a route name instead of a hardcoded string?
+- [ ] Is the rendering path page-only, dual-mode, or fragment-only?
+- [ ] Is the behavior covered at the correct test boundary?
+
+### Current source-of-truth map
+
+| Concern | Current source of truth |
+|--------|--------------------------|
+| app assembly | `internal/app/` |
+| route registration | `internal/app/routes.go` |
+| app middleware stack | `internal/server/middleware.go` |
+| app security composition | `internal/server/security.go` |
+| error handling | `internal/server/error.go` |
+| view request state and page/fragment switching | `internal/view/request.go` |
+| migration schema composition | `db/sql/schemas.yaml` |
+| app-owned schema | `db/sql/schema.sql` |
+| package-owned auth schema and queries | `pkg/auth/pgstore/` |
+| package-owned queue schema and queries | `pkg/queue/pgstore/` |
+
+### Avoid these stale assumptions
+
+- There is no current `internal/routes/routes.go` route-constant layer.
+- `pkg/componentry` is the current component package family, not `pkg/components`.
+- `internal/repository` is not currently the center of all persistence.
+- Admin route grouping already exists in `internal/app/routes.go`.
+- Package-owned transport and service layers are valid parts of the current architecture.
