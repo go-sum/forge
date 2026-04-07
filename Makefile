@@ -1,3 +1,4 @@
+include .gitenv
 include .versions
 export
 

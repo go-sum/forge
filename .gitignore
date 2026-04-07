@@ -16,3 +16,4 @@ public/js/
 *.test
 *.out
 .DS_Store
+.gitenv
