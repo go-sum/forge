@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	auth "github.com/go-sum/auth"
+	authsvc "github.com/go-sum/auth/service"
 	authadapter "github.com/go-sum/forge/internal/adapters/auth"
-	"github.com/go-sum/forge/internal/handler"
+	"github.com/go-sum/forge/internal/features/availability"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/route"
@@ -16,70 +17,79 @@ import (
 
 // App owns the fully wired application and its lifecycle.
 type App struct {
-	container *Container
+	runtime *Runtime
 }
 
-// New initializes the application container and registers all HTTP routes.
+// New initializes the application runtime and registers all HTTP routes.
 // version is the build-time application version (may be empty in dev).
 func New(version string) *App {
-	c := NewContainer()
-	availabilityH := handler.NewAvailability(c.checkHealth(), c.StartupError, version)
+	r := NewRuntime()
+	availabilityH := availability.NewHandler(r.checkHealth(), r.StartupError, version)
 
-	if c.StartupError != nil {
-		if err := RegisterStartupRoutes(c, availabilityH); err != nil {
+	if r.StartupError != nil {
+		if err := RegisterStartupRoutes(r, availabilityH); err != nil {
 			panic(fmt.Sprintf("routes: %v", err))
 		}
-		return &App{container: c}
+		return &App{runtime: r}
 	}
 
-	h := handler.New(
-		c.Config,
-		func() echo.Routes { return c.Web.Router().Routes() },
-		c.Services,
-		c.Validator,
-	)
+	resolve := route.NewResolver(func() echo.Routes { return r.Web.Router().Routes() })
+
+	requestFn := func(ec *echo.Context) auth.Request {
+		req := view.NewRequest(ec, r.Config)
+		return auth.Request{
+			CSRFToken:     req.CSRFToken,
+			CSRFFieldName: req.CSRFFieldName,
+			Partial:       req.IsPartial(),
+			State:         req,
+			PageFn:        req.Page,
+		}
+	}
 
 	authH := auth.NewHandler(
-		c.AuthService,
+		r.AuthService,
 		auth.HandlerConfig{
-			Sessions:           &authadapter.SessionManagerAdapter{Mgr: c.Sessions},
-			Forms:              &authadapter.FormParserAdapter{V: c.Validator},
+			Sessions:           &authadapter.SessionManagerAdapter{Mgr: r.Sessions},
+			Forms:              &authadapter.FormParserAdapter{V: r.Validator},
 			Flash:              &authadapter.FlashAdapter{},
 			Redirect:           &authadapter.RedirectAdapter{},
 			Pages:              authadapter.NewRenderer(),
-			CSRFField:          c.Config.App.Security.CSRF.FormField,
-			SigninPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signin.get") },
-			SignupPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "signup.get") },
-			VerifyPathFn:       func() string { return route.Reverse(c.Web.Router().Routes(), "verify.get") },
-			VerifyResendPathFn: func() string { return route.Reverse(c.Web.Router().Routes(), "verify.resend.post") },
-			VerifyURLFn: func() string {
-				return c.Config.App.Security.ExternalOrigin + route.Reverse(c.Web.Router().Routes(), "verify.get")
-			},
-			EmailChangeFn: func() string { return route.Reverse(c.Web.Router().Routes(), "account.email.get") },
-			HomePathFn:    func() string { return route.Reverse(c.Web.Router().Routes(), "home.show") },
-			RequestFn: func(ec *echo.Context) auth.Request {
-				req := view.NewRequest(ec, c.Config)
-				return auth.Request{
-					CSRFToken: req.CSRFToken,
-					PageFn:    req.Page,
-				}
-			},
+			CSRFField:          r.Config.App.Security.CSRF.FormField,
+			SigninPathFn:       resolve.Path("signin.get"),
+			SignupPathFn:       resolve.Path("signup.get"),
+			VerifyPathFn:       resolve.Path("verify.get"),
+			VerifyResendPathFn: resolve.Path("verify.resend.post"),
+			VerifyURLFn:        resolve.URL(r.Config.App.Security.ExternalOrigin, "verify.get"),
+			EmailChangeFn:      resolve.Path("account.email.get"),
+			HomePathFn:         resolve.Path("home.show"),
+			RequestFn:          requestFn,
 		},
 	)
 
-	if err := RegisterRoutes(c, h, availabilityH, authH); err != nil {
+	adminH := auth.NewAdminHandler(
+		authsvc.NewAdminService(r.AuthStore),
+		auth.AdminHandlerConfig{
+			Forms:      &authadapter.FormParserAdapter{V: r.Validator},
+			Redirect:   &authadapter.RedirectAdapter{},
+			Pages:      authadapter.NewRenderer(),
+			HomePathFn: resolve.Path("home.show"),
+			RequestFn:  requestFn,
+		},
+	)
+
+	if err := RegisterRoutes(r, availabilityH, authH, adminH); err != nil {
 		panic(fmt.Sprintf("routes: %v", err))
 	}
-	return &App{container: c}
+	return &App{runtime: r}
 }
 
 // Start launches all registered background services and the HTTP server.
 func (a *App) Start() error {
-	a.container.StartBackground(context.Background())
-	return server.Start(a.container.Web, a.container.ServerConfig)
+	a.runtime.StartBackground(context.Background())
+	return server.Start(a.runtime.Web, a.runtime.ServerConfig)
 }
 
 // Shutdown releases application resources.
 func (a *App) Shutdown() {
-	a.container.Shutdown()
+	a.runtime.Shutdown()
 }

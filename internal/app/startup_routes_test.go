@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/handler"
+	"github.com/go-sum/forge/internal/features/availability"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/labstack/echo/v5"
 )
@@ -34,17 +34,19 @@ func TestRegisterStartupRoutesServesUnavailableAndHealth(t *testing.T) {
 		Config: cfg,
 	})
 
-	container := &Container{
-		Config: cfg,
-		Web:    e,
+	runtime := &Runtime{
+		Config:       cfg,
+		Web:          e,
+		PublicPrefix: "/public",
+		PublicDir:    "public",
 	}
-	startupH := handler.NewAvailability(
+	startupH := availability.NewHandler(
 		func(context.Context) error { return errors.New("database verify: missing required relations users") },
 		errors.New("database verify: missing required relations users"),
 		"",
 	)
 
-	if err := RegisterStartupRoutes(container, startupH); err != nil {
+	if err := RegisterStartupRoutes(runtime, startupH); err != nil {
 		t.Fatalf("RegisterStartupRoutes() error = %v", err)
 	}
 

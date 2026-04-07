@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	authmodel "github.com/go-sum/auth/model"
 	auth "github.com/go-sum/auth"
+	authmodel "github.com/go-sum/auth/model"
+	authsvc "github.com/go-sum/auth/service"
 	"github.com/go-sum/forge/config"
 	authadapter "github.com/go-sum/forge/internal/adapters/auth"
-	"github.com/go-sum/forge/internal/handler"
-	appserver "github.com/go-sum/forge/internal/server"
-	"github.com/go-sum/forge/internal/service"
+	"github.com/go-sum/forge/internal/features/availability"
 	"github.com/go-sum/forge/internal/view"
+	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/server/validate"
 	"github.com/go-sum/session"
 	"github.com/google/uuid"
@@ -78,7 +78,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		},
 	}
 
-	container := &Container{
+	runtime := &Runtime{
 		Config:       cfg,
 		Web:          e,
 		RateLimiters: appserver.NewRateLimiters(cfg),
@@ -87,13 +87,9 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		AuthStore:    store,
 	}
 
-	h := handler.New(cfg, func() echo.Routes {
-		return e.Router().Routes()
-	}, &service.Services{}, container.Validator)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := auth.NewHandler(nil, auth.HandlerConfig{
 		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
-		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
+		Forms:           &authadapter.FormParserAdapter{V: runtime.Validator},
 		Flash:           &authadapter.FlashAdapter{},
 		Redirect:        &authadapter.RedirectAdapter{},
 		Pages:           authadapter.NewRenderer(),
@@ -107,13 +103,33 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
 			return auth.Request{
-				CSRFToken: req.CSRFToken,
-				PageFn:    req.Page,
+				CSRFToken:     req.CSRFToken,
+				CSRFFieldName: req.CSRFFieldName,
+				Partial:       req.IsPartial(),
+				State:         req,
+				PageFn:        req.Page,
 			}
 		},
 	})
 
-	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
+	adminH := auth.NewAdminHandler(authsvc.NewAdminService(store), auth.AdminHandlerConfig{
+		Forms:      &authadapter.FormParserAdapter{V: runtime.Validator},
+		Redirect:   &authadapter.RedirectAdapter{},
+		Pages:      authadapter.NewRenderer(),
+		HomePath:   "/",
+		RequestFn: func(ec *echo.Context) auth.Request {
+			req := view.NewRequest(ec, cfg)
+			return auth.Request{
+				CSRFToken:     req.CSRFToken,
+				CSRFFieldName: req.CSRFFieldName,
+				Partial:       req.IsPartial(),
+				State:         req,
+				PageFn:        req.Page,
+			}
+		},
+	})
+
+	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -201,7 +217,7 @@ func (s *routesTestStore) HasAdmin(_ context.Context) (bool, error) {
 
 var _ AuthStore = (*routesTestStore)(nil)
 
-// newTestApp builds a minimal application container with fake repositories
+// newTestApp builds a minimal application runtime with fake repositories
 // suitable for route integration tests. The returned Echo instance has all
 // routes registered and is ready for ServeHTTP calls.
 func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
@@ -259,7 +275,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		},
 	}
 
-	container := &Container{
+	runtime := &Runtime{
 		Config:       cfg,
 		Web:          e,
 		RateLimiters: appserver.NewRateLimiters(cfg),
@@ -268,16 +284,9 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		AuthStore:    store,
 	}
 
-	h := handler.New(
-		cfg,
-		func() echo.Routes { return e.Router().Routes() },
-		&service.Services{User: service.NewUserService(store)},
-		container.Validator,
-	)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
 	authH := auth.NewHandler(nil, auth.HandlerConfig{
 		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
-		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
+		Forms:           &authadapter.FormParserAdapter{V: runtime.Validator},
 		Flash:           &authadapter.FlashAdapter{},
 		Redirect:        &authadapter.RedirectAdapter{},
 		Pages:           authadapter.NewRenderer(),
@@ -291,13 +300,33 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
 			return auth.Request{
-				CSRFToken: req.CSRFToken,
-				PageFn:    req.Page,
+				CSRFToken:     req.CSRFToken,
+				CSRFFieldName: req.CSRFFieldName,
+				Partial:       req.IsPartial(),
+				State:         req,
+				PageFn:        req.Page,
 			}
 		},
 	})
 
-	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
+	adminH := auth.NewAdminHandler(authsvc.NewAdminService(store), auth.AdminHandlerConfig{
+		Forms:      &authadapter.FormParserAdapter{V: runtime.Validator},
+		Redirect:   &authadapter.RedirectAdapter{},
+		Pages:      authadapter.NewRenderer(),
+		HomePath:   "/",
+		RequestFn: func(ec *echo.Context) auth.Request {
+			req := view.NewRequest(ec, cfg)
+			return auth.Request{
+				CSRFToken:     req.CSRFToken,
+				CSRFFieldName: req.CSRFFieldName,
+				Partial:       req.IsPartial(),
+				State:         req,
+				PageFn:        req.Page,
+			}
+		},
+	})
+
+	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -326,11 +355,6 @@ func adminCookie(t *testing.T, mgr session.Manager, adminID string) *http.Cookie
 	return cookies[0]
 }
 
-// TestUserRowETagCachingCycle verifies the 200 → 304 caching cycle for the
-// GET /users/:id/row HTMX fragment endpoint.
-//
-// First request: expect 200 with an ETag header in the response.
-// Second request with matching If-None-Match: expect 304 with empty body.
 func TestUserRowETagCachingCycle(t *testing.T) {
 	const adminID = "11111111-1111-1111-1111-111111111111"
 	e, sessions, _ := newTestApp(t)
@@ -338,7 +362,6 @@ func TestUserRowETagCachingCycle(t *testing.T) {
 
 	path := "/users/" + adminID + "/row"
 
-	// First request — expect 200 with an ETag.
 	req1 := httptest.NewRequest(http.MethodGet, path, nil)
 	req1.AddCookie(cookie)
 	rec1 := httptest.NewRecorder()
@@ -358,7 +381,6 @@ func TestUserRowETagCachingCycle(t *testing.T) {
 		t.Fatalf("first request: Vary = %q, want %q", got, "Cookie")
 	}
 
-	// Second request with matching If-None-Match — expect 304.
 	req2 := httptest.NewRequest(http.MethodGet, path, nil)
 	req2.AddCookie(cookie)
 	req2.Header.Set("If-None-Match", etagVal)
@@ -385,97 +407,8 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		regularID = "22222222-2222-2222-2222-222222222222"
 	)
 
-	e := echo.New()
-	cfg := &config.Config{
-		App: config.AppConfig{
-			Security: config.SecurityConfig{
-				ExternalOrigin: "http://localhost:3000",
-				CSRF: config.CSRFConfig{
-					ContextKey: "csrf",
-					FormField:  "_csrf",
-					HeaderName: "X-CSRF-Token",
-				},
-			},
-			Session: config.SessionConfig{
-				Name:       "_session",
-				AuthKey:    "12345678901234567890123456789012",
-				EncryptKey: "12345678901234567890123456789012",
-			},
-		},
-		Nav: config.NavConfig{
-			Brand: config.NavbarBrand{Label: "Starter", Href: "/"},
-		},
-	}
+	e, sessions, _ := newTestApp(t)
 
-	sessions, err := session.NewManager(session.Config{
-		CookieName: cfg.App.Session.Name,
-		AuthKey:    cfg.App.Session.AuthKey,
-		EncryptKey: cfg.App.Session.EncryptKey,
-	})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-
-	store := &routesTestStore{
-		users: map[uuid.UUID]authmodel.User{
-			uuid.MustParse(adminID): {
-				ID:          uuid.MustParse(adminID),
-				Email:       "admin@example.com",
-				DisplayName: "Admin User",
-				Role:        "admin",
-			},
-			uuid.MustParse(regularID): {
-				ID:          uuid.MustParse(regularID),
-				Email:       "user@example.com",
-				DisplayName: "Regular User",
-				Role:        "user",
-			},
-		},
-	}
-
-	container := &Container{
-		Config:       cfg,
-		Web:          e,
-		RateLimiters: appserver.NewRateLimiters(cfg),
-		Sessions:     sessions,
-		Validator:    validate.New(),
-		AuthStore:    store,
-	}
-
-	h := handler.New(
-		cfg,
-		func() echo.Routes { return e.Router().Routes() },
-		&service.Services{User: service.NewUserService(store)},
-		container.Validator,
-	)
-	availabilityH := handler.NewAvailability(func(context.Context) error { return nil }, nil, "")
-	authH := auth.NewHandler(nil, auth.HandlerConfig{
-		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
-		Forms:           &authadapter.FormParserAdapter{V: container.Validator},
-		Flash:           &authadapter.FlashAdapter{},
-		Redirect:        &authadapter.RedirectAdapter{},
-		Pages:           authadapter.NewRenderer(),
-		CSRFField:       cfg.App.Security.CSRF.FormField,
-		SigninPath:      "/signin",
-		SignupPath:      "/signup",
-		VerifyPath:      "/verify",
-		VerifyURL:       "http://localhost:3000/verify",
-		EmailChangePath: "/account/email",
-		HomePath:        "/",
-		RequestFn: func(ec *echo.Context) auth.Request {
-			req := view.NewRequest(ec, cfg)
-			return auth.Request{
-				CSRFToken: req.CSRFToken,
-				PageFn:    req.Page,
-			}
-		},
-	})
-
-	if err := RegisterRoutes(container, h, availabilityH, authH); err != nil {
-		t.Fatalf("RegisterRoutes() error = %v", err)
-	}
-
-	// makeCookie returns a session cookie for the given user ID.
 	makeCookie := func(t *testing.T, userID string) *http.Cookie {
 		t.Helper()
 		rec := httptest.NewRecorder()

@@ -32,6 +32,7 @@ type FormSubmission interface {
 	SetFieldError(field, msg string)
 	GetFormErrors() []string
 	SetFormError(msg string)
+	GetErrors() map[string][]string
 }
 
 // FormParser binds and validates a form submission from an Echo context.

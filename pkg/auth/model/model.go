@@ -117,6 +117,7 @@ type UpdateUserInput struct {
 var (
 	ErrUserNotFound            = errors.New("user not found")
 	ErrEmailTaken              = errors.New("email already in use")
+	ErrAdminExists             = errors.New("admin already exists")
 	ErrInvalidCredentials      = errors.New("invalid credentials")
 	ErrInvalidVerificationCode = errors.New("invalid verification code")
 	ErrVerificationExpired     = errors.New("verification expired")

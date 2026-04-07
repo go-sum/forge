@@ -112,8 +112,8 @@ to undo than a later promotion from `internal/`.
 | sqlc config + generated code | `pkg/<name>/pgstore/.sqlc.yaml` → `pkg/<name>/pgstore/db/` | `.sqlc.yaml` → `db/schema/` |
 | Store interfaces | `pkg/<name>/repository/` | `internal/repository/` |
 | Store implementation | `pkg/<name>/pgstore/` | `internal/repository/` |
-| Business logic | `pkg/<name>/service/` (if any) | `internal/service/` |
-| HTTP handlers | `pkg/<name>/` (if package exposes transport) | `internal/handler/` |
+| Business logic | `pkg/<name>/service/` (if any) | `internal/features/<feature>/service.go` |
+| HTTP handlers | `pkg/<name>/` (if package exposes transport) | `internal/features/<feature>/handler.go` |
 | Views / UI | n/a (app always owns page composition) | `internal/view/` |
 | Route registration | wired by `internal/app/routes.go` | wired by `internal/app/routes.go` |
 
@@ -129,10 +129,12 @@ App layers (handlers, services, views) import and use the package's model types
 directly. No app-layer wrapper or conversion function exists.
 
 ```go
-// internal/service/user.go
+// internal/view/page/users.go
 import authmodel "github.com/go-sum/auth/model"
 
-func (s *UserService) List(ctx context.Context, ...) ([]authmodel.User, error)
+type UserListData struct {
+    Users []authmodel.User
+}
 ```
 
 **Use when:**
@@ -141,8 +143,8 @@ func (s *UserService) List(ctx context.Context, ...) ([]authmodel.User, error)
 - the package type is stable and the app is unlikely to diverge from it
 - the domain is fundamentally owned by the package — the app is a consumer, not a co-owner
 
-**Current example:** user management — `internal/handler`, `internal/service`,
-and `internal/view` all use `authmodel.User` directly.
+**Current example:** `pkg/auth` admin handlers, auth renderer adapters, and
+`internal/view` use `authmodel.User` directly.
 
 #### Pattern B: App-owned wrapper type with boundary conversion
 
@@ -153,7 +155,7 @@ boundary where package types enter the app.
 // internal/model/
 type Project struct { ... }   // app-owned, not a copy of any package type
 
-// internal/service/
+// internal/features/projects/service.go
 func toProject(p somepkg.RawProject) model.Project { ... }
 ```
 
@@ -186,9 +188,9 @@ sentinels directly. Do not re-export package sentinels in `internal/model/`
 unless the app needs to add a distinct error that does not belong in the
 package.
 
-**Current example:** `authmodel.ErrUserNotFound` is used directly in handlers.
-`model.ErrAdminExists` is app-owned because admin elevation policy belongs to
-the app, not to `pkg/auth`.
+**Current example:** `authmodel.ErrUserNotFound` and
+`authmodel.ErrAdminExists` are used directly in package-owned auth handlers and
+services. The app keeps only genuinely app-owned sentinels in `internal/model/`.
 
 ### 3.6 Interface ownership for cross-boundary consumption
 
@@ -201,7 +203,7 @@ it needs to expose multiple package-defined interfaces through a single
 container field:
 
 ```go
-// internal/app/container.go
+// internal/app/runtime.go
 type AuthStore interface {
     authrepo.UserStore   // auth flows
     authrepo.AdminStore  // admin CRUD
@@ -245,21 +247,33 @@ how the full application is assembled.
 ### `internal/app` currently consists of
 
 - `app.go`: app construction, route registration, lifecycle start/shutdown
+- `runtime.go`: long-lived infrastructure ownership and background-service lifecycle
 - `bootstrap_infra.go`: config, logger, assets, sender, web/Echo initialization
 - `bootstrap_data.go`: database, auth store, queue, KV store initialization
-- `bootstrap_services.go`: session, validator, and domain services initialization
-- `container.go`: shared dependency container and background-service lifecycle
-- `routes.go`: route group definitions and orchestration (delegates to feature files)
-- `routes_public.go`: unauthenticated read-only routes (home, docs, health, site files)
-- `routes_auth.go`: auth flows, session management, account routes, contact POST
-- `routes_admin.go`: admin-only user management routes with ETag caching
-- `docs.go`: docs static-file handler for `/docs`
+- `bootstrap_services.go`: session, validator, queue handler, and auth service initialization
+- `routes.go`: shared route-policy wiring and feature/module registration
+
+Feature modules live under `internal/features/`:
+
+- `availability/`: health endpoint and degraded startup responses
+- `public/`: home page plus package-owned site metadata handlers
+- `docs/`: `/docs` static docs surface
+- `contact/`: contact workflow handler + service
+- `account/`: thin registration shim for package-owned auth account/admin routes
+- `adminusers/`: thin registration shim for package-owned auth admin user routes
+- `examples/`: component gallery reference surface
+- `authpkg/`: registration shim for the package-owned auth HTTP handler
 
 Auth-domain adapters live in `internal/adapters/auth/` (package `authadapter`):
 
 - `adapters.go`: session, form, flash, and redirect adapters for `pkg/auth` interfaces
 - `notifier.go`: email verification notifier
 - `view.go`: auth page renderer using componentry
+- `admin_view.go`: admin page renderer (user list, edit, row, admin elevate) using componentry
+
+Shared feature test helpers live in `internal/featuretest/`:
+
+- `http.go`: Echo context factories, CSRF/session helpers, and `RegisterTestRoutes` stub
 
 ### Rules
 
@@ -270,71 +284,63 @@ Auth-domain adapters live in `internal/adapters/auth/` (package `authadapter`):
 
 ---
 
-## 5. Layer Rules Inside `internal/`
+## 5. Feature-Module Rules Inside `internal/`
 
-The application-specific part of the repo still follows a layered model, but
-it is narrower than older docs implied.
+The application-specific part of the repo is now organized feature-first.
 
 ```
-Transport   internal/handler/         App-owned HTTP handlers
-Service     internal/service/         App-owned business orchestration
-Repository  internal/repository/      App-owned persistence helpers
-View        internal/view/            Request state, pages, partials, layouts
-Model       internal/model/           App-owned domain errors and shared types
+Feature runtime   internal/features/<feature>/   App-owned handlers, services, and route registration
+Repository        internal/repository/           App-owned persistence helpers
+View              internal/view/                 Request state, pages, partials, layouts
+Model             internal/model/                App-owned domain errors and shared types
 ```
 
-### Feature-oriented file naming convention
+### Feature module structure
 
-Within each flat package, one file per feature domain. File names must match the
-feature they serve: `user.go`, `contact.go`, `admin.go`, `account.go`, etc.
+Each feature package may contain:
 
-| Layer | File naming | Example |
-|-------|------------|---------|
-| `internal/handler/` | `{feature}.go` | `user.go`, `contact.go` |
-| `internal/service/` | `{feature}.go` | `user.go`, `contact.go` |
-| `internal/view/page/` | `{feature}.go` | `users.go`, `contact.go` |
-| `internal/view/partial/` | `{feature}partial/` | `userpartial/`, `contactpartial/` |
+- `module.go`: constructor and route registration
+- `handler.go`: HTTP transport logic when the feature is app-owned
+- `service.go`: app-owned orchestration when needed
+- feature-local tests and small helpers
 
-**Split triggers** — introduce a second file for a feature when:
-- The file grows beyond ~250 lines: split into `{feature}.go` + `{feature}_helpers.go`
-- The feature needs private types that could collide with other features
+Current examples:
 
-**Subpackage trigger** — introduce a subpackage (e.g., `handler/billing/`) only when
-a feature has 3+ files or requires package-private types that cannot be shared.
+- `internal/features/contact/`
+- `internal/features/account/`
+- `internal/features/adminusers/`
 
-### Transport layer — `internal/handler/`
+Simple features may omit `service.go` when no app-owned orchestration is needed.
+Thin integration modules may contain only `module.go` when the real handler and
+service live in a package-owned module such as `pkg/auth`.
 
-Handlers own:
+### Handler rules
+
+Feature handlers own:
 
 - request parsing
 - form binding and validation
-- calling the next layer down
+- calling feature-local services or package-owned collaborators
 - response rendering and redirects
 - mapping domain failures to transport outcomes
 
 Handlers must not:
 
-- own business policy
+- own business policy that belongs in the feature service
 - construct SQL
 - directly own infrastructure lifecycle
 
-### Service layer — `internal/service/`
+### Service rules
 
-Services own:
+Feature services own:
 
 - app-specific orchestration
 - business rules for app-owned features
 - pagination and caps
 - queue dispatch orchestration for app workflows
 
-Today this layer is mixed in an important way:
-
-- app-owned services exist in `internal/service`
-- package-owned services also exist, for example `pkg/auth/service`
-
-That means `internal/service` is not the only place business logic can live.
-Document and implement based on ownership, not on an outdated rule that every
-service must be internal.
+Package-owned services remain valid in `pkg/`, for example `pkg/auth/service`.
+Implement based on ownership, not on a rule that every service must be app-owned.
 
 ### Repository layer — `internal/repository/`
 
@@ -354,7 +360,7 @@ stores exist and are first-class.
 
 `internal/model` owns:
 
-- app-owned sentinel errors (e.g. `ErrAdminExists`, `ErrForbidden`)
+- app-owned sentinel errors (e.g. `ErrForbidden`)
 - app-owned domain structs (e.g. `ContactInput`)
 
 For package-owned domains, the app uses the package's model types directly
@@ -398,6 +404,7 @@ Current module families include:
 - Package APIs must accept configuration and collaborators from the host app rather than reaching back into app state.
 - Package-owned handlers are allowed when the package intentionally exposes an HTTP surface, such as `pkg/auth` and `pkg/site/handlers`.
 - Package-owned persistence is allowed when the package intentionally owns a reusable domain and its schema, such as `pkg/auth/pgstore` and `pkg/queue/pgstore`.
+- Package-owned workflows should stay package-owned when the host app is only wiring rendering, redirects, sessions, and route policy around them.
 
 ### `pkg/componentry`
 
@@ -452,33 +459,31 @@ app-specific, its persistence belongs in `internal/repository`.
 
 ## 8. Routing Model
 
-Route registration currently lives in `internal/app/routes.go`.
+Route registration is orchestrated from `internal/app/routes.go`.
 
 There is no separate `internal/routes/routes.go` source of truth at present.
-The durable contract is instead:
+The durable contract is:
 
-- routes are registered with names in `internal/app/routes.go`
+- shared route groups are constructed once from `internal/routing`
+- feature modules register named routes into those groups
 - links and redirects are generated by reversing those names against the live route table
 
 ### Route file structure
 
-Route registration is split across feature files within `internal/app/`:
-
-- `routes.go` — group definitions, middleware wiring, orchestration
-- `routes_public.go` — unauthenticated read-only pages, health, docs, site files
-- `routes_auth.go` — auth flows, session management, account routes
-- `routes_admin.go` — admin-only user management with ETag caching
+- `internal/app/routes.go` — static assets, global session loading, group creation, module registration
+- `internal/routing/groups.go` — canonical group definitions and middleware policy
+- `internal/features/<feature>/module.go` — feature-owned route registration
 
 ### Current route groups
 
 | Group | Middleware stack | Use for |
 |-------|-----------------|---------|
-| `public` (global `c.Web`) | (global middleware only) | Unauthenticated read-only pages |
+| `public` | (global middleware only) | Unauthenticated read-only pages |
 | `publicPost` | CrossOriginGuard + RateLimit("auth") | Unauthenticated mutations (signin, signup, contact) |
-| `authGuarded` | RateLimit("server") + RequireAuthPath | Authenticated read pages |
-| `authGuardedPost` | (authGuarded) + CrossOriginGuard | Authenticated mutations (signout, account changes) |
-| `adminGuarded` | (authGuarded) + LoadUserRole + RequireAdmin | Admin read pages |
-| `adminGuardedPost` | (adminGuarded) + CrossOriginGuard | Admin mutations |
+| `authenticated` | RateLimit("server") + RequireAuthPath | Authenticated read pages |
+| `authenticatedPost` | (authenticated) + CrossOriginGuard | Authenticated mutations (signout, account changes) |
+| `admin` | (authenticated) + LoadUserRole + RequireAdmin | Admin read pages |
+| `adminPost` | (admin) + CrossOriginGuard | Admin mutations |
 
 Future groups (not yet registered):
 
@@ -598,9 +603,9 @@ Forge has first-class background-service support.
 
 ### Background service lifecycle
 
-`internal/app/container.go` defines the background-service contract:
+`internal/app/runtime.go` defines the background-service contract:
 
-- services self-register through `Container.AddBackground(...)`
+- services self-register through `Runtime.AddBackground(...)`
 - `App.Start()` calls `StartBackground(...)` before the HTTP server starts
 - shutdown stops background services in reverse registration order
 
@@ -667,11 +672,11 @@ Follow the owning-domain path rather than a stale one-size-fits-all sequence.
 2. Decide schema ownership.
 3. Add app-owned SQL and generated code if the persistence is app-owned.
 4. Add or extend `internal/repository` only when the persistence contract is app-owned.
-5. Add or extend `internal/service`.
-6. Add handlers in `internal/handler`.
+5. Add or extend a feature module under `internal/features/<feature>/`.
+6. Keep feature-owned HTTP transport in `handler.go` and orchestration in `service.go` when needed.
 7. Add full pages and fragments in `internal/view`.
-8. Register routes in `internal/app/routes.go`.
-9. Add tests at the handler, service, and view boundaries.
+8. Register feature routes through `module.go`, wired from `internal/app/routes.go`.
+9. Add tests at the feature handler, feature service, and view boundaries.
 
 ### Package-owned feature flow
 
@@ -768,7 +773,7 @@ Use integration tests for:
 - [ ] Is this app-owned or package-owned? ([3.2](#32-decision-criteria))
 - [ ] Does the schema owner match the package/code owner?
 - [ ] Are package types used directly (Pattern A) or wrapped (Pattern B)? ([3.4](#34-type-boundaries-between-pkg-and-internal))
-- [ ] Does the route belong in `internal/app/routes.go`?
+- [ ] Does the route belong in the correct feature module and get wired from `internal/app/routes.go`?
 - [ ] Is the URL generated from a route name instead of a hardcoded string?
 - [ ] Is the rendering path page-only, dual-mode, or fragment-only?
 - [ ] Is the behavior covered at the correct test boundary?
@@ -793,5 +798,5 @@ Use integration tests for:
 - There is no current `internal/routes/routes.go` route-constant layer.
 - `pkg/componentry` is the current component package family, not `pkg/components`.
 - `internal/repository` is not currently the center of all persistence.
-- Admin route grouping already exists in `internal/app/routes.go`.
+- Admin route grouping is defined once in `internal/routing/groups.go`.
 - Package-owned transport and service layers are valid parts of the current architecture.

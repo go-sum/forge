@@ -41,6 +41,10 @@ func errForbidden(msg string) *HTTPError {
 	return &HTTPError{status: http.StatusForbidden, message: msg}
 }
 
+func errNotFound(msg string) *HTTPError {
+	return &HTTPError{status: http.StatusNotFound, message: msg}
+}
+
 func errUnavailable(msg string, cause error) *HTTPError {
 	return &HTTPError{status: http.StatusServiceUnavailable, message: msg, cause: cause}
 }

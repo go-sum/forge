@@ -170,6 +170,17 @@ func (s *fakeFormSubmission) SetFormError(msg string) {
 	s.formErrors = append(s.formErrors, msg)
 }
 
+func (s *fakeFormSubmission) GetErrors() map[string][]string {
+	errors := make(map[string][]string, len(s.fieldErrors)+1)
+	for field, messages := range s.fieldErrors {
+		errors[field] = append([]string(nil), messages...)
+	}
+	if len(s.formErrors) > 0 {
+		errors["_"] = append([]string(nil), s.formErrors...)
+	}
+	return errors
+}
+
 // fakeFlasher discards all flash messages (flash is not under test here).
 type fakeFlasher struct{}
 

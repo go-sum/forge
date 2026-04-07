@@ -1,13 +1,18 @@
 package app
 
 import (
-	"net/http"
-
 	auth "github.com/go-sum/auth"
 	authadapter "github.com/go-sum/forge/internal/adapters/auth"
-	"github.com/go-sum/forge/internal/handler"
+	"github.com/go-sum/forge/internal/features/availability"
+	"github.com/go-sum/forge/internal/features/contact"
+	"github.com/go-sum/forge/internal/features/docs"
+	"github.com/go-sum/forge/internal/features/examples"
+	"github.com/go-sum/forge/internal/features/public"
 	appserver "github.com/go-sum/forge/internal/server"
+	"github.com/go-sum/send"
+	"github.com/go-sum/server/headers"
 	smw "github.com/go-sum/server/middleware"
+	"github.com/go-sum/server/middleware/etag"
 	"github.com/go-sum/server/route"
 	sitehandlers "github.com/go-sum/site/handlers"
 
@@ -15,78 +20,103 @@ import (
 )
 
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
-// This is the single source of truth for HTTP route registration.
-//
-// Route Group Policy:
-//
-//	public:            No auth required. Read-only pages (global Echo instance).
-//	publicPost:        Cross-origin guard + rate limit ("auth"). Public mutations.
-//	authGuarded:       Rate limit ("server") + RequireAuthPath. Authenticated read pages.
-//	authGuardedPost:   authGuarded + CrossOriginGuard. Authenticated mutations.
-//	adminGuarded:      authGuarded + LoadUserRole + RequireAdmin. Admin read pages.
-//	adminGuardedPost:  adminGuarded + CrossOriginGuard. Admin mutations.
-//
-// Future groups (not yet registered):
-//
-//	apiV1:             Bearer token auth, JSON responses, rate-limited.
-//	webhookInbound:    Signature verification, no session, rate-limited.
-func RegisterRoutes(c *Container, h *handler.Handler, availabilityH *handler.AvailabilityHandler, authH *auth.Handler) error {
-	staticGroup := c.Web.Group(c.PublicPrefix)
-	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
-	staticGroup.Static("", c.PublicDir)
+func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler *auth.Handler, adminHandler *auth.AdminHandler) error {
+	registerStaticRoutes(r)
+	resolve := route.NewResolver(func() echo.Routes { return r.Web.Router().Routes() })
+	r.Web.Use(auth.LoadSession(&authadapter.SessionManagerAdapter{Mgr: r.Sessions}))
 
-	c.Web.Use(auth.LoadSession(&authadapter.SessionManagerAdapter{Mgr: c.Sessions}))
+	siteHandler := sitehandlers.New(sitehandlers.Config{
+		Origin:  r.Config.App.Security.ExternalOrigin,
+		Robots:  r.Config.Site.Robots,
+		Sitemap: r.Config.Site.Sitemap,
+	}, resolve.Routes())
 
-	siteH := sitehandlers.New(sitehandlers.Config{
-		Origin:  c.Config.App.Security.ExternalOrigin,
-		Robots:  c.Config.Site.Robots,
-		Sitemap: c.Config.Site.Sitemap,
-	}, func() echo.Routes { return c.Web.Router().Routes() })
+	publicHandler := public.NewModule(r.Config, siteHandler)
+	docsHandler := docs.NewModule(r.PublicDir)
+	contactHandler := contact.NewHandler(r.Config, contact.NewService(r.Queue, contact.Config{
+		SendTo:   r.Config.Service.Send.SendTo,
+		SendFrom: send.DefaultRegistry.SendFrom(r.Config.Service.Send.Delivery),
+	}), r.Validator)
+	examplesHandler := examples.NewModule(r.Config)
 
-	docsH := docsHandler(c.PublicDir)
+	crossOriginGuard := appserver.CrossOriginGuard(r.Config)
 
-	publicPost := c.Web.Group("") // (cross-origin-guarded public POST)
-	publicPost.Use(
-		appserver.CrossOriginGuard(c.Config),
-		c.RateLimiters.Middleware(c.Config, "auth"),
+	route.Register(r.Web,
+		// Public GET — no middleware
+		route.GET("/health", "health.show", availHandler.Health),
+		route.GET("/", "home.show", publicHandler.Home),
+		route.GET("/robots.txt", "robots.show", siteHandler.RobotsTxt),
+		route.GET("/sitemap.xml", "sitemap.show", siteHandler.SitemapXML),
+		route.GET("/docs", "docs.index", docsHandler.Handle),
+		route.GET("/docs/*", "docs.show", docsHandler.Handle),
+		route.GET("/contact", "contact.show", contactHandler.Form),
+		route.GET("/signin", "signin.get", authHandler.SigninPage),
+		route.GET("/signup", "signup.get", authHandler.SignupPage),
+		route.GET("/verify", "verify.get", authHandler.VerifyPage),
+
+		// Public POST — cross-origin guard + auth rate limit
+		route.Layout(
+			route.Use(crossOriginGuard, r.RateLimiters.Middleware(r.Config, "auth")),
+			route.POST("/signin", "signin.post", authHandler.Signin),
+			route.POST("/signup", "signup.post", authHandler.Signup),
+			route.POST("/verify", "verify.post", authHandler.Verify),
+			route.POST("/verify/resend", "verify.resend.post", authHandler.ResendVerify),
+			route.POST("/contact", "contact.submit", contactHandler.Submit),
+		),
+
+		// Authenticated — server rate limit + auth required
+		route.Layout(
+			route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
+			route.GET("/account/email", "account.email.get", authHandler.EmailChangePage),
+			route.GET("/account/admin", "account.admin", adminHandler.AdminElevatePage),
+			route.GET("/_components", "components.list", examplesHandler.Handle),
+
+			// Authenticated POST — adds cross-origin guard
+			route.Layout(
+				route.Use(crossOriginGuard),
+				route.POST("/signout", "signout.post", authHandler.Signout),
+				route.POST("/account/email", "account.email.post", authHandler.BeginEmailChange),
+				route.POST("/account/admin", "account.admin.post", adminHandler.AdminElevate),
+			),
+
+			// Admin — adds role load + admin check
+			route.Layout(
+				route.Use(auth.LoadUserRole(r.AuthStore), auth.RequireAdmin()),
+				route.Group("/users",
+					route.GET("", "user.list", adminHandler.UserList),
+					route.GET("/:id/edit", "user.edit", adminHandler.UserEditForm),
+					// Cached fragments — private cache + ETag
+					route.Layout(
+						route.Use(
+							smw.CacheHeaders(headers.NewCacheControl().Private().MustRevalidate().String(), "Cookie"),
+							etag.Middleware(),
+						),
+						route.GET("/:id/row", "user.row", adminHandler.UserRow),
+					),
+					// Admin writes — adds cross-origin guard
+					route.Layout(
+						route.Use(crossOriginGuard),
+						route.PUT("/:id", "user.update", adminHandler.UserUpdate),
+						route.DELETE("/:id", "user.delete", adminHandler.UserDelete),
+					),
+				),
+			),
+		),
 	)
-
-	authGuarded := c.Web.Group("") // (requires session)
-	authGuarded.Use(
-		c.RateLimiters.Middleware(c.Config, "server"),
-		auth.RequireAuthPath(func() string {
-			return route.Reverse(c.Web.Router().Routes(), "signin.get")
-		}),
-	)
-
-	authGuardedPost := authGuarded.Group("") // (session + cross-origin-guarded POST)
-	authGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
-
-	adminGuarded := authGuarded.Group("") // (admin + requires session)
-	adminGuarded.Use(
-		auth.LoadUserRole(c.AuthStore),
-		auth.RequireAdmin(),
-	)
-
-	adminGuardedPost := adminGuarded.Group("") // (admin + session + cross-origin-guarded POST)
-	adminGuardedPost.Use(appserver.CrossOriginGuard(c.Config))
-
-	registerPublicRoutes(c.Web, authGuarded, h, availabilityH, siteH, docsH)
-	registerAuthRoutes(c.Web, publicPost, authGuarded, authGuardedPost, h, authH)
-	registerAdminRoutes(adminGuarded, adminGuardedPost, h)
 
 	return nil
 }
 
 // RegisterStartupRoutes binds a degraded route set used when startup fails
 // before the full application can be wired.
-func RegisterStartupRoutes(c *Container, availabilityH *handler.AvailabilityHandler) error {
-	staticGroup := c.Web.Group(c.PublicPrefix)
-	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
-	staticGroup.Static("", c.PublicDir)
-
-	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: availabilityH.Unavailable})
-	route.Add(c.Web, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: availabilityH.Health})
-	route.Add(c.Web, echo.Route{Method: echo.RouteAny, Path: "/*", Handler: availabilityH.Unavailable})
+func RegisterStartupRoutes(r *Runtime, availHandler *availability.Handler) error {
+	registerStaticRoutes(r)
+	availability.RegisterStartupRoutes(r.Web, availHandler)
 	return nil
+}
+
+func registerStaticRoutes(r *Runtime) {
+	staticGroup := r.Web.Group(r.PublicPrefix)
+	staticGroup.Use(smw.StaticCache(smw.StaticCacheConfig{}))
+	staticGroup.Static("", r.PublicDir)
 }
