@@ -24,6 +24,7 @@ type App struct {
 // version is the build-time application version (may be empty in dev).
 func New(version string) *App {
 	r := NewRuntime()
+	r.Config.App.Version = version
 	availabilityH := availability.NewHandler(r.checkHealth(), r.StartupError, version)
 
 	if r.StartupError != nil {

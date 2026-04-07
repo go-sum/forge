@@ -12,15 +12,16 @@ type Config struct {
 
 // AppConfig holds the full application configuration from config/app.yaml.
 type AppConfig struct {
-	Env       string            `koanf:"env" validate:"required,oneof=development production test"`
-	Name      string            `koanf:"name" validate:"required"`
-	Server    ServerConfig      `koanf:"server"`
-	Security  SecurityConfig    `koanf:"security"`
-	Database  DatabaseConfig    `koanf:"database"`
-	Queue     QueueConfig       `koanf:"queue"`
-	KV        KVConfig          `koanf:"kv"`
-	Session   SessionConfig     `koanf:"session"`
-	Auth      AuthConfig        `koanf:"auth"`
+	Version   string          // Version is the build-time app version via -ldflags - never from YAML
+	Env       string          `koanf:"env" validate:"required,oneof=development production test"`
+	Name      string          `koanf:"name" validate:"required"`
+	Server    ServerConfig    `koanf:"server"`
+	Security  SecurityConfig  `koanf:"security"`
+	Database  DatabaseConfig  `koanf:"database"`
+	Queue     QueueConfig     `koanf:"queue"`
+	KV        KVConfig        `koanf:"kv"`
+	Session   SessionConfig   `koanf:"session"`
+	Auth      AuthConfig      `koanf:"auth"`
 	Assets    AssetsConfig    `koanf:"assets"`
 	Log       LogConfig       `koanf:"log"`
 	CSPHashes CSPHashesConfig `koanf:"csp_hashes"`
@@ -185,4 +186,3 @@ type CSPHashesConfig struct {
 	Always  []string `koanf:"always"`
 	DevOnly []string `koanf:"dev_only"`
 }
-

@@ -89,7 +89,7 @@ func (g *ghClient) createRelease(ctx context.Context, repo, version, prefix stri
 func (g *ghClient) getRef(ctx context.Context, repo, refName string) (string, error) {
 	ref, resp, err := g.client.Git.GetRef(ctx, g.owner, repo, refName)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		if resp != nil && (resp.StatusCode == 404 || resp.StatusCode == 409) {
 			return "", nil
 		}
 		return "", fmt.Errorf("get ref %s on %s/%s: %w", refName, g.owner, repo, err)

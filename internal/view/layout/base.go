@@ -32,6 +32,7 @@ type Props struct {
 	FontConfig      font.Config
 	SignoutPath      string
 	CopyrightYear   int
+	AppVersion      string
 	Children        []g.Node
 }
 

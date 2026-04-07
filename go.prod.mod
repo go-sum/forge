@@ -4,20 +4,22 @@ go 1.26.0
 
 require (
 	github.com/evanw/esbuild v0.27.4
-	github.com/go-sum/auth v0.0.2
+	github.com/go-sum/auth v0.0.3
 	github.com/go-sum/componentry v0.0.2
-	github.com/go-sum/kv v0.0.3
+	github.com/go-sum/kv v0.0.4
+	github.com/go-sum/queue v0.0.2
 	github.com/go-sum/security v0.0.2
 	github.com/go-sum/send v0.0.2
-	github.com/go-sum/server v0.0.3
+	github.com/go-sum/server v0.0.4
 	github.com/go-sum/session v0.0.2
-	github.com/go-sum/site v0.0.2
+	github.com/go-sum/site v0.0.3
 	github.com/google/go-github/v68 v68.0.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/labstack/echo/v5 v5.0.4
 	github.com/spf13/cobra v1.10.2
 	github.com/splitsh/lite v1.0.2-0.20251130160539-36e0e74cfef3
+	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sync v0.20.0
 	maragu.dev/gomponents v1.2.0
 )
@@ -50,7 +52,6 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	go.etcd.io/bbolt v1.3.9 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect

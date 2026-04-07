@@ -69,18 +69,23 @@ func releasePackage(ctx context.Context, cfg *config, gh *ghClient, pkg Package,
 
 func newReleaseCmd(cfg *config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "release <name> [version]",
+		Use:   "release <name|all> [version]",
 		Short: "Release a versioned package to its mirror repo",
 		Long: `Release a package by subtree-splitting and pushing to its mirror repo.
 
 If version is omitted, the patch version from go.mod is auto-incremented.
 If version is specified, it must be greater than the current version in go.mod.
-After a successful release, go.mod is updated with the new version.`,
+After a successful release, go.mod is updated with the new version.
+
+Use 'all' to release every discovered package; explicit version is not allowed with 'all'.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
+			nameOrAll := args[0]
 			explicit := ""
 			if len(args) == 2 {
+				if nameOrAll == "all" {
+					return fmt.Errorf("explicit version cannot be used with 'all'")
+				}
 				explicit = args[1]
 			}
 
@@ -89,7 +94,7 @@ After a successful release, go.mod is updated with the new version.`,
 				return err
 			}
 
-			pkg, err := discoverPackage(cfg.repoRoot, name)
+			pkgs, err := resolvePackages(cfg.repoRoot, nameOrAll)
 			if err != nil {
 				return err
 			}
@@ -97,8 +102,12 @@ After a successful release, go.mod is updated with the new version.`,
 			goModPath := filepath.Join(cfg.repoRoot, "go.mod")
 			ctx := context.Background()
 
-			_, _, err = releasePackage(ctx, cfg, gh, pkg, goModPath, explicit)
-			return err
+			for _, pkg := range pkgs {
+				if _, _, err = releasePackage(ctx, cfg, gh, pkg, goModPath, explicit); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }

@@ -102,11 +102,11 @@ package-push: ## Push a package subtree to its mirror repo (PACKAGE=auth)
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-push PACKAGE=auth" >&2; exit 1; }
 	$(RUN_TOOLS) tools go run ./cli/package push "$(PACKAGE)"
 
-package-release: ## Release a package (PACKAGE=auth [VERSION=v0.1.0])
+package-release: ## Release a package (PACKAGE=auth|all [VERSION=v0.1.0, single name only])
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth" >&2; exit 1; }
 	$(RUN_TOOLS) tools go run ./cli/package release "$(PACKAGE)" $(if $(VERSION),"$(VERSION)")
 
-package-status: ## Show sync status for a package (PACKAGE=auth)
+package-status: ## Show sync status for a package (PACKAGE=auth|all)
 	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-status PACKAGE=auth" >&2; exit 1; }
 	$(RUN_TOOLS) tools go run ./cli/package status "$(PACKAGE)"
 

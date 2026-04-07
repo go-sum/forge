@@ -6,7 +6,7 @@ tmp_dir = "tmp"
   # CSS, JS always rebuild; remote downloads are skipped
   # when their targets already exist.
   pre_cmd = ["go run ./cli/build assets"]
-  cmd = "go build -o ./tmp/server ./cmd/server"
+  cmd = "go build -ldflags=\"-X main.version=${APP_VERSION}\" -o ./tmp/server ./cmd/server"
   entrypoint = ["./tmp/server"]
   include_ext = ["go", "toml", "css", "js", "yaml", "html"]
   exclude_dir = ["bin", "cli", "db", "docker", "public", "scripts", "tmp"]

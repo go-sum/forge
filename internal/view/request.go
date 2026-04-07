@@ -38,6 +38,7 @@ type Request struct {
 	NavConfig       config.NavConfig
 	FontConfig      font.Config
 	CopyrightYear   int
+	AppVersion      string
 	HTMX            htmx.Request
 	Routes          echo.Routes
 }
@@ -55,6 +56,7 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 		NavConfig:      cfg.Nav,
 		FontConfig:     cfg.Site.Fonts,
 		CopyrightYear:  cfg.Site.CopyrightYear,
+		AppVersion:     cfg.App.Version,
 		HTMX:           htmx.NewRequest(c.Request()),
 		Routes:         c.Echo().Router().Routes(),
 	}
@@ -141,6 +143,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		FontConfig:      r.FontConfig,
 		SignoutPath:      r.safePath("signout.post", "/signout"),
 		CopyrightYear:   r.CopyrightYear,
+		AppVersion:      r.AppVersion,
 		Children:        children,
 	}
 }

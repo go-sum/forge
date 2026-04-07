@@ -65,6 +65,8 @@ services:
         GO_VERSION: ${GO_VERSION}
         TOOLS_DEV_IMAGE: ${TOOLS_DEV}
     image: forge-dev
+    environment:
+      APP_VERSION: ${APP_VERSION}
     pids_limit: 512
     ports:
       - "${APP_PORT:-8080}:8080"
