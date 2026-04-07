@@ -1,13 +1,12 @@
 // Package pgstore implements the auth repository.UserStore interface using
-// PostgreSQL with pgx/v5. It owns the users table schema and all auth-related
-// queries. Call Install() once at startup to create the table idempotently.
+// PostgreSQL with pgx/v5. It owns the auth module's users-table queries; the
+// host application applies schema changes via migrations composed through
+// db/sql/schemas.yaml.
 package pgstore
 
 import (
 	"context"
-	_ "embed"
 	"errors"
-	"fmt"
 
 	"github.com/go-sum/auth/model"
 	authdb "github.com/go-sum/auth/pgstore/db"
@@ -19,11 +18,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Compile-time interface check.
-var _ authrepo.UserStore = (*PgStore)(nil)
-
-//go:embed sql/schema.sql
-var createTableSQL string
+// Compile-time interface checks.
+var (
+	_ authrepo.UserStore  = (*PgStore)(nil)
+	_ authrepo.AdminStore = (*PgStore)(nil)
+)
 
 // Config holds the PostgreSQL store configuration.
 type Config struct {
@@ -32,27 +31,14 @@ type Config struct {
 
 // PgStore implements authrepo.UserStore backed by PostgreSQL.
 type PgStore struct {
-	pool    *pgxpool.Pool
 	queries *authdb.Queries
 }
 
 // New creates a PgStore. The pool is externally managed and not closed by PgStore.
 func New(cfg Config) *PgStore {
 	return &PgStore{
-		pool:    cfg.Pool,
 		queries: authdb.New(cfg.Pool),
 	}
-}
-
-// Install creates the users table and indexes idempotently.
-// Safe to call on an existing database — uses CREATE TABLE IF NOT EXISTS.
-// Requires the citext extension to be installed by the host application.
-func (s *PgStore) Install(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, createTableSQL)
-	if err != nil {
-		return fmt.Errorf("pgstore: install schema: %w", err)
-	}
-	return nil
 }
 
 // Create inserts a new user and returns the persisted record.
@@ -109,6 +95,55 @@ func (s *PgStore) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (
 		return model.User{}, mapUserErr(err)
 	}
 	return toUserModel(u), nil
+}
+
+// List returns a paginated slice of users, ordered by creation date descending.
+func (s *PgStore) List(ctx context.Context, limit, offset int32) ([]model.User, error) {
+	rows, err := s.queries.ListUsers(ctx, authdb.ListUsersParams{Limit: limit, Offset: offset})
+	if err != nil {
+		return nil, err
+	}
+	users := make([]model.User, len(rows))
+	for i, u := range rows {
+		users[i] = toUserModel(u)
+	}
+	return users, nil
+}
+
+// Update applies non-empty fields to the user. Empty strings are treated as
+// "no change" by COALESCE logic in the SQL query.
+// Returns model.ErrUserNotFound when no row matches id.
+// Returns model.ErrEmailTaken on unique constraint violation.
+func (s *PgStore) Update(ctx context.Context, id uuid.UUID, email, displayName, role string) (model.User, error) {
+	u, err := s.queries.UpdateUser(ctx, authdb.UpdateUserParams{
+		ID:          id,
+		Email:       email,
+		DisplayName: displayName,
+		Role:        role,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.User{}, model.ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, mapUserErr(err)
+	}
+	return toUserModel(u), nil
+}
+
+// Delete removes a user. If no row matches id, the operation succeeds silently —
+// DELETE is idempotent per RFC 9110 §9.3.5.
+func (s *PgStore) Delete(ctx context.Context, id uuid.UUID) error {
+	return s.queries.DeleteUser(ctx, id)
+}
+
+// Count returns the total number of users.
+func (s *PgStore) Count(ctx context.Context) (int64, error) {
+	return s.queries.CountUsers(ctx)
+}
+
+// HasAdmin reports whether at least one admin user exists.
+func (s *PgStore) HasAdmin(ctx context.Context) (bool, error) {
+	return s.queries.HasAdminUser(ctx)
 }
 
 // toUserModel converts a sqlc-generated db.User to the domain model.

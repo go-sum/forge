@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/model"
 
 	"github.com/google/uuid"
@@ -101,19 +102,19 @@ func TestAdminElevate(t *testing.T) {
 	tests := []struct {
 		name             string
 		userID           string
-		elevateToAdminFn func(context.Context, uuid.UUID) (model.User, error)
+		elevateToAdminFn func(context.Context, uuid.UUID) (authmodel.User, error)
 		wantStatus       int
 		wantLocation     string
 	}{
 		{
 			name:   "happy path redirects to home",
 			userID: testUser.ID.String(),
-			elevateToAdminFn: func(_ context.Context, id uuid.UUID) (model.User, error) {
+			elevateToAdminFn: func(_ context.Context, id uuid.UUID) (authmodel.User, error) {
 				if id != testUser.ID {
 					t.Fatalf("ElevateToAdmin id = %s, want %s", id, testUser.ID)
 				}
 				elevated := testUser
-				elevated.Role = model.RoleAdmin
+				elevated.Role = authmodel.RoleAdmin
 				return elevated, nil
 			},
 			wantStatus:   http.StatusSeeOther,
@@ -122,24 +123,24 @@ func TestAdminElevate(t *testing.T) {
 		{
 			name:   "admin exists returns 404",
 			userID: testUser.ID.String(),
-			elevateToAdminFn: func(context.Context, uuid.UUID) (model.User, error) {
-				return model.User{}, model.ErrAdminExists
+			elevateToAdminFn: func(context.Context, uuid.UUID) (authmodel.User, error) {
+				return authmodel.User{}, model.ErrAdminExists
 			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:   "user not found returns 401",
 			userID: testUser.ID.String(),
-			elevateToAdminFn: func(context.Context, uuid.UUID) (model.User, error) {
-				return model.User{}, model.ErrUserNotFound
+			elevateToAdminFn: func(context.Context, uuid.UUID) (authmodel.User, error) {
+				return authmodel.User{}, authmodel.ErrUserNotFound
 			},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:   "service error returns 503",
 			userID: testUser.ID.String(),
-			elevateToAdminFn: func(context.Context, uuid.UUID) (model.User, error) {
-				return model.User{}, errors.New("unexpected failure")
+			elevateToAdminFn: func(context.Context, uuid.UUID) (authmodel.User, error) {
+				return authmodel.User{}, errors.New("unexpected failure")
 			},
 			wantStatus: http.StatusServiceUnavailable,
 		},

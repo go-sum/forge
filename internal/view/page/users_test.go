@@ -8,14 +8,14 @@ import (
 	"github.com/go-sum/componentry/patterns/pager"
 	"github.com/go-sum/componentry/testutil"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/view"
 )
 
 func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 	pg := pager.Pager{Page: 2, PerPage: 20, TotalItems: 45, TotalPages: 3}
 	got := testutil.RenderNode(t, UserListRegion(view.Request{Routes: mustPageRoutes(t)}, UserListData{
-		Users: []model.User{{
+		Users: []authmodel.User{{
 			DisplayName: "Ada Lovelace",
 			Email:       "ada@example.com",
 			Role:        "admin",

@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/model"
 
 	"github.com/google/uuid"
 )
 
-var serviceTestUser = model.User{
+var serviceTestUser = authmodel.User{
 	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 	Email:       "ada@example.com",
 	DisplayName: "Ada Lovelace",
@@ -21,33 +22,41 @@ var serviceTestUser = model.User{
 }
 
 type fakeUserRepo struct {
-	listFn     func(context.Context, int32, int32) ([]model.User, error)
-	getByID    func(context.Context, uuid.UUID) (model.User, error)
-	updateFn   func(context.Context, uuid.UUID, string, string, string) (model.User, error)
+	listFn     func(context.Context, int32, int32) ([]authmodel.User, error)
+	getByID    func(context.Context, uuid.UUID) (authmodel.User, error)
+	getByEmail func(context.Context, string) (authmodel.User, error)
+	updateFn   func(context.Context, uuid.UUID, string, string, string) (authmodel.User, error)
 	deleteFn   func(context.Context, uuid.UUID) error
 	countFn    func(context.Context) (int64, error)
 	hasAdminFn func(context.Context) (bool, error)
 }
 
-func (r fakeUserRepo) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
+func (r fakeUserRepo) GetByID(ctx context.Context, id uuid.UUID) (authmodel.User, error) {
 	if r.getByID != nil {
 		return r.getByID(ctx, id)
 	}
-	return model.User{}, errors.New("unexpected GetByID call")
+	return authmodel.User{}, errors.New("unexpected GetByID call")
 }
 
-func (r fakeUserRepo) List(ctx context.Context, limit, offset int32) ([]model.User, error) {
+func (r fakeUserRepo) GetByEmail(ctx context.Context, email string) (authmodel.User, error) {
+	if r.getByEmail != nil {
+		return r.getByEmail(ctx, email)
+	}
+	return authmodel.User{}, errors.New("unexpected GetByEmail call")
+}
+
+func (r fakeUserRepo) List(ctx context.Context, limit, offset int32) ([]authmodel.User, error) {
 	if r.listFn != nil {
 		return r.listFn(ctx, limit, offset)
 	}
 	return nil, errors.New("unexpected List call")
 }
 
-func (r fakeUserRepo) Update(ctx context.Context, id uuid.UUID, email, displayName, role string) (model.User, error) {
+func (r fakeUserRepo) Update(ctx context.Context, id uuid.UUID, email, displayName, role string) (authmodel.User, error) {
 	if r.updateFn != nil {
 		return r.updateFn(ctx, id, email, displayName, role)
 	}
-	return model.User{}, errors.New("unexpected Update call")
+	return authmodel.User{}, errors.New("unexpected Update call")
 }
 
 func (r fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -73,11 +82,11 @@ func (r fakeUserRepo) HasAdmin(ctx context.Context) (bool, error) {
 
 func TestUserServiceListCapsPerPageAndComputesOffset(t *testing.T) {
 	svc := NewUserService(fakeUserRepo{
-		listFn: func(_ context.Context, limit, offset int32) ([]model.User, error) {
+		listFn: func(_ context.Context, limit, offset int32) ([]authmodel.User, error) {
 			if limit != 100 || offset != 200 {
 				t.Fatalf("limit=%d offset=%d", limit, offset)
 			}
-			return []model.User{serviceTestUser}, nil
+			return []authmodel.User{serviceTestUser}, nil
 		},
 	})
 
@@ -92,8 +101,8 @@ func TestUserServiceListCapsPerPageAndComputesOffset(t *testing.T) {
 
 func TestUserServiceDelegatesCRUDOperations(t *testing.T) {
 	svc := NewUserService(fakeUserRepo{
-		getByID: func(context.Context, uuid.UUID) (model.User, error) { return serviceTestUser, nil },
-		updateFn: func(_ context.Context, id uuid.UUID, email, displayName, role string) (model.User, error) {
+		getByID: func(context.Context, uuid.UUID) (authmodel.User, error) { return serviceTestUser, nil },
+		updateFn: func(_ context.Context, id uuid.UUID, email, displayName, role string) (authmodel.User, error) {
 			if id != serviceTestUser.ID || email != "" || displayName != "" || role != "" {
 				t.Fatalf("id=%s email=%q displayName=%q role=%q", id, email, displayName, role)
 			}
@@ -108,7 +117,7 @@ func TestUserServiceDelegatesCRUDOperations(t *testing.T) {
 		t.Fatalf("GetByID() user=%#v err=%v", user, err)
 	}
 
-	user, err = svc.Update(context.Background(), serviceTestUser.ID, model.UpdateUserInput{})
+	user, err = svc.Update(context.Background(), serviceTestUser.ID, authmodel.UpdateUserInput{})
 	if err != nil || user.ID != serviceTestUser.ID {
 		t.Fatalf("Update() user=%#v err=%v", user, err)
 	}
@@ -175,13 +184,13 @@ func TestUserServiceHasAdminDelegatesToRepo(t *testing.T) {
 
 func TestUserServiceElevateToAdmin(t *testing.T) {
 	adminUser := serviceTestUser
-	adminUser.Role = model.RoleAdmin
+	adminUser.Role = authmodel.RoleAdmin
 
 	tests := []struct {
 		name       string
 		hasAdminFn func(context.Context) (bool, error)
-		updateFn   func(context.Context, uuid.UUID, string, string, string) (model.User, error)
-		wantUser   model.User
+		updateFn   func(context.Context, uuid.UUID, string, string, string) (authmodel.User, error)
+		wantUser   authmodel.User
 		wantErr    error
 	}{
 		{
@@ -189,7 +198,7 @@ func TestUserServiceElevateToAdmin(t *testing.T) {
 			hasAdminFn: func(context.Context) (bool, error) {
 				return false, nil
 			},
-			updateFn: func(_ context.Context, id uuid.UUID, email, displayName, role string) (model.User, error) {
+			updateFn: func(_ context.Context, id uuid.UUID, email, displayName, role string) (authmodel.User, error) {
 				if id != serviceTestUser.ID {
 					t.Fatalf("Update id = %s, want %s", id, serviceTestUser.ID)
 				}
@@ -199,8 +208,8 @@ func TestUserServiceElevateToAdmin(t *testing.T) {
 				if displayName != "" {
 					t.Fatalf("Update displayName = %q, want empty", displayName)
 				}
-				if role != model.RoleAdmin {
-					t.Fatalf("Update role = %q, want %q", role, model.RoleAdmin)
+				if role != authmodel.RoleAdmin {
+					t.Fatalf("Update role = %q, want %q", role, authmodel.RoleAdmin)
 				}
 				return adminUser, nil
 			},
@@ -225,10 +234,10 @@ func TestUserServiceElevateToAdmin(t *testing.T) {
 			hasAdminFn: func(context.Context) (bool, error) {
 				return false, nil
 			},
-			updateFn: func(context.Context, uuid.UUID, string, string, string) (model.User, error) {
-				return model.User{}, model.ErrUserNotFound
+			updateFn: func(context.Context, uuid.UUID, string, string, string) (authmodel.User, error) {
+				return authmodel.User{}, authmodel.ErrUserNotFound
 			},
-			wantErr: model.ErrUserNotFound,
+			wantErr: authmodel.ErrUserNotFound,
 		},
 	}
 
@@ -247,8 +256,8 @@ func TestUserServiceElevateToAdmin(t *testing.T) {
 				if errors.Is(tt.wantErr, model.ErrAdminExists) && !errors.Is(err, model.ErrAdminExists) {
 					t.Fatalf("ElevateToAdmin() error = %v, want %v", err, model.ErrAdminExists)
 				}
-				if errors.Is(tt.wantErr, model.ErrUserNotFound) && !errors.Is(err, model.ErrUserNotFound) {
-					t.Fatalf("ElevateToAdmin() error = %v, want %v", err, model.ErrUserNotFound)
+				if errors.Is(tt.wantErr, authmodel.ErrUserNotFound) && !errors.Is(err, authmodel.ErrUserNotFound) {
+					t.Fatalf("ElevateToAdmin() error = %v, want %v", err, authmodel.ErrUserNotFound)
 				}
 				return
 			}

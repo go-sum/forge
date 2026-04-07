@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/go-sum/componentry/testutil"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/view"
 
 	"github.com/google/uuid"
 )
 
-var partialTestUser = model.User{
+var partialTestUser = authmodel.User{
 	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 	Email:       "ada@example.com",
 	DisplayName: "Ada Lovelace",
@@ -28,7 +28,7 @@ func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 		Routes:         mustPartialRoutes(t),
 	}, UserFormData{
 		User: partialTestUser,
-		Values: model.UpdateUserInput{
+		Values: authmodel.UpdateUserInput{
 			Email:       "grace@example.com",
 			DisplayName: "Grace Hopper",
 			Role:        "user",

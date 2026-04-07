@@ -1,6 +1,6 @@
--- Queue job queries
--- Executed via pgx parameterized statements. The -- name: annotations follow
--- sqlc conventions for documentation, though these are not processed by sqlc.
+-- Queue job queries.
+-- Query names and return modes follow sqlc conventions (-- name: X :one/:exec/:execrows).
+-- Generated Go code lives in db/ via the co-located .sqlc.yaml.
 
 -- name: Enqueue :one
 INSERT INTO queue_jobs (queue, priority, payload, status, max_attempts, run_at)
@@ -37,23 +37,21 @@ WHERE id = $1;
 
 -- name: Fail :exec
 -- Reschedules a job for retry or marks it dead.
--- $1 = job ID, $2 = error message, $3 = retry_after interval (e.g. '10 seconds').
 UPDATE queue_jobs
-SET last_error  = $2,
+SET last_error  = sqlc.arg(last_error),
     updated_at  = NOW(),
     status      = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'pending' END,
-    run_at      = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() + $3::interval END
-WHERE id = $1;
+    run_at      = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() + sqlc.arg(retry_after)::interval END
+WHERE id = sqlc.arg(id);
 
 -- name: Reap :execrows
 -- Reclaims running jobs stuck beyond the stale threshold.
--- $1 = queue names, $2 = stale threshold interval (e.g. '300 seconds').
 UPDATE queue_jobs
 SET status = 'pending', updated_at = NOW()
 WHERE id IN (
     SELECT id FROM queue_jobs
-    WHERE queue_jobs.queue = ANY($1::text[])
+    WHERE queue_jobs.queue = ANY(sqlc.arg(queues)::text[])
       AND status = 'running'
-      AND updated_at < NOW() - $2::interval
+      AND updated_at < NOW() - sqlc.arg(stale_after)::interval
     FOR UPDATE SKIP LOCKED
 );

@@ -1,10 +1,10 @@
 -- Schema: auth users table
 -- This file is the canonical source of truth for the users table.
--- It is embedded by pkg/auth/pgstore and used for idempotent schema installation.
--- The application's db/sql/schema.sql mirrors this definition for sqlc code generation.
+-- It is composed into application migrations via db/sql/schemas.yaml.
+-- The application's db/sql/sqlc_schema.sql mirrors this definition for root sqlc code generation.
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
--- citext extension must be installed by the host application before Install() is called.
+-- citext extension is installed by the host application migration workflow.
 -- See db/init/01-extensions.sql.
 
 -- ─── Trigger function ───────────────────────────────────────────────────────

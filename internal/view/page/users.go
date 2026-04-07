@@ -10,7 +10,7 @@ import (
 	"github.com/go-sum/componentry/patterns/pager"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/partial/userpartial"
 
@@ -20,7 +20,7 @@ import (
 
 // UserListData configures the user management table and pagination region.
 type UserListData struct {
-	Users []model.User
+	Users []authmodel.User
 	Pager pager.Pager
 }
 
@@ -65,7 +65,7 @@ func usersPageHeader(total int) g.Node {
 	)
 }
 
-func userTable(req view.Request, users []model.User) g.Node {
+func userTable(req view.Request, users []authmodel.User) g.Node {
 	if len(users) == 0 {
 		return emptyUsersState()
 	}

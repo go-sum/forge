@@ -1,6 +1,6 @@
 -- Queue Jobs schema
--- Source of truth for the queue_jobs table. Self-contained — does not depend
--- on the application's db/sql/schema.sql. Executed via pgstore.Install().
+-- Source of truth for the queue_jobs table. Composed into application
+-- migrations via db/sql/schemas.yaml and used by local sqlc generation.
 
 -- Trigger function for automatic updated_at. Uses CREATE OR REPLACE so it
 -- coexists safely if the application defines the same function.

@@ -42,30 +42,27 @@ func newStore(t *testing.T) *pgstore.PgStore {
 	t.Helper()
 	pool := testPool(t)
 	s := pgstore.New(pgstore.Config{Pool: pool})
-	ctx := context.Background()
-	if err := s.Install(ctx); err != nil {
-		t.Fatalf("Install: %v", err)
-	}
+	requireUsersTable(t, pool)
 	truncateUsers(t, pool)
 	return s
 }
 
-// Compile-time check: PgStore satisfies repository.UserStore.
-var _ repository.UserStore = (*pgstore.PgStore)(nil)
-
-func TestInstall_Idempotent(t *testing.T) {
-	pool := testPool(t)
-	s := pgstore.New(pgstore.Config{Pool: pool})
-	ctx := context.Background()
-	// First install.
-	if err := s.Install(ctx); err != nil {
-		t.Fatalf("Install (first): %v", err)
+func requireUsersTable(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	var relation string
+	err := pool.QueryRow(context.Background(), `
+SELECT COALESCE(to_regclass('public.users')::text, '')
+`).Scan(&relation)
+	if err != nil {
+		t.Fatalf("verify users table: %v", err)
 	}
-	// Second install — must be a no-op.
-	if err := s.Install(ctx); err != nil {
-		t.Fatalf("Install (second): %v", err)
+	if relation != "users" {
+		t.Fatalf("users table is missing; run make db-migrate before these tests")
 	}
 }
+
+// Compile-time check: PgStore satisfies repository.UserStore.
+var _ repository.UserStore = (*pgstore.PgStore)(nil)
 
 func TestCreate_ReturnsUser(t *testing.T) {
 	s := newStore(t)

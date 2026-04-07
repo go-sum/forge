@@ -4,7 +4,7 @@
 package service
 
 import (
-	"github.com/go-sum/forge/internal/repository"
+	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/queue"
 )
 
@@ -16,9 +16,9 @@ type Services struct {
 
 // NewServices constructs all domain services from the shared infrastructure.
 // Auth is now handled by the auth module's AuthService, wired in container.go.
-func NewServices(repos *repository.Repositories, q *queue.Client, contactCfg ContactConfig) *Services {
+func NewServices(adminStore authrepo.AdminStore, q *queue.Client, contactCfg ContactConfig) *Services {
 	return &Services{
-		User:    NewUserService(repos.User),
+		User:    NewUserService(adminStore),
 		Contact: NewContactService(q, contactCfg),
 	}
 }

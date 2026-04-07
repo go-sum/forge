@@ -6,7 +6,7 @@ import (
 	uiform "github.com/go-sum/componentry/form"
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/view"
 
 	g "maragu.dev/gomponents"
@@ -17,8 +17,8 @@ import (
 // Errors keys match Go struct field names (e.g. "Email", "DisplayName", "Role")
 // as returned by patterns/form.Submission.GetErrors() — no remapping needed at the call site.
 type UserFormData struct {
-	User   model.User
-	Values model.UpdateUserInput
+	User   authmodel.User
+	Values authmodel.UpdateUserInput
 	Errors map[string][]string
 }
 
@@ -96,8 +96,8 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 						Name:     "role",
 						Selected: roleValue,
 						Options: []uiform.Option{
-							{Value: model.RoleUser, Label: "User"},
-							{Value: model.RoleAdmin, Label: "Admin"},
+							{Value: authmodel.RoleUser, Label: "User"},
+							{Value: authmodel.RoleAdmin, Label: "Admin"},
 						},
 						HasError: len(data.Errors["Role"]) > 0,
 						Extra:    uiform.FieldControlAttrs(roleID, "", "", data.Errors["Role"]),

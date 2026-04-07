@@ -12,7 +12,6 @@ import (
 	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/componentry/assets"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/repository"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/forge/internal/service"
 	"github.com/go-sum/kv"
@@ -25,6 +24,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 )
+
+// AuthStore combines auth and admin user storage interfaces.
+// In production, *authpgstore.PgStore implements both.
+type AuthStore interface {
+	authrepo.UserStore
+	authrepo.AdminStore
+}
 
 // BackgroundService is implemented by any service that runs work outside the
 // HTTP request cycle. Services self-register via Container.AddBackground
@@ -51,10 +57,9 @@ type Container struct {
 	Queue        *queue.Client
 	KV           kv.Store
 	Validator    *validate.Validator
-	Repos        *repository.Repositories
 	Services     *service.Services
 	AuthService  auth.Service
-	AuthStore    authrepo.UserStore
+	AuthStore    AuthStore
 	Sender       send.Sender
 
 	background []BackgroundService // registered in init order, stopped in reverse
@@ -79,7 +84,6 @@ func NewContainer() *Container {
 	c.initKV()
 	c.initAuth()
 	c.initValidator()
-	c.initRepos()
 	c.initServices()
 	return c
 }

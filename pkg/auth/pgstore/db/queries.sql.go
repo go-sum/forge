@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (email, display_name, role, verified)
@@ -27,7 +38,7 @@ type CreateUserParams struct {
 
 // Auth user queries.
 // These are the persistence operations required by the auth module.
-// Parsed at init() time by schema.go via -- name: annotations.
+// Query names and return modes follow sqlc conventions (-- name: X :one/:exec).
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
@@ -46,6 +57,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -77,6 +98,97 @@ WHERE id = $1
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Role,
+		&i.Verified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const hasAdminUser = `-- name: HasAdminUser :one
+SELECT EXISTS(SELECT 1 FROM users WHERE role = 'admin')
+`
+
+func (q *Queries) HasAdminUser(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasAdminUser)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listUsers = `-- name: ListUsers :many
+
+SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+// ─── Admin operations ───────────────────────────────────────────────────────
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.DisplayName,
+			&i.Role,
+			&i.Verified,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users
+SET
+    email        = COALESCE(NULLIF($1::text, ''), email),
+    display_name = COALESCE(NULLIF($2::text, ''), display_name),
+    role         = COALESCE(NULLIF($3::text, ''), role)
+WHERE id = $4
+RETURNING id, email, display_name, role, verified, created_at, updated_at
+`
+
+type UpdateUserParams struct {
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	Role        string    `json:"role"`
+	ID          uuid.UUID `json:"id"`
+}
+
+// COALESCE(NULLIF(value, ”), column) means: empty string = keep existing value.
+// sqlc.arg() assigns named parameters independent of positional $N numbering.
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.Email,
+		arg.DisplayName,
+		arg.Role,
+		arg.ID,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	auth "github.com/go-sum/auth"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/page"
@@ -48,7 +49,7 @@ func (h *Handler) AdminElevate(c *echo.Context) error {
 		if errors.Is(err, model.ErrAdminExists) {
 			return apperr.NotFound("The requested page does not exist.")
 		}
-		if errors.Is(err, model.ErrUserNotFound) {
+		if errors.Is(err, authmodel.ErrUserNotFound) {
 			return apperr.Unauthorized("Your account could not be found. Please sign in again.")
 		}
 		return apperr.Unavailable("Unable to complete elevation right now.", err)

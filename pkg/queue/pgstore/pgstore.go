@@ -4,7 +4,6 @@ package pgstore
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"time"
@@ -20,9 +19,6 @@ import (
 
 // Compile-time interface check.
 var _ queue.Store = (*PgStore)(nil)
-
-//go:embed sql/schema.sql
-var createTableSQL string
 
 // Config holds the PostgreSQL store configuration.
 type Config struct {
@@ -51,15 +47,6 @@ func New(cfg Config) *PgStore {
 		queries:       queuedb.New(cfg.Pool),
 		reapThreshold: reap,
 	}
-}
-
-// Install creates the queue_jobs table and indexes idempotently.
-func (s *PgStore) Install(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, createTableSQL)
-	if err != nil {
-		return fmt.Errorf("pgstore: install schema: %w", err)
-	}
-	return nil
 }
 
 // Enqueue inserts a new job and sets its ID from the RETURNING clause.
@@ -114,9 +101,9 @@ func (s *PgStore) Fail(ctx context.Context, id string, errMsg string, retryAfter
 		return fmt.Errorf("pgstore: fail: invalid id: %w", err)
 	}
 	if err := s.queries.Fail(ctx, queuedb.FailParams{
-		ID:        uid,
-		LastError: errMsg,
-		Column3:   durationToInterval(retryAfter),
+		ID:         uid,
+		LastError:  errMsg,
+		RetryAfter: durationToInterval(retryAfter),
 	}); err != nil {
 		return fmt.Errorf("pgstore: fail: %w", err)
 	}
@@ -126,8 +113,8 @@ func (s *PgStore) Fail(ctx context.Context, id string, errMsg string, retryAfter
 // Reap reclaims jobs stuck in running state beyond the reap threshold.
 func (s *PgStore) Reap(ctx context.Context, queues []string) (int, error) {
 	n, err := s.queries.Reap(ctx, queuedb.ReapParams{
-		Column1: queues,
-		Column2: durationToInterval(s.reapThreshold),
+		Queues:     queues,
+		StaleAfter: durationToInterval(s.reapThreshold),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("pgstore: reap: %w", err)

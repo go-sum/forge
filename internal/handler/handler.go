@@ -5,6 +5,7 @@ package handler
 import (
 	"context"
 
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/model"
@@ -17,12 +18,12 @@ import (
 
 type userService interface {
 	Count(ctx context.Context) (int64, error)
-	List(ctx context.Context, page, perPage int) ([]model.User, error)
-	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
-	Update(ctx context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error)
+	List(ctx context.Context, page, perPage int) ([]authmodel.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (authmodel.User, error)
+	Update(ctx context.Context, id uuid.UUID, input authmodel.UpdateUserInput) (authmodel.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	HasAdmin(ctx context.Context) (bool, error)
-	ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error)
+	ElevateToAdmin(ctx context.Context, userID uuid.UUID) (authmodel.User, error)
 }
 
 type contactService interface {

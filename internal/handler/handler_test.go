@@ -13,7 +13,7 @@ import (
 
 	auth "github.com/go-sum/auth"
 	"github.com/go-sum/forge/config"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/server/apperr"
 	"github.com/go-sum/server/route"
 	"github.com/go-sum/server/validate"
@@ -25,7 +25,7 @@ import (
 
 const testCSRFToken = "csrf-token"
 
-var testUser = model.User{
+var testUser = authmodel.User{
 	ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 	Email:       "ada@example.com",
 	DisplayName: "Ada Lovelace",
@@ -36,12 +36,12 @@ var testUser = model.User{
 
 type fakeUserService struct {
 	countFn         func(context.Context) (int64, error)
-	listFn          func(context.Context, int, int) ([]model.User, error)
-	getByID         func(context.Context, uuid.UUID) (model.User, error)
-	updateFn        func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error)
+	listFn          func(context.Context, int, int) ([]authmodel.User, error)
+	getByID         func(context.Context, uuid.UUID) (authmodel.User, error)
+	updateFn        func(context.Context, uuid.UUID, authmodel.UpdateUserInput) (authmodel.User, error)
 	deleteFn        func(context.Context, uuid.UUID) error
 	hasAdminFn      func(context.Context) (bool, error)
-	elevateToAdminFn func(context.Context, uuid.UUID) (model.User, error)
+	elevateToAdminFn func(context.Context, uuid.UUID) (authmodel.User, error)
 }
 
 func (f fakeUserService) Count(ctx context.Context) (int64, error) {
@@ -51,25 +51,25 @@ func (f fakeUserService) Count(ctx context.Context) (int64, error) {
 	return 0, errors.New("unexpected Count call")
 }
 
-func (f fakeUserService) List(ctx context.Context, page, perPage int) ([]model.User, error) {
+func (f fakeUserService) List(ctx context.Context, page, perPage int) ([]authmodel.User, error) {
 	if f.listFn != nil {
 		return f.listFn(ctx, page, perPage)
 	}
 	return nil, errors.New("unexpected List call")
 }
 
-func (f fakeUserService) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
+func (f fakeUserService) GetByID(ctx context.Context, id uuid.UUID) (authmodel.User, error) {
 	if f.getByID != nil {
 		return f.getByID(ctx, id)
 	}
-	return model.User{}, errors.New("unexpected GetByID call")
+	return authmodel.User{}, errors.New("unexpected GetByID call")
 }
 
-func (f fakeUserService) Update(ctx context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error) {
+func (f fakeUserService) Update(ctx context.Context, id uuid.UUID, input authmodel.UpdateUserInput) (authmodel.User, error) {
 	if f.updateFn != nil {
 		return f.updateFn(ctx, id, input)
 	}
-	return model.User{}, errors.New("unexpected Update call")
+	return authmodel.User{}, errors.New("unexpected Update call")
 }
 
 func (f fakeUserService) Delete(ctx context.Context, id uuid.UUID) error {
@@ -86,11 +86,11 @@ func (f fakeUserService) HasAdmin(ctx context.Context) (bool, error) {
 	return false, errors.New("unexpected HasAdmin call")
 }
 
-func (f fakeUserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error) {
+func (f fakeUserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (authmodel.User, error) {
 	if f.elevateToAdminFn != nil {
 		return f.elevateToAdminFn(ctx, userID)
 	}
-	return model.User{}, errors.New("unexpected ElevateToAdmin call")
+	return authmodel.User{}, errors.New("unexpected ElevateToAdmin call")
 }
 
 func newTestHandler(userSvc userService, _ ...func(context.Context) error) *Handler {

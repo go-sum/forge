@@ -144,18 +144,11 @@ func (c *Container) initDatabase() {
 	slog.Info("database connected")
 }
 
-// Auth store bootstrap. Creates the pgstore-backed UserStore for pkg/auth.
-// Install() is idempotent — safe to call on an existing database.
+// Auth store bootstrap. Requires the users table to already exist via
+// migrations. The PgStore implements both authrepo.UserStore (for auth flows)
+// and authrepo.AdminStore (for admin user management).
 func (c *Container) initAuthStore() {
-	pg := authpgstore.New(authpgstore.Config{Pool: c.DB})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	// Install is idempotent: uses CREATE TABLE IF NOT EXISTS.
-	if err := pg.Install(ctx); err != nil {
-		panic(fmt.Sprintf("auth store: install schema: %v", err))
-	}
-	// Assign via interface — callers depend on authrepo.UserStore, not the concrete type.
-	c.AuthStore = pg
+	c.AuthStore = authpgstore.New(authpgstore.Config{Pool: c.DB})
 	slog.Info("auth store initialized")
 }
 
@@ -179,13 +172,7 @@ func (c *Container) initQueue() {
 
 	var store queue.Store
 	if cfg.Enabled {
-		pg := pgstore.New(pgstore.Config{Pool: c.DB})
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := pg.Install(ctx); err != nil {
-			panic(fmt.Sprintf("queue: install schema: %v", err))
-		}
-		store = pg
+		store = pgstore.New(pgstore.Config{Pool: c.DB})
 	}
 
 	c.Queue = queue.New(store, queue.Config{
@@ -308,15 +295,10 @@ func (c *Container) initValidator() {
 	c.Web.Validator = c.Validator
 }
 
-// Repository bootstrap.
-func (c *Container) initRepos() {
-	c.Repos = repository.NewRepositories(c.DB)
-}
-
 // Domain services bootstrap.
 func (c *Container) initServices() {
 	c.registerQueueHandlers()
-	c.Services = service.NewServices(c.Repos, c.Queue, service.ContactConfig{
+	c.Services = service.NewServices(c.AuthStore, c.Queue, service.ContactConfig{
 		SendTo:   c.Config.Service.Send.SendTo,
 		SendFrom: send.DefaultRegistry.SendFrom(c.Config.Service.Send.Delivery),
 	})

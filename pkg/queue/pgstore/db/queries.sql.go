@@ -90,9 +90,9 @@ type EnqueueRow struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Queue job queries
-// Executed via pgx parameterized statements. The -- name: annotations follow
-// sqlc conventions for documentation, though these are not processed by sqlc.
+// Queue job queries.
+// Query names and return modes follow sqlc conventions (-- name: X :one/:exec/:execrows).
+// Generated Go code lives in db/ via the co-located .sqlc.yaml.
 func (q *Queries) Enqueue(ctx context.Context, arg EnqueueParams) (EnqueueRow, error) {
 	row := q.db.QueryRow(ctx, enqueue,
 		arg.Queue,
@@ -109,23 +109,22 @@ func (q *Queries) Enqueue(ctx context.Context, arg EnqueueParams) (EnqueueRow, e
 
 const fail = `-- name: Fail :exec
 UPDATE queue_jobs
-SET last_error  = $2,
+SET last_error  = $1,
     updated_at  = NOW(),
     status      = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'pending' END,
-    run_at      = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() + $3::interval END
-WHERE id = $1
+    run_at      = CASE WHEN attempts >= max_attempts THEN run_at ELSE NOW() + $2::interval END
+WHERE id = $3
 `
 
 type FailParams struct {
-	ID        uuid.UUID       `json:"id"`
-	LastError string          `json:"last_error"`
-	Column3   pgtype.Interval `json:"column_3"`
+	LastError  string          `json:"last_error"`
+	RetryAfter pgtype.Interval `json:"retry_after"`
+	ID         uuid.UUID       `json:"id"`
 }
 
 // Reschedules a job for retry or marks it dead.
-// $1 = job ID, $2 = error message, $3 = retry_after interval (e.g. '10 seconds').
 func (q *Queries) Fail(ctx context.Context, arg FailParams) error {
-	_, err := q.db.Exec(ctx, fail, arg.ID, arg.LastError, arg.Column3)
+	_, err := q.db.Exec(ctx, fail, arg.LastError, arg.RetryAfter, arg.ID)
 	return err
 }
 
@@ -142,14 +141,13 @@ WHERE id IN (
 `
 
 type ReapParams struct {
-	Column1 []string        `json:"column_1"`
-	Column2 pgtype.Interval `json:"column_2"`
+	Queues     []string        `json:"queues"`
+	StaleAfter pgtype.Interval `json:"stale_after"`
 }
 
 // Reclaims running jobs stuck beyond the stale threshold.
-// $1 = queue names, $2 = stale threshold interval (e.g. '300 seconds').
 func (q *Queries) Reap(ctx context.Context, arg ReapParams) (int64, error) {
-	result, err := q.db.Exec(ctx, reap, arg.Column1, arg.Column2)
+	result, err := q.db.Exec(ctx, reap, arg.Queues, arg.StaleAfter)
 	if err != nil {
 		return 0, err
 	}

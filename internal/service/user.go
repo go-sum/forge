@@ -5,24 +5,25 @@ import (
 	"context"
 	"fmt"
 
+	authmodel "github.com/go-sum/auth/model"
+	authrepo "github.com/go-sum/auth/repository"
 	"github.com/go-sum/forge/internal/model"
-	"github.com/go-sum/forge/internal/repository"
 
 	"github.com/google/uuid"
 )
 
 // UserService provides CRUD operations for user management.
 type UserService struct {
-	repo repository.AdminUserRepository
+	repo authrepo.AdminStore
 }
 
-// NewUserService constructs a UserService from an admin user repository.
-func NewUserService(repo repository.AdminUserRepository) *UserService {
+// NewUserService constructs a UserService from an admin user store.
+func NewUserService(repo authrepo.AdminStore) *UserService {
 	return &UserService{repo: repo}
 }
 
 // List returns a paginated slice of users. perPage is capped at 100.
-func (s *UserService) List(ctx context.Context, page, perPage int) ([]model.User, error) {
+func (s *UserService) List(ctx context.Context, page, perPage int) ([]authmodel.User, error) {
 	if perPage > 100 {
 		perPage = 100
 	}
@@ -30,14 +31,14 @@ func (s *UserService) List(ctx context.Context, page, perPage int) ([]model.User
 	return s.repo.List(ctx, int32(perPage), int32(offset))
 }
 
-// GetByID retrieves a single user by ID. Returns model.ErrUserNotFound when missing.
-func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
+// GetByID retrieves a single user by ID. Returns authmodel.ErrUserNotFound when missing.
+func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (authmodel.User, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
 // Update applies non-empty fields from input to the user. Empty strings are
 // treated as "no change" by the underlying COALESCE SQL logic.
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error) {
+func (s *UserService) Update(ctx context.Context, id uuid.UUID, input authmodel.UpdateUserInput) (authmodel.User, error) {
 	return s.repo.Update(ctx, id, input.Email, input.DisplayName, input.Role)
 }
 
@@ -58,17 +59,17 @@ func (s *UserService) HasAdmin(ctx context.Context) (bool, error) {
 
 // ElevateToAdmin promotes the given user to admin, but only when no admin
 // exists yet. Returns model.ErrAdminExists if an admin is already present.
-func (s *UserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (model.User, error) {
+func (s *UserService) ElevateToAdmin(ctx context.Context, userID uuid.UUID) (authmodel.User, error) {
 	hasAdmin, err := s.repo.HasAdmin(ctx)
 	if err != nil {
-		return model.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
+		return authmodel.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
 	}
 	if hasAdmin {
-		return model.User{}, model.ErrAdminExists
+		return authmodel.User{}, model.ErrAdminExists
 	}
-	user, err := s.repo.Update(ctx, userID, "", "", model.RoleAdmin)
+	user, err := s.repo.Update(ctx, userID, "", "", authmodel.RoleAdmin)
 	if err != nil {
-		return model.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
+		return authmodel.User{}, fmt.Errorf("UserService.ElevateToAdmin: %w", err)
 	}
 	return user, nil
 }

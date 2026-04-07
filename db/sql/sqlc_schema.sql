@@ -1,13 +1,15 @@
--- Schema: starter application
--- This file is used by:
---   1. make db-compose — to generate migration files in db/migrations/
--- Migrations are applied via goose: make db-migrate
+-- Schema: root sqlc input
+-- This file is used only by root sqlc generation for internal/repository.
+-- It is not part of db/sql/schemas.yaml and does not participate in migration
+-- composition.
+--
+-- Application-specific tables that need sqlc code generation belong here.
+-- User tables are owned by pkg/auth/pgstore/sql/schema.sql.
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ─── Trigger function ───────────────────────────────────────────────────────
--- Automatically sets updated_at = NOW() on any UPDATE row.
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

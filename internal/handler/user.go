@@ -1,4 +1,4 @@
-// Example: safe to delete as a unit (along with service/user.go, repository/user.go,
+// Example: safe to delete as a unit (along with service/user.go,
 // view/page/users.go, view/partial/userpartial/, and the user routes in app/routes.go).
 package handler
 
@@ -6,10 +6,10 @@ import (
 	"errors"
 	"net/http"
 
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/componentry/patterns/form"
 	"github.com/go-sum/componentry/patterns/pager"
 	render "github.com/go-sum/componentry/render/echo"
-	"github.com/go-sum/forge/internal/model"
 	"github.com/go-sum/forge/internal/view"
 	"github.com/go-sum/forge/internal/view/page"
 	"github.com/go-sum/forge/internal/view/partial/userpartial"
@@ -85,13 +85,13 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 		return apperr.BadRequest("The user ID in the URL is invalid.")
 	}
 
-	var input model.UpdateUserInput
+	var input authmodel.UpdateUserInput
 	sub := form.New(h.validator)
 	sub.Submit(c, &input)
 
 	if !sub.IsValid() {
 		return render.FragmentWithStatus(c, http.StatusUnprocessableEntity, userpartial.UserEditForm(req, userpartial.UserFormData{
-			User:   model.User{ID: id},
+			User:   authmodel.User{ID: id},
 			Values: input,
 			Errors: sub.GetErrors(),
 		}))
@@ -99,10 +99,10 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 
 	user, err := h.services.User.Update(ctx, id, input)
 	if err != nil {
-		if errors.Is(err, model.ErrEmailTaken) {
+		if errors.Is(err, authmodel.ErrEmailTaken) {
 			sub.SetFieldError("Email", "Email already in use.")
 			return render.FragmentWithStatus(c, http.StatusConflict, userpartial.UserEditForm(req, userpartial.UserFormData{
-				User:   model.User{ID: id},
+				User:   authmodel.User{ID: id},
 				Values: input,
 				Errors: sub.GetErrors(),
 			}))
@@ -118,7 +118,7 @@ func (h *Handler) UserUpdate(c *echo.Context) error {
 // resolveErr maps forge domain errors to typed apperr responses.
 // server/apperr.From is domain-agnostic, so domain mapping lives here.
 func resolveErr(err error) *apperr.Error {
-	if errors.Is(err, model.ErrUserNotFound) {
+	if errors.Is(err, authmodel.ErrUserNotFound) {
 		return apperr.NotFound("The requested user does not exist.")
 	}
 	return apperr.Resolve(err)

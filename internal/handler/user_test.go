@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 
 	"github.com/google/uuid"
 )
@@ -16,11 +16,11 @@ import (
 func TestUserListRendersFullPage(t *testing.T) {
 	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 21, nil },
-		listFn: func(_ context.Context, page, perPage int) ([]model.User, error) {
+		listFn: func(_ context.Context, page, perPage int) ([]authmodel.User, error) {
 			if page != 2 || perPage != 10 {
 				t.Fatalf("page=%d perPage=%d", page, perPage)
 			}
-			return []model.User{testUser}, nil
+			return []authmodel.User{testUser}, nil
 		},
 	}, nil)
 	c, rec := newRequestContext(http.MethodGet, "/users?page=2&per_page=10", nil)
@@ -42,7 +42,7 @@ func TestUserListRendersFullPage(t *testing.T) {
 func TestUserListRendersHTMXFragment(t *testing.T) {
 	h := newTestHandler(fakeUserService{
 		countFn: func(context.Context) (int64, error) { return 1, nil },
-		listFn:  func(context.Context, int, int) ([]model.User, error) { return []model.User{testUser}, nil },
+		listFn:  func(context.Context, int, int) ([]authmodel.User, error) { return []authmodel.User{testUser}, nil },
 	}, nil)
 	c, rec := newRequestContext(http.MethodGet, "/users", nil)
 	c.Request().Header.Set("HX-Request", "true")
@@ -80,7 +80,7 @@ func TestUserEditFormRejectsInvalidID(t *testing.T) {
 
 func TestUserEditFormRenders(t *testing.T) {
 	h := newTestHandler(fakeUserService{
-		getByID: func(_ context.Context, id uuid.UUID) (model.User, error) {
+		getByID: func(_ context.Context, id uuid.UUID) (authmodel.User, error) {
 			if id != testUser.ID {
 				t.Fatalf("id = %s", id)
 			}
@@ -105,7 +105,7 @@ func TestUserEditFormRenders(t *testing.T) {
 
 func TestUserRowReturnsResolvedError(t *testing.T) {
 	h := newTestHandler(fakeUserService{
-		getByID: func(context.Context, uuid.UUID) (model.User, error) { return model.User{}, model.ErrUserNotFound },
+		getByID: func(context.Context, uuid.UUID) (authmodel.User, error) { return authmodel.User{}, authmodel.ErrUserNotFound },
 	}, nil)
 	c, _ := newRequestContext(http.MethodGet, "/users/"+testUser.ID.String()+"/row", nil)
 	setPathParam(c, "/users/:id/row", "id", testUser.ID.String())
@@ -136,8 +136,8 @@ func TestUserUpdateValidationFailureRenders422(t *testing.T) {
 
 func TestUserUpdateConflictRenders409(t *testing.T) {
 	h := newTestHandler(fakeUserService{
-		updateFn: func(context.Context, uuid.UUID, model.UpdateUserInput) (model.User, error) {
-			return model.User{}, model.ErrEmailTaken
+		updateFn: func(context.Context, uuid.UUID, authmodel.UpdateUserInput) (authmodel.User, error) {
+			return authmodel.User{}, authmodel.ErrEmailTaken
 		},
 	}, nil)
 	c, rec := newFormContext(http.MethodPut, "/users/"+testUser.ID.String(), url.Values{
@@ -163,7 +163,7 @@ func TestUserUpdateRendersUpdatedRow(t *testing.T) {
 	updated := testUser
 	updated.DisplayName = "Grace Hopper"
 	h := newTestHandler(fakeUserService{
-		updateFn: func(_ context.Context, id uuid.UUID, input model.UpdateUserInput) (model.User, error) {
+		updateFn: func(_ context.Context, id uuid.UUID, input authmodel.UpdateUserInput) (authmodel.User, error) {
 			if id != testUser.ID || input.DisplayName != "Grace Hopper" || input.Role != "admin" {
 				t.Fatalf("id=%s input=%#v", id, input)
 			}

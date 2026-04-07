@@ -5,7 +5,7 @@ import (
 	htmx "github.com/go-sum/componentry/patterns/htmx"
 	"github.com/go-sum/componentry/ui/core"
 	"github.com/go-sum/componentry/ui/data"
-	"github.com/go-sum/forge/internal/model"
+	authmodel "github.com/go-sum/auth/model"
 	"github.com/go-sum/forge/internal/view"
 
 	g "maragu.dev/gomponents"
@@ -14,7 +14,7 @@ import (
 
 // UserRowProps configures a read-only user table row.
 type UserRowProps struct {
-	User model.User
+	User authmodel.User
 }
 
 // UserRow renders a <tr> with display data and HTMX-powered Edit/Delete actions.
@@ -65,7 +65,7 @@ func UserRow(req view.Request, p UserRowProps) g.Node {
 }
 
 func roleVariant(role string) core.BadgeVariant {
-	if role == model.RoleAdmin {
+	if role == authmodel.RoleAdmin {
 		return core.BadgeDefault
 	}
 	return core.BadgeSecondary

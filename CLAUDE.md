@@ -39,19 +39,20 @@ Registered in `.mcp.json`. Available in all agents. **Prefer over Grep/Glob for 
 
 ## Technology Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Language | Go | 1.26.0 |
-| HTTP Framework | Echo | v5.0.4 |
-| Database | PostgreSQL | 16 |
-| DB Driver | pgx | v5.9.1 |
-| Query Codegen | sqlc | latest |
-| Migrations | goose (via `cli/db`) | latest |
-| HTML Rendering | Gomponents | v1.2.0 |
-| Frontend | HTMX | 2.0.4 |
-| CSS | Tailwind | v4.1+ (standalone CLI, no Node.js) |
-| Components | `pkg/componentry` | repo-local |
+| Layer | Technology |
+|-------|-----------|
+| Language | Go |
+| HTTP Framework | Echo |
+| Database | PostgreSQL |
+| DB Driver | pgx |
+| Query Codegen | sqlc |
+| Migrations | goose (via `cli/db`) |
+| HTML Rendering | Gomponents |
+| Frontend | HTMX |
+| CSS | Tailwind |
+| Components | `pkg/componentry` |
 
+Versions are maintained in .versions file.
 Go toolchain: `/usr/local/go/bin/go` if `go` is not in `PATH`.
 
 ---
@@ -87,7 +88,7 @@ Tier 3  examples          (any tier)
 
 ## Database Workflow
 
-Schema is **distributed** — each self-contained `pkg/*/pgstore` owns its own SQL schema file alongside its queries and Go code. `db/sql/schemas.yaml` is the composition registry that lists every schema file; `make db-compose` reads it, concatenates all schemas in order, and generates a migration diff.
+Schema is **distributed** — each self-contained `pkg/*/pgstore` owns its own SQL schema file alongside its queries and Go code. `db/sql/schemas.yaml` is the composition registry that lists every migration-owned schema file; `make db-compose` reads it, concatenates all schemas in order, and generates a migration diff.
 
 ### Schema ownership
 
@@ -97,19 +98,20 @@ Schema is **distributed** — each self-contained `pkg/*/pgstore` owns its own S
 | `queue_jobs` | `pkg/queue/pgstore/sql/schema.sql` | `pkg/queue` |
 | app tables | `db/sql/schema.sql` | `internal/` |
 
-> `db/sql/schema.sql` also contains a **sqlc-only mirror** of the `users` table so that sqlc can generate admin-query code. Keep this copy in sync when altering `pkg/auth/pgstore/sql/schema.sql`.
-
 ### Query code ownership
 
-Each `pkg/*/pgstore` also owns its SQL queries and generates its own Go code locally via a co-located `.sqlc.yaml`. Generated code lives in a `db/` sub-package within the same module — no module boundary is crossed.
+Each `pkg/*/pgstore` owns its SQL queries and generates its own Go code locally via a co-located `.sqlc.yaml`. Generated code lives in a `db/` sub-package within the same module — no module boundary is crossed.
 
 | Package | Config | Generated output | Import path |
 |---------|--------|-----------------|-------------|
 | `pkg/auth/pgstore` | `pkg/auth/pgstore/.sqlc.yaml` | `pkg/auth/pgstore/db/` | `github.com/go-sum/auth/pgstore/db` |
 | `pkg/queue/pgstore` | `pkg/queue/pgstore/.sqlc.yaml` | `pkg/queue/pgstore/db/` | `github.com/go-sum/queue/pgstore/db` |
-| `internal/repository` | `.sqlc.yaml` (root) | `db/schema/` | `github.com/go-sum/forge/db/schema` |
 
-`make db-gen` regenerates all three. Never hand-edit files in any `db/` generated output directory.
+`make db-gen` regenerates both. Never hand-edit files in any `db/` generated output directory. The root `.sqlc.yaml` is reserved for future app-specific tables; currently no root queries exist.
+
+### Store interfaces
+
+`pkg/auth/pgstore.PgStore` implements both `authrepo.UserStore` (auth flows) and `authrepo.AdminStore` (admin CRUD). `internal/` consumes these via the `app.AuthStore` combined interface.
 
 ### Steps
 
@@ -119,8 +121,10 @@ Each `pkg/*/pgstore` also owns its SQL queries and generates its own Go code loc
    - **New `pkg/` table** → create `pkg/<name>/pgstore/sql/schema.sql`, then add it to `db/sql/schemas.yaml`
 2. Create migration: `make db-compose NAME=description` (reads `schemas.yaml`, diffs concatenated state)
 3. Apply migrations: `make db-migrate`
-4. Regenerate Go: `make db-gen` (regenerates `db/schema/` and all `pkg/*/pgstore/db/` outputs)
+4. Regenerate Go: `make db-gen` (regenerates all `pkg/*/pgstore/db/` outputs)
 5. Check status: `make db-status` · Rollback: `make db-rollback`
+
+Do not add startup-time `Install()` hooks in stores. Schema changes flow through `db/sql/schemas.yaml`, migrations, and `make db-migrate`.
 
 Migrations live in `db/migrations/` and are applied via goose. Extensions (`pgcrypto`, `citext`) are managed via `db/init/01-extensions.sql`.
 
