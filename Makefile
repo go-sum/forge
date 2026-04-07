@@ -47,18 +47,13 @@ lint: ## Run golangci-lint
 	$(RUN_TOOLS) tools golangci-lint run internal/... $(LINT_PATHS)
 
 test: ## Run tests (fast, no race detector — skips cli/package which needs CGO)
-	$(RUN_APP) \
-	  -e TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable \
-	  -e TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 \
-	  app $(WORKSPACE) exec -j 4 -x cli/package -- go test -count=1 ./...
+	$(RUN_APP) app sh -c 'PGDATABASE=$${PGDATABASE}_test go run ./cli/db migrate'
+	$(RUN_APP) app sh -c 'TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 $(WORKSPACE) exec -j 4 -x cli/package -- go test -count=1 ./...'
 
 test-race: ## Run tests with race detector (uses tools container with CGO)
 	$(D_COMPOSE) --profile dev up -d db kv
-	$(RUN_TOOLS) \
-	  -e CGO_ENABLED=1 \
-	  -e TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable \
-	  -e TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 \
-	  tools $(WORKSPACE) exec -j 1 -- go test -race -count=1 ./...
+	$(RUN_TOOLS) tools sh -c 'PGDATABASE=$${PGDATABASE}_test go run ./cli/db migrate'
+	$(RUN_TOOLS) tools sh -c 'CGO_ENABLED=1 TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 $(WORKSPACE) exec -j 1 -- go test -race -count=1 ./...'
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
