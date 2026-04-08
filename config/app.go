@@ -28,9 +28,11 @@ type AppConfig struct {
 }
 
 type ServerConfig struct {
-	Host            string `koanf:"host"             validate:"required"`
-	Port            int    `koanf:"port"             validate:"required,min=1,max=65535"`
-	GracefulTimeout int    `koanf:"graceful_timeout"`
+	Host            string   `koanf:"host"             validate:"required"`
+	Port            int      `koanf:"port"             validate:"required,min=1,max=65535"`
+	GracefulTimeout int      `koanf:"graceful_timeout"`
+	TrustProxy      string   `koanf:"trust_proxy"      validate:"omitempty,oneof=direct xff"`
+	TrustedProxies  []string `koanf:"trusted_proxies"`
 }
 
 type SecurityConfig struct {

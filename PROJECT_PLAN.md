@@ -169,26 +169,6 @@ downstream task numbers.
 
 ---
 
-### Phase 01: Echo v5 Runtime Hardening
-
-Low-effort, high-value fixes to the existing runtime configuration.
-
-- [ ] **T0101** — Configure `Echo.IPExtractor` for deployment model
-  Cover: select the correct Echo v5 extractor (`ExtractIPDirect` for direct
-  exposure, `ExtractIPFromXFFHeader` with trust options for reverse-proxy
-  deployments) so `c.RealIP()` is trustworthy for rate limiting and request
-  logging. Add a config key for deployment topology.
-  Files: `internal/app/bootstrap.go`, `config/app.yaml`
-
-- [ ] **T0102** — Enable Echo v5 `RequestLoggerWithConfig` field capture flags
-  Cover: enable the `Log*` flags in `internal/server/middleware.go` (currently
-  commented out at lines 39-45) so Echo v5 explicitly captures the fields the
-  custom `LogValuesFunc` reads. Currently works by convention — make it
-  intentional. Move logging policy into `pkg/server/logging` if reusable.
-  Files: `internal/server/middleware.go`, optionally `pkg/server/logging/`
-
----
-
 ### Phase 02: Locale-Aware Formatting
 
 Build on the existing `ParseAcceptLanguage()` in `pkg/server/headers/accept.go`.

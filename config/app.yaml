@@ -57,6 +57,11 @@ app:
     host: 0.0.0.0
     port: 8080
     graceful_timeout: 10
+    trust_proxy: xff    # for deployments behind Caddy reverse proxy
+    trusted_proxies:
+      - 172.16.0.0/12   # Docker bridge networks (containerised Caddy)
+      - 127.0.0.0/8     # IPv4 loopback (native Caddy on same host)
+      - ::1/128         # IPv6 loopback (native Caddy, default on Linux)
 
   security:
     external_origin: ${EXTERNAL_ORIGIN}

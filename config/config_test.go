@@ -488,6 +488,153 @@ func TestLoadFromLoadsCSRFSecurityTokenTTLSeconds(t *testing.T) {
 	}
 }
 
+func TestLoadFromTrustProxy(t *testing.T) {
+	baseYAML := func(trustProxy string, trustedProxies string) string {
+		return `app:
+  env: development
+  name: starter
+  database:
+    url: postgres://postgres:postgres@db:5432/starter?sslmode=disable
+  log:
+    level: info
+  server:
+    host: 0.0.0.0
+    port: 8080
+    graceful_timeout: 10
+    trust_proxy: ` + trustProxy + `
+    trusted_proxies: ` + trustedProxies + `
+  security:
+    external_origin: http://localhost:3000
+    origin:
+      enabled: true
+      require_header: true
+      allowed_origins: []
+    fetch_metadata:
+      enabled: true
+      allowed_sites: [same-origin, same-site]
+      allowed_modes: [cors, navigate, same-origin]
+      allowed_destinations: []
+      fallback_when_missing: true
+      reject_cross_site_navigate: true
+    headers:
+      xss_protection: "0"
+      content_type_nosniff: true
+      frame_options: DENY
+      content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self'"
+      hsts:
+        enabled: false
+        max_age: 31536000
+        include_subdomains: true
+        preload: false
+    csrf:
+      key: "12345678901234567890123456789012"
+      context_key: csrf
+      form_field: _csrf
+      header_name: X-CSRF-Token
+  csp_hashes:
+    always: []
+    dev_only: []
+  session:
+    name: _session
+    auth_key: "12345678901234567890123456789012"
+    encrypt_key: "12345678901234567890123456789012"
+    max_age: 86400
+    secure: false
+`
+	}
+	sideYAMLs := map[string]string{
+		"site.yaml": `site:
+  title: starter
+`,
+		"service.yaml": `service:
+  send:
+    send_to: admin@example.com
+    delivery:
+      selected: log
+      providers:
+        log: {}
+        noop: {}
+        memory: {}
+        resend:
+          api_key: resend-key
+          send_from: no-reply@example.com
+        mailchannels:
+          api_key: mc-key
+          send_from: fallback@example.com
+  auth:
+    selected: email_totp
+    methods:
+      email_totp:
+        enabled: true
+        issuer: Forge
+        period_seconds: 300
+`,
+	}
+
+	tests := []struct {
+		name            string
+		trustProxy      string
+		trustedProxies  string
+		wantErr         bool
+		wantTrustProxy  string
+		wantProxyCount  int
+	}{
+		{
+			name:           "direct mode",
+			trustProxy:     "direct",
+			trustedProxies: "[]",
+			wantTrustProxy: "direct",
+			wantProxyCount: 0,
+		},
+		{
+			name:           "xff mode with two CIDRs",
+			trustProxy:     "xff",
+			trustedProxies: "[10.0.0.0/8, 172.16.0.0/12]",
+			wantTrustProxy: "xff",
+			wantProxyCount: 2,
+		},
+		{
+			name:       "invalid mode fails validation",
+			trustProxy: "realip",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			files := map[string]string{
+				"app.yaml": baseYAML(tt.trustProxy, tt.trustedProxies),
+			}
+			for k, v := range sideYAMLs {
+				files[k] = v
+			}
+			for name, contents := range files {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o644); err != nil {
+					t.Fatalf("WriteFile(%s) error = %v", name, err)
+				}
+			}
+
+			cfg, err := LoadFrom(dir, "")
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("LoadFrom() error = nil, want validation error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("LoadFrom() error = %v", err)
+			}
+			if got := cfg.App.Server.TrustProxy; got != tt.wantTrustProxy {
+				t.Errorf("TrustProxy = %q, want %q", got, tt.wantTrustProxy)
+			}
+			if got := len(cfg.App.Server.TrustedProxies); got != tt.wantProxyCount {
+				t.Errorf("TrustedProxies len = %d, want %d", got, tt.wantProxyCount)
+			}
+		})
+	}
+}
+
 func TestLoadFromRequiresServiceFile(t *testing.T) {
 	dir := t.TempDir()
 

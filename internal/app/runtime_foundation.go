@@ -118,7 +118,12 @@ func (r *Runtime) initWeb() {
 		GracefulTimeout: time.Duration(cfg.App.Server.GracefulTimeout) * time.Second,
 	}
 	r.RateLimiters = appserver.NewRateLimiters(cfg)
+	ipExtractor, err := server.BuildIPExtractor(cfg.App.Server.TrustProxy, cfg.App.Server.TrustedProxies)
+	if err != nil {
+		panic(fmt.Sprintf("app: ip extractor: %v", err))
+	}
 	r.Web = server.NewWithConfig(echo.Config{
+		IPExtractor: ipExtractor,
 		HTTPErrorHandler: appserver.NewErrorHandler(appserver.ErrorHandlerConfig{
 			Debug:  cfg.IsDevelopment(),
 			Logger: slog.Default(),

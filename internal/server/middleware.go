@@ -42,7 +42,7 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string) {
 		// LogURI:       true,
 		// LogStatus:    true,
 		// LogLatency:   true,
-		// LogRemoteIP:  true,
+		LogRemoteIP: true,
 		// LogRequestID: true,
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			attrs := []any{
