@@ -15,7 +15,7 @@ import (
 
 // Session/auth bootstrap.
 func (r *Runtime) initAuth() {
-	cfg := r.Config.App.Session
+	cfg := r.Config.Session.Auth
 	mgr, err := session.NewManager(session.Config{
 		Store:      cfg.Store,
 		CookieName: cfg.Name,
@@ -23,6 +23,7 @@ func (r *Runtime) initAuth() {
 		EncryptKey: cfg.EncryptKey,
 		MaxAge:     cfg.MaxAge,
 		Secure:     cfg.Secure,
+		SameSite:   cfg.SameSite,
 		BlobStore:  kvsession.New(r.KV),
 	})
 	if err != nil {
@@ -51,8 +52,8 @@ func (r *Runtime) initAuthService() {
 			Method:   r.Config.Service.Auth.Methods.EmailTOTP,
 			Notifier: authadapter.NewNotifier(r.Sender, send.DefaultRegistry.SendFrom(r.Config.Service.Send.Delivery)),
 			TokenCodec: authsvc.NewEncryptedTokenCodec(
-				r.Config.App.Session.AuthKey,
-				r.Config.App.Session.EncryptKey,
+				r.Config.Session.Auth.AuthKey,
+				r.Config.Session.Auth.EncryptKey,
 			),
 		},
 	)

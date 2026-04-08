@@ -21,6 +21,11 @@ type adminService interface {
 	ElevateToAdmin(context.Context, uuid.UUID) (model.User, error)
 }
 
+const (
+	userListDefaultPerPage = 20
+	userListMaxPerPage     = 100
+)
+
 // AdminHandler owns auth-domain admin/account HTTP workflows.
 type AdminHandler struct {
 	service   adminService
@@ -84,7 +89,7 @@ func (h *AdminHandler) AdminElevate(c *echo.Context) error {
 
 func (h *AdminHandler) UserList(c *echo.Context) error {
 	req := h.req(c)
-	pg := newAdminPage(c.Request(), 20)
+	pg := newAdminPage(c.Request())
 
 	total, err := h.service.CountUsers(c.Request().Context())
 	if err != nil {
@@ -208,14 +213,17 @@ type adminPage struct {
 	TotalPages int
 }
 
-func newAdminPage(r *http.Request, defaultPerPage int) adminPage {
+func newAdminPage(r *http.Request) adminPage {
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
 	}
-	perPage := defaultPerPage
+	perPage := userListDefaultPerPage
 	if pp, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil && pp > 0 {
 		perPage = pp
+	}
+	if perPage > userListMaxPerPage {
+		perPage = userListMaxPerPage
 	}
 	return adminPage{Page: page, PerPage: perPage}
 }

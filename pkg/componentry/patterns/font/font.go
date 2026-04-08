@@ -319,46 +319,44 @@ func orDefault(value, fallback string) string {
 // --- Config types ---
 
 // Config holds declarative font loading configuration.
-// The koanf struct tags match the site.yaml fonts section so callers can
-// unmarshal directly into this type without an intermediate config struct.
 type Config struct {
-	Google     GoogleConfig      `koanf:"google"`
-	Bunny      BunnyConfig       `koanf:"bunny"`
-	Adobe      AdobeConfig       `koanf:"adobe"`
-	SelfHosted []SelfHostedGroup `koanf:"self_hosted"`
+	Google     GoogleConfig
+	Bunny      BunnyConfig
+	Adobe      AdobeConfig
+	SelfHosted []SelfHostedGroup
 }
 
 // GoogleConfig configures Google Fonts loading.
 // Families use the Google Fonts v2 format, e.g. "Inter:wght@400;500;600;700".
 type GoogleConfig struct {
-	Families []string `koanf:"families"`
+	Families []string
 }
 
 // BunnyConfig configures Bunny Fonts loading (GDPR-friendly Google Fonts alternative).
 // Families use the Bunny Fonts format, e.g. "inter:400,700".
 type BunnyConfig struct {
-	Families []string `koanf:"families"`
+	Families []string
 }
 
 // AdobeConfig configures Adobe Fonts (Typekit) loading via a kit project ID.
 type AdobeConfig struct {
-	ProjectID string `koanf:"project_id"`
+	ProjectID string
 }
 
 // SelfHostedGroup describes a single font family with one or more face files.
 type SelfHostedGroup struct {
-	Family string            `koanf:"family" validate:"required"`
-	Faces  []SelfHostedFace  `koanf:"faces"  validate:"required,min=1,dive"`
+	Family string           `validate:"required"`
+	Faces  []SelfHostedFace `validate:"required,min=1,dive"`
 }
 
 // SelfHostedFace describes one font file within a self-hosted family.
 type SelfHostedFace struct {
 	// URL is the public-relative path to the font file, e.g. "fonts/inter-400.woff2".
 	// Pass it through a path resolver (e.g. assets.Path) to get a content-hashed URL.
-	URL    string `koanf:"url"    validate:"required"`
-	Format string `koanf:"format" validate:"omitempty,oneof=woff2 woff truetype"`
-	Weight string `koanf:"weight"`
-	Style  string `koanf:"style"  validate:"omitempty,oneof=normal italic"`
+	URL    string `validate:"required"`
+	Format string `validate:"omitempty,oneof=woff2 woff truetype"`
+	Weight string
+	Style  string `validate:"omitempty,oneof=normal italic"`
 }
 
 // BuildProviders converts a Config into a slice of Provider values ready to

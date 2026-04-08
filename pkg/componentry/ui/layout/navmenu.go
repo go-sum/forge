@@ -10,32 +10,32 @@ import (
 
 // NavConfig is the high-level declarative configuration consumed by NavMenu.
 type NavConfig struct {
-	Brand    NavbarBrand  `koanf:"brand"`
-	Sections []NavSection `koanf:"sections" validate:"dive"`
+	Brand    NavbarBrand  `validate:""`
+	Sections []NavSection `validate:"dive"`
 }
 
 // NavSection groups a list of declarative menu items.
 type NavSection struct {
-	Label string             `koanf:"label"`
-	Align NavbarSectionAlign `koanf:"align" validate:"omitempty,oneof=start end"`
-	Items []NavItem          `koanf:"items" validate:"min=1,dive"`
+	Label string
+	Align NavbarSectionAlign `validate:"omitempty,oneof=start end"`
+	Items []NavItem          `validate:"min=1,dive"`
 }
 
 // NavItem describes one link, submenu, separator, form action, or named slot.
 // Type is reserved for structural markers such as separator; Slot names
 // caller-supplied dynamic content such as theme toggles or auth controls.
 type NavItem struct {
-	Type         string           `koanf:"type" validate:"omitempty,oneof=separator"`
-	Slot         string           `koanf:"slot"`
-	Visibility   NavbarVisibility `koanf:"visibility" validate:"omitempty,oneof=all guest user"`
-	Label        string           `koanf:"label"`
-	Href         string           `koanf:"href"`
-	Action       string           `koanf:"action"`
-	Method       string           `koanf:"method" validate:"omitempty,oneof=get post"`
-	Icon         string           `koanf:"icon"`
-	MatchPrefix  bool             `koanf:"match_prefix"`
-	HiddenFields []NavHiddenField `koanf:"hidden_fields" validate:"omitempty,dive"`
-	Items        []NavItem        `koanf:"items" validate:"omitempty,dive"`
+	Type         string           `validate:"omitempty,oneof=separator"`
+	Slot         string
+	Visibility   NavbarVisibility `validate:"omitempty,oneof=all guest user"`
+	Label        string
+	Href         string
+	Action       string
+	Method       string           `validate:"omitempty,oneof=get post"`
+	Icon         string
+	MatchPrefix  bool
+	HiddenFields []NavHiddenField `validate:"omitempty,dive"`
+	Items        []NavItem        `validate:"omitempty,dive"`
 }
 
 // NavSlot provides caller-supplied content for a named slot in the config.

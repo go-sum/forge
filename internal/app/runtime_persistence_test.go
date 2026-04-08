@@ -19,7 +19,7 @@ func TestInitAuthStoreDoesNotInstallSchemaAtRuntime(t *testing.T) {
 func TestInitQueueDoesNotInstallSchemaAtRuntime(t *testing.T) {
 	r := &Runtime{
 		Config: &config.Config{
-			App: config.AppConfig{
+			Store: config.StoreConfig{
 				Queue: config.QueueConfig{
 					Enabled: true,
 					Queues: []config.QueueEntryConfig{

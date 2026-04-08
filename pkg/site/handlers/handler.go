@@ -51,7 +51,11 @@ func (h *Handler) RobotsTxt(c *echo.Context) error {
 		return fmt.Errorf("robots.txt: %w", err)
 	}
 
-	c.Response().Header().Set("Cache-Control", robotsCacheControl)
+	cc := h.cfg.Robots.CacheControl
+	if cc == "" {
+		cc = robotsCacheControl
+	}
+	c.Response().Header().Set("Cache-Control", cc)
 	return c.String(http.StatusOK, content)
 }
 
@@ -66,7 +70,11 @@ func (h *Handler) SitemapXML(c *echo.Context) error {
 		return fmt.Errorf("sitemap.xml: %w", err)
 	}
 
-	c.Response().Header().Set("Cache-Control", sitemapCacheControl)
+	cc := h.cfg.Sitemap.CacheControl
+	if cc == "" {
+		cc = sitemapCacheControl
+	}
+	c.Response().Header().Set("Cache-Control", cc)
 	return c.Blob(http.StatusOK, "application/xml; charset=utf-8", data)
 }
 

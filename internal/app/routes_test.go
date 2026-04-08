@@ -24,16 +24,16 @@ import (
 func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	e := echo.New()
 	cfg := &config.Config{
-		App: config.AppConfig{
-			Security: config.SecurityConfig{
-				ExternalOrigin: "http://localhost:3000",
-				CSRF: config.CSRFConfig{
-					ContextKey: "csrf",
-					FormField:  "_csrf",
-					HeaderName: "X-CSRF-Token",
-				},
+		Security: config.SecurityConfig{
+			ExternalOrigin: "http://localhost:3000",
+			CSRF: config.CSRFConfig{
+				ContextKey: "csrf",
+				FormField:  "_csrf",
+				HeaderName: "X-CSRF-Token",
 			},
-			Session: config.SessionConfig{
+		},
+		Session: config.SessionsConfig{
+			Auth: config.SessionConfig{
 				Name:       "_session",
 				AuthKey:    "12345678901234567890123456789012",
 				EncryptKey: "12345678901234567890123456789012",
@@ -59,9 +59,9 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 	}
 
 	sessions, err := session.NewManager(session.Config{
-		CookieName: cfg.App.Session.Name,
-		AuthKey:    cfg.App.Session.AuthKey,
-		EncryptKey: cfg.App.Session.EncryptKey,
+		CookieName: cfg.Session.Auth.Name,
+		AuthKey:    cfg.Session.Auth.AuthKey,
+		EncryptKey: cfg.Session.Auth.EncryptKey,
 	})
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
@@ -93,7 +93,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		Flash:           &authadapter.FlashAdapter{},
 		Redirect:        &authadapter.RedirectAdapter{},
 		Pages:           authadapter.NewRenderer(),
-		CSRFField:       cfg.App.Security.CSRF.FormField,
+		CSRFField:       cfg.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
 		VerifyPath:      "/verify",
@@ -229,16 +229,16 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 
 	e := echo.New()
 	cfg := &config.Config{
-		App: config.AppConfig{
-			Security: config.SecurityConfig{
-				ExternalOrigin: "http://localhost:3000",
-				CSRF: config.CSRFConfig{
-					ContextKey: "csrf",
-					FormField:  "_csrf",
-					HeaderName: "X-CSRF-Token",
-				},
+		Security: config.SecurityConfig{
+			ExternalOrigin: "http://localhost:3000",
+			CSRF: config.CSRFConfig{
+				ContextKey: "csrf",
+				FormField:  "_csrf",
+				HeaderName: "X-CSRF-Token",
 			},
-			Session: config.SessionConfig{
+		},
+		Session: config.SessionsConfig{
+			Auth: config.SessionConfig{
 				Name:       "_session",
 				AuthKey:    "12345678901234567890123456789012",
 				EncryptKey: "12345678901234567890123456789012",
@@ -250,9 +250,9 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 	}
 
 	sessions, err := session.NewManager(session.Config{
-		CookieName: cfg.App.Session.Name,
-		AuthKey:    cfg.App.Session.AuthKey,
-		EncryptKey: cfg.App.Session.EncryptKey,
+		CookieName: cfg.Session.Auth.Name,
+		AuthKey:    cfg.Session.Auth.AuthKey,
+		EncryptKey: cfg.Session.Auth.EncryptKey,
 	})
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
@@ -290,7 +290,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		Flash:           &authadapter.FlashAdapter{},
 		Redirect:        &authadapter.RedirectAdapter{},
 		Pages:           authadapter.NewRenderer(),
-		CSRFField:       cfg.App.Security.CSRF.FormField,
+		CSRFField:       cfg.Security.CSRF.FormField,
 		SigninPath:      "/signin",
 		SignupPath:      "/signup",
 		VerifyPath:      "/verify",

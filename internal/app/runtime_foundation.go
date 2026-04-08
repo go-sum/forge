@@ -24,11 +24,6 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-const (
-	defaultPublicDir    = "public"
-	defaultPublicPrefix = "/public"
-)
-
 var componentIconOverrides = map[icons.Key]icons.Ref{}
 
 // Config bootstrap.
@@ -62,13 +57,7 @@ func (r *Runtime) initSender() {
 // Assets bootstrap.
 func (r *Runtime) initAssets() {
 	publicDir := r.Config.App.Assets.PublicDir
-	if publicDir == "" {
-		publicDir = defaultPublicDir
-	}
 	publicPrefix := r.Config.App.Assets.PublicPrefix
-	if publicPrefix == "" {
-		publicPrefix = defaultPublicPrefix
-	}
 
 	if err := assets.Init(publicDir, publicPrefix); err != nil {
 		panic(fmt.Sprintf("assets: %v", err))
@@ -101,14 +90,14 @@ func (r *Runtime) checkHealth() func(context.Context) error {
 func (r *Runtime) initWeb() {
 	cfg := r.Config
 	scriptHashes := []string{interactive.ScriptCSPHash}
-	scriptHashes = append(scriptHashes, cfg.App.CSPHashes.Always...)
+	scriptHashes = append(scriptHashes, cfg.Security.CSPHashes.Always...)
 	if cfg.IsDevelopment() {
-		scriptHashes = append(scriptHashes, cfg.App.CSPHashes.DevOnly...)
+		scriptHashes = append(scriptHashes, cfg.Security.CSPHashes.DevOnly...)
 	}
 
 	fontCSP := font.CollectCSPSources(font.BuildProviders(cfg.Site.Fonts, assets.Path))
 	styleSrcs := append(fontCSP.StyleSources, fontCSP.StyleInlineHashes...)
-	processedCSP := secheaders.InjectDirectiveSources(cfg.App.Security.Headers.ContentSecurityPolicy, "script-src", scriptHashes)
+	processedCSP := secheaders.InjectDirectiveSources(cfg.Security.Headers.ContentSecurityPolicy, "script-src", scriptHashes)
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "style-src", styleSrcs)
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "font-src", fontCSP.FontSources)
 

@@ -32,13 +32,11 @@ func TestNewRequestCollectsPresentationState(t *testing.T) {
 	}
 
 	viewReq := NewRequest(c, &config.Config{
-		App: config.AppConfig{
-			Security: config.SecurityConfig{
-				CSRF: config.CSRFConfig{
-					ContextKey: "csrf",
-					FormField:  "_csrf",
-					HeaderName: "X-CSRF-Token",
-				},
+		Security: config.SecurityConfig{
+			CSRF: config.CSRFConfig{
+				ContextKey: "csrf",
+				FormField:  "_csrf",
+				HeaderName: "X-CSRF-Token",
 			},
 		},
 		Site: config.SiteConfig{FaviconPath: "/public/img/favicon.ico"},

@@ -43,13 +43,13 @@ const (
 
 // Config holds auth-method configuration for the host application.
 type Config struct {
-	Selected MethodName    `koanf:"selected" validate:"omitempty,oneof=email_totp"`
-	Methods  MethodsConfig `koanf:"methods"`
+	Selected MethodName    `validate:"omitempty,oneof=email_totp"`
+	Methods  MethodsConfig
 }
 
 // MethodsConfig groups method-specific configuration.
 type MethodsConfig struct {
-	EmailTOTP EmailTOTPMethodConfig `koanf:"email_totp"`
+	EmailTOTP EmailTOTPMethodConfig
 }
 
 // SelectedMethod resolves the configured auth method, defaulting to email TOTP.
@@ -62,7 +62,7 @@ func (c Config) SelectedMethod() MethodName {
 
 // EmailTOTPMethodConfig configures the email-backed TOTP auth method.
 type EmailTOTPMethodConfig struct {
-	Enabled       bool   `koanf:"enabled"`
-	Issuer        string `koanf:"issuer"`
-	PeriodSeconds int    `koanf:"period_seconds"`
+	Enabled       bool
+	Issuer        string
+	PeriodSeconds int
 }

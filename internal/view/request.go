@@ -47,8 +47,8 @@ type Request struct {
 func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	req := Request{
 		CurrentPath:    c.Request().URL.Path,
-		CSRFFieldName:  cfg.App.Security.CSRF.FormField,
-		CSRFHeaderName: cfg.App.Security.CSRF.HeaderName,
+		CSRFFieldName:  cfg.Security.CSRF.FormField,
+		CSRFHeaderName: cfg.Security.CSRF.HeaderName,
 		FaviconPath:    cfg.Site.FaviconPath,
 		Description:    cfg.Site.Description,
 		MetaKeywords:   cfg.Site.MetaKeywords,
@@ -71,7 +71,7 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 	if name := auth.DisplayName(c); name != "" {
 		req.UserName = name
 	}
-	if csrf, ok := c.Get(cfg.App.Security.CSRF.ContextKey).(string); ok && csrf != "" {
+	if csrf, ok := c.Get(cfg.Security.CSRF.ContextKey).(string); ok && csrf != "" {
 		req.CSRFToken = csrf
 	}
 	if flashMsgs, err := flash.GetAll(c.Request(), c.Response()); err == nil {

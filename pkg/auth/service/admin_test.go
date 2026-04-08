@@ -65,10 +65,11 @@ func (f fakeAdminStore) HasAdmin(ctx context.Context) (bool, error) {
 	return false, errors.New("unexpected HasAdmin call")
 }
 
-func TestAdminServiceListUsersCapsPerPage(t *testing.T) {
+func TestAdminServiceListUsersPassesThroughPerPage(t *testing.T) {
 	svc := NewAdminService(fakeAdminStore{
 		listFn: func(_ context.Context, limit, offset int32) ([]model.User, error) {
-			if limit != 100 || offset != 200 {
+			// Service passes caller's perPage through; capping is the handler's responsibility.
+			if limit != 250 || offset != 500 {
 				t.Fatalf("limit=%d offset=%d", limit, offset)
 			}
 			return []model.User{serviceTestUser}, nil

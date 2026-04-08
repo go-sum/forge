@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -39,13 +40,14 @@ type Manager interface {
 // Config holds all configuration needed to construct a Manager.
 type Config struct {
 	Store      string    // "cookie" (default) or "server"
-	CookieName string   // default "_session"
-	AuthKey    string   // HMAC signing key (32 or 64 bytes)
-	EncryptKey string   // AES encryption key (16, 24, or 32 bytes)
-	MaxAge     int      // session TTL in seconds
-	Secure     bool     // cookie Secure flag
+	CookieName string    // default "_session"
+	AuthKey    string    // HMAC signing key (32 or 64 bytes)
+	EncryptKey string    // AES encryption key (16, 24, or 32 bytes)
+	MaxAge     int       // session TTL in seconds
+	Secure     bool      // cookie Secure flag
+	SameSite   string    // "strict" (default), "lax", or "none"
 	BlobStore  BlobStore // required when Store="server"; nil otherwise
-	KeyPrefix  string   // prefix for blob keys (default "session:")
+	KeyPrefix  string    // prefix for blob keys (default "session:")
 }
 
 // NewManager constructs a Manager with the configured backend.
@@ -72,6 +74,7 @@ func NewManager(cfg Config) (Manager, error) {
 		cookieName: cookieName,
 		maxAge:     maxAge,
 		secure:     cfg.Secure,
+		sameSite:   parseSameSite(cfg.SameSite),
 	}
 
 	switch backend {
@@ -102,6 +105,18 @@ func NewManager(cfg Config) (Manager, error) {
 	}
 
 	return m, nil
+}
+
+// Converts a config string to http.SameSite.
+func parseSameSite(s string) http.SameSite {
+	switch strings.ToLower(s) {
+	case "lax":
+		return http.SameSiteLaxMode
+	case "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteStrictMode
+	}
 }
 
 func validateKeys(authKey, encryptKey string) error {

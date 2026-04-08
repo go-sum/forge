@@ -67,8 +67,8 @@ type NavbarContext struct {
 
 // NavHiddenField renders a hidden input inside a NavForm.
 type NavHiddenField struct {
-	Name  string `koanf:"name" validate:"required"`
-	Value string `koanf:"value"`
+	Name  string `validate:"required"`
+	Value string
 }
 
 // NavLink renders a standard navigation link.

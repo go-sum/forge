@@ -1,145 +1,117 @@
-// Package config provides a generic, reusable configuration loader built on
-// koanf. It supports layered loading (YAML files), ${VAR} expansion via
-// os.ExpandEnv in every YAML file, and struct validation via
+// Package config provides a generic, reusable configuration loader.
+// It supports Go struct literal defaults, env:"VAR" struct tag overrides,
+// environment-specific overlay functions, and struct validation via
 // go-playground/validator tags.
 package config
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/v2"
 )
 
-// ConfigFile is a configuration file entry.
-type ConfigFile struct {
-	// Filepath is the path to the YAML file (e.g. "config/app.yaml").
-	Filepath string
-
-	// Required controls whether a missing file should fail startup.
-	// Parse, read, and permission errors are always fatal.
-	Required bool
+// Load creates a new config of type T by:
+//  1. Calling defaults() to get a fully populated struct.
+//     Env var resolution belongs in the defaults function via ExpandEnv.
+//  2. Running each override function in order (e.g. environment overlays).
+//  3. Validating the result with go-playground/validator.
+func Load[T any](defaults func() T, overrides ...func(*T)) (*T, error) {
+	cfg := defaults()
+	for _, o := range overrides {
+		o(&cfg)
+	}
+	if err := Validate(&cfg); err != nil {
+		return nil, fmt.Errorf("config: validation: %w", err)
+	}
+	return &cfg, nil
 }
 
-// Options configures how Load discovers and merges configuration sources.
-type Options struct {
-	// Files is the ordered list of configuration files to load. Last file wins on
-	// key conflicts. Each file explicitly declares whether it is required.
-	Files []ConfigFile
-
-	// EnvKey is the active environment name (e.g. "development").
-	// When non-empty, Load looks for an optional overlay file named
-	// "{dir}/{stem}.{EnvKey}.yaml" alongside the first file.
-	// Pass os.Getenv("APP_ENV") to drive this from the environment.
-	EnvKey string
-}
-
-// loadConfig merges configuration from multiple sources into target and validates it.
-// ${VAR} patterns in any YAML file are expanded via os.ExpandEnv before parsing.
+// ApplyEnv walks target (must be a pointer to a struct) recursively.
+// For each exported field tagged with env:"VAR_NAME", if os.Getenv(VAR_NAME)
+// is non-empty, the field is set from the env value.
 //
-// Loading order (last writer wins):
-//  1. Files[0].Filepath                           — usually required; error if missing when Required
-//  2. {dir}/{stem}.{EnvKey}.yaml                  — optional overlay; silently skipped
-//  3. Files[1:][*].Filepath                       — loaded in order; missing optional files skipped
-//  4. Unmarshal into target
-//  5. Validate target using go-playground/validator struct tags
-func loadConfig(target any, opts Options) error {
-	if len(opts.Files) == 0 {
-		return fmt.Errorf("config: no files specified")
+// Supported field kinds: string, int*, bool, float*, []string (comma-separated).
+// Fields without an env tag that are themselves structs are recursed into.
+func ApplyEnv(target any) {
+	v := reflect.ValueOf(target)
+	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+		return
 	}
+	applyEnvStruct(v.Elem())
+}
 
-	k := koanf.New(".")
+func applyEnvStruct(v reflect.Value) {
+	t := v.Type()
+	for i := range t.NumField() {
+		field := v.Field(i)
+		ft := t.Field(i)
 
-	// 1. First file is usually the required base config.
-	base := opts.Files[0]
-	if err := loadFile(k, base); err != nil {
-		return fmt.Errorf("config: load %s: %w", base.Filepath, err)
-	}
+		if !ft.IsExported() {
+			continue
+		}
 
-	// 2. Environment overlay (optional — silently skip if file is absent).
-	if opts.EnvKey != "" {
-		baseDir := filepath.Dir(base.Filepath)
-		stem := strings.TrimSuffix(filepath.Base(base.Filepath), filepath.Ext(base.Filepath))
-		overlayFile := filepath.Join(baseDir, stem+"."+opts.EnvKey+".yaml")
-		if err := k.Load(&envExpandedFile{overlayFile}, yaml.Parser()); err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("config: load %s: %w", overlayFile, err)
+		envVar := ft.Tag.Get("env")
+		if envVar != "" {
+			if val := os.Getenv(envVar); val != "" {
+				setField(field, val)
+			}
+			continue
+		}
+
+		// Recurse into nested structs.
+		switch field.Kind() {
+		case reflect.Struct:
+			applyEnvStruct(field)
+		case reflect.Ptr:
+			if !field.IsNil() && field.Elem().Kind() == reflect.Struct {
+				applyEnvStruct(field.Elem())
 			}
 		}
 	}
+}
 
-	// 3. Load remaining files according to their Required flag.
-	for _, cf := range opts.Files[1:] {
-		if cf.Filepath == "" {
-			continue
+func setField(field reflect.Value, val string) {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(val)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if n, err := strconv.ParseInt(val, 10, 64); err == nil {
+			field.SetInt(n)
 		}
-		if err := loadFile(k, cf); err != nil {
-			return fmt.Errorf("config: load %s: %w", cf.Filepath, err)
+	case reflect.Bool:
+		if b, err := strconv.ParseBool(val); err == nil {
+			field.SetBool(b)
+		}
+	case reflect.Float32, reflect.Float64:
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			field.SetFloat(f)
+		}
+	case reflect.Slice:
+		if field.Type().Elem().Kind() == reflect.String {
+			parts := strings.Split(val, ",")
+			s := reflect.MakeSlice(field.Type(), len(parts), len(parts))
+			for i, p := range parts {
+				s.Index(i).SetString(strings.TrimSpace(p))
+			}
+			field.Set(s)
 		}
 	}
+}
 
-	// 4. Unmarshal merged config state into the caller's target struct.
-	if err := k.Unmarshal("", target); err != nil {
-		return fmt.Errorf("config: unmarshal: %w", err)
-	}
-
-	// 5. Validate the whole config against its tagged structural schema.
+// Validate runs go-playground/validator on target.
+func Validate(target any) error {
 	v := validator.New()
-	if err := v.Struct(target); err != nil {
-		return fmt.Errorf("config: validation: %w", err)
-	}
-
-	return nil
+	return v.Struct(target)
 }
 
-// Load allocates a fresh *T, calls opts(cfg) to build the Options, then
-// delegates to loadConfig.
-func Load[T any](opts func(*T) Options) (*T, error) {
-	cfg := new(T)
-	if err := loadConfig(cfg, opts(cfg)); err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-func loadFile(k *koanf.Koanf, cf ConfigFile) error {
-	err := k.Load(&envExpandedFile{cf.Filepath}, yaml.Parser())
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, fs.ErrNotExist) && !cf.Required {
-		return nil
-	}
-	return err
-}
-
-// envExpandedFile is a koanf Provider that reads a YAML file and expands
-// ${VAR} patterns using os.ExpandEnv before returning the bytes for parsing.
-// Unset variables expand to empty string.
-type envExpandedFile struct{ path string }
-
-func (e *envExpandedFile) ReadBytes() ([]byte, error) {
-	b, err := os.ReadFile(e.path)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(expandEnv(string(b))), nil
-}
-
-func (e *envExpandedFile) Read() (map[string]any, error) {
-	return nil, errors.New("envExpandedFile does not support Read()")
-}
-
-// expandEnv replaces ${VAR} and ${VAR:-default} patterns in s using os.Getenv.
+// ExpandEnv replaces ${VAR} and ${VAR:-default} patterns in s using os.Getenv.
 // Unset or empty variables use the default when the :- form is present;
 // otherwise they expand to empty string.
-func expandEnv(s string) string {
+func ExpandEnv(s string) string {
 	var buf strings.Builder
 	for {
 		start := strings.Index(s, "${")

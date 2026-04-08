@@ -16,18 +16,22 @@ import (
 )
 
 // Connect creates a new connection pool and verifies connectivity.
-func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+// maxConns sets pool_max_conns; when 0 or negative the DSN value is used,
+// falling back to 10 if the DSN also omits it.
+func Connect(ctx context.Context, dsn string, maxConns int32) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("parsing database config: %w", err)
 	}
 
-	// Apply a safe MaxConns default. pgxpool's dynamic default is
+	// Apply a safe MaxConns cap. pgxpool's dynamic default is
 	// max(4, GOMAXPROCS*4), which on a 4-core host gives 16 connections.
 	// With multiple app instances this exhausts PostgreSQL's default
 	// max_connections=100 silently. The DSN pool_max_conns=N param takes
 	// precedence because pgxpool.ParseConfig already wrote it into poolCfg.
-	if poolCfg.MaxConns == 0 {
+	if maxConns > 0 {
+		poolCfg.MaxConns = maxConns
+	} else if poolCfg.MaxConns == 0 {
 		poolCfg.MaxConns = 10
 	}
 

@@ -26,7 +26,7 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 	r.Web.Use(auth.LoadSession(&authadapter.SessionManagerAdapter{Mgr: r.Sessions}))
 
 	siteHandler := sitehandlers.New(sitehandlers.Config{
-		Origin:  r.Config.App.Security.ExternalOrigin,
+		Origin:  r.Config.Security.ExternalOrigin,
 		Robots:  r.Config.Site.Robots,
 		Sitemap: r.Config.Site.Sitemap,
 	}, resolve.Routes())

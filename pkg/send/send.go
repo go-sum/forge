@@ -32,23 +32,24 @@ const (
 
 // HTTPProviderConfig carries the credentials and defaults for HTTP-backed providers.
 type HTTPProviderConfig struct {
-	APIKey   string `koanf:"api_key"`
-	SendFrom string `koanf:"send_from"`
+	APIKey   string `validate:"required"`
+	SendFrom string `validate:"required"`
+	Timeout  int    // HTTP client timeout in seconds; 0 → 10s default
 }
 
 // ProvidersConfig holds config for all built-in providers.
 type ProvidersConfig struct {
-	Log          struct{}           `koanf:"log"`
-	Noop         struct{}           `koanf:"noop"`
-	Memory       struct{}           `koanf:"memory"`
-	Resend       HTTPProviderConfig `koanf:"resend"`
-	Mailchannels HTTPProviderConfig `koanf:"mailchannels"`
+	Log          struct{}
+	Noop         struct{}
+	Memory       struct{}
+	Resend       HTTPProviderConfig
+	Mailchannels HTTPProviderConfig
 }
 
 // Config holds the selected provider and its configured provider blocks.
 type Config struct {
-	Selected  ProviderName    `koanf:"selected"`
-	Providers ProvidersConfig `koanf:"providers"`
+	Selected  ProviderName
+	Providers ProvidersConfig
 }
 
 // Factory constructs a Sender for the selected provider.
@@ -92,7 +93,8 @@ func NewRegistry() *Registry {
 			if err := requireHTTPProvider(ProviderResend, cfg.Providers.Resend); err != nil {
 				return nil, err
 			}
-			return resend.New(cfg.Providers.Resend.APIKey, cfg.Providers.Resend.SendFrom), nil
+			p := cfg.Providers.Resend
+			return resend.New(p.APIKey, p.SendFrom, p.Timeout), nil
 		},
 		SendFrom: func(cfg Config) string {
 			return cfg.Providers.Resend.SendFrom
@@ -103,7 +105,8 @@ func NewRegistry() *Registry {
 			if err := requireHTTPProvider(ProviderMailchannels, cfg.Providers.Mailchannels); err != nil {
 				return nil, err
 			}
-			return mailchannels.New(cfg.Providers.Mailchannels.APIKey, cfg.Providers.Mailchannels.SendFrom), nil
+			p := cfg.Providers.Mailchannels
+			return mailchannels.New(p.APIKey, p.SendFrom, p.Timeout), nil
 		},
 		SendFrom: func(cfg Config) string {
 			return cfg.Providers.Mailchannels.SendFrom

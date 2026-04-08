@@ -20,7 +20,7 @@ import (
 
 // Database bootstrap.
 func (r *Runtime) initDatabase() {
-	pool, err := database.Connect(context.Background(), r.Config.DSN())
+	pool, err := database.Connect(context.Background(), r.Config.Store.Database.URL, r.Config.Store.Database.MaxConns)
 	if err != nil {
 		r.StartupError = fmt.Errorf("database connect: %w", err)
 		slog.Error("database startup check failed", "error", r.StartupError)
@@ -28,13 +28,10 @@ func (r *Runtime) initDatabase() {
 	}
 	r.DB = pool
 
-	if r.Config.App.Database.AutoMigrate {
-		migrationsDir := r.Config.App.Database.MigrationsDir
-		if migrationsDir == "" {
-			migrationsDir = "db/migrations"
-		}
+	if r.Config.Store.Database.AutoMigrate {
+		migrationsDir := r.Config.Store.Database.MigrationsDir
 		slog.Info("applying database migrations", "dir", migrationsDir)
-		if err := migrate.Up(context.Background(), r.Config.DSN(), migrationsDir); err != nil {
+		if err := migrate.Up(context.Background(), r.Config.Store.Database.URL, migrationsDir); err != nil {
 			r.StartupError = fmt.Errorf("database migrate: %w", err)
 			slog.Error("migration failed", "error", r.StartupError)
 			return
@@ -62,7 +59,7 @@ func (r *Runtime) initAuthStore() {
 // uses a PostgreSQL-backed store for async processing with workers. When false,
 // creates a sync client that executes handlers inline during dispatch.
 func (r *Runtime) initQueue() {
-	cfg := r.Config.App.Queue
+	cfg := r.Config.Store.Queue
 
 	queueCfgs := make([]queue.QueueConfig, len(cfg.Queues))
 	for i, q := range cfg.Queues {
@@ -78,7 +75,7 @@ func (r *Runtime) initQueue() {
 
 	var store queue.Store
 	if cfg.Enabled {
-		store = pgstore.New(pgstore.Config{Pool: r.DB})
+		store = pgstore.New(pgstore.Config{Pool: r.DB, ReapThreshold: cfg.ReapThreshold})
 	}
 
 	r.Queue = queue.New(store, queue.Config{
@@ -115,12 +112,12 @@ func (r *Runtime) registerQueueHandlers() {
 
 // KV store bootstrap.
 func (r *Runtime) initKV() {
-	if !r.Config.App.KV.Enabled {
+	if !r.Config.Store.KV.Enabled {
 		slog.Info("kv store disabled")
 		return
 	}
 
-	cfg := r.Config.App.KV.Redis
+	cfg := r.Config.Store.KV.Redis
 	store, err := redisstore.New(redisstore.Config{
 		Addr:         cfg.Addr,
 		Password:     cfg.Password,

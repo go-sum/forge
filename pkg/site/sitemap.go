@@ -80,50 +80,52 @@ func BuildSitemap(entries []Entry) ([]byte, error) {
 }
 
 // SitemapConfig holds the sitemap.xml generation settings.
-// It is used as the sitemap section of the application site config
-// (site.yaml), deserialized via the koanf tags.
 type SitemapConfig struct {
 	// Routes lists named application routes to include.
 	// Each Name must match a registered route name resolvable without path
 	// parameters (parameterized routes are silently skipped).
-	Routes []RouteEntry `koanf:"routes" validate:"omitempty,dive"`
+	Routes []RouteEntry `validate:"omitempty,dive"`
 
 	// StaticPages lists explicit path entries to include in the sitemap.
 	// Each Path is an absolute path; the handler prepends ExternalOrigin.
-	StaticPages []StaticEntry `koanf:"static_pages" validate:"omitempty,dive"`
+	StaticPages []StaticEntry `validate:"omitempty,dive"`
 
 	// DefaultChangeFreq is the change frequency applied to entries that
 	// do not specify one. Valid values: always, hourly, daily, weekly,
 	// monthly, yearly, never.
-	DefaultChangeFreq string `koanf:"default_changefreq" validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
+	DefaultChangeFreq string `validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
 
 	// DefaultPriority is the priority (0.0–1.0) applied to entries that
 	// specify a zero value.
-	DefaultPriority float64 `koanf:"default_priority" validate:"omitempty,min=0,max=1"`
+	DefaultPriority float64 `validate:"omitempty,min=0,max=1"`
+
+	// CacheControl is the Cache-Control header value served with /sitemap.xml.
+	// Empty string uses the handler default ("public, max-age=3600").
+	CacheControl string
 }
 
 // RouteEntry configures a named application route for sitemap inclusion.
 type RouteEntry struct {
 	// Name is the registered route name (e.g. "home.show").
-	Name string `koanf:"name" validate:"required"`
+	Name string `validate:"required"`
 
 	// ChangeFreq overrides SitemapConfig.DefaultChangeFreq for this entry.
-	ChangeFreq string `koanf:"changefreq" validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
+	ChangeFreq string `validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
 
 	// Priority overrides SitemapConfig.DefaultPriority for this entry.
 	// Use a pointer so that 0.0 can be expressed explicitly (nil means "use default").
-	Priority *float64 `koanf:"priority" validate:"omitempty,min=0,max=1"`
+	Priority *float64 `validate:"omitempty,min=0,max=1"`
 }
 
 // StaticEntry configures an explicit static path for sitemap inclusion.
 type StaticEntry struct {
 	// Path is an absolute path (e.g. /about). The handler prepends ExternalOrigin.
-	Path string `koanf:"path" validate:"required"`
+	Path string `validate:"required"`
 
 	// ChangeFreq overrides SitemapConfig.DefaultChangeFreq for this entry.
-	ChangeFreq string `koanf:"changefreq" validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
+	ChangeFreq string `validate:"omitempty,oneof=always hourly daily weekly monthly yearly never"`
 
 	// Priority overrides SitemapConfig.DefaultPriority for this entry.
 	// Use a pointer so that 0.0 can be expressed explicitly (nil means "use default").
-	Priority *float64 `koanf:"priority" validate:"omitempty,min=0,max=1"`
+	Priority *float64 `validate:"omitempty,min=0,max=1"`
 }

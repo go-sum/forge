@@ -14,13 +14,10 @@ type RateLimiters struct {
 }
 
 func NewRateLimiters(cfg *config.Config) *RateLimiters {
-	backend := cfg.App.Security.RateLimitBackend.Selected
-	if backend == "" {
-		backend = "memory"
-	}
+	backend := cfg.Security.RateLimitBackend.Selected
 
-	stores := make(map[string]ratelimit.Store, len(cfg.App.Security.RateLimits))
-	for name, policy := range cfg.App.Security.RateLimits {
+	stores := make(map[string]ratelimit.Store, len(cfg.Security.RateLimits))
+	for name, policy := range cfg.Security.RateLimits {
 		if policy.Rate == 0 {
 			continue
 		}
@@ -31,7 +28,7 @@ func NewRateLimiters(cfg *config.Config) *RateLimiters {
 }
 
 func (r *RateLimiters) Middleware(cfg *config.Config, name string) echo.MiddlewareFunc {
-	rl, ok := cfg.App.Security.RateLimits[name]
+	rl, ok := cfg.Security.RateLimits[name]
 	if !ok || rl.Rate == 0 {
 		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	}

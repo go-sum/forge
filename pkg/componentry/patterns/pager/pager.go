@@ -6,6 +6,13 @@ import (
 	"strconv"
 )
 
+// DefaultPerPage is the page size used when the caller does not specify one.
+const DefaultPerPage = 20
+
+// MaxPerPage is the upper bound on per_page accepted from query params.
+// Requests exceeding this are silently capped.
+const MaxPerPage = 100
+
 // Pager holds pagination state for a single page of results.
 type Pager struct {
 	Page       int
@@ -14,9 +21,10 @@ type Pager struct {
 	TotalPages int
 }
 
-// New reads page and per_page query params from r, clamping page to ≥ 1 and
-// using defaultPerPage when the query param is absent or invalid.
-func New(r *http.Request, defaultPerPage int) Pager {
+// New reads page and per_page query params from r.
+// Page is clamped to ≥ 1. PerPage falls back to defaultPerPage when the query
+// param is absent or invalid, and is capped at maxPerPage when maxPerPage > 0.
+func New(r *http.Request, defaultPerPage, maxPerPage int) Pager {
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
@@ -24,6 +32,9 @@ func New(r *http.Request, defaultPerPage int) Pager {
 	perPage := defaultPerPage
 	if pp, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil && pp > 0 {
 		perPage = pp
+	}
+	if maxPerPage > 0 && perPage > maxPerPage {
+		perPage = maxPerPage
 	}
 	return Pager{Page: page, PerPage: perPage}
 }

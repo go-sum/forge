@@ -32,9 +32,6 @@ func (s *AdminService) ListUsers(ctx context.Context, page, perPage int) ([]mode
 	if perPage <= 0 {
 		perPage = 20
 	}
-	if perPage > 100 {
-		perPage = 100
-	}
 	offset := (page - 1) * perPage
 	return s.users.List(ctx, int32(perPage), int32(offset))
 }

@@ -14,31 +14,29 @@ import (
 
 func testSecurityConfig() *config.Config {
 	return &config.Config{
-		App: config.AppConfig{
-			Security: config.SecurityConfig{
-				ExternalOrigin: "https://example.com",
-				Origin: config.OriginConfig{
-					Enabled:       true,
-					RequireHeader: true,
-				},
-				FetchMetadata: config.FetchMetadataConfig{
-					Enabled:                 true,
-					AllowedSites:            []string{"same-origin", "same-site"},
-					AllowedModes:            []string{"cors", "navigate", "same-origin"},
-					FallbackWhenMissing:     true,
-					RejectCrossSiteNavigate: true,
-				},
-				Headers: config.HeadersConfig{
-					XSSProtection:         "0",
-					ContentTypeNosniff:    true,
-					FrameOptions:          "DENY",
-					ContentSecurityPolicy: "default-src 'self'",
-					HSTS: config.HSTSConfig{
-						Enabled:           true,
-						MaxAge:            31536000,
-						IncludeSubDomains: true,
-						Preload:           true,
-					},
+		Security: config.SecurityConfig{
+			ExternalOrigin: "https://example.com",
+			Origin: config.OriginConfig{
+				Enabled:       true,
+				RequireHeader: true,
+			},
+			FetchMetadata: config.FetchMetadataConfig{
+				Enabled:                 true,
+				AllowedSites:            []string{"same-origin", "same-site"},
+				AllowedModes:            []string{"cors", "navigate", "same-origin"},
+				FallbackWhenMissing:     true,
+				RejectCrossSiteNavigate: true,
+			},
+			Headers: config.HeadersConfig{
+				XSSProtection:         "0",
+				ContentTypeNosniff:    true,
+				FrameOptions:          "DENY",
+				ContentSecurityPolicy: "default-src 'self'",
+				HSTS: config.HSTSConfig{
+					Enabled:           true,
+					MaxAge:            31536000,
+					IncludeSubDomains: true,
+					Preload:           true,
 				},
 			},
 		},
@@ -118,7 +116,7 @@ func TestCrossOriginGuardWritesHTMXToast(t *testing.T) {
 
 func TestCSRFMiddlewareUsesTTLSecondsFromConfig(t *testing.T) {
 	cfg := testSecurityConfig()
-	cfg.App.Security.CSRF = config.CSRFConfig{
+	cfg.Security.CSRF = config.CSRFConfig{
 		Key:        "test-signing-key-32-bytes-padded!",
 		ContextKey: "csrf",
 		FormField:  "_csrf",
@@ -142,7 +140,7 @@ func TestCSRFMiddlewareUsesTTLSecondsFromConfig(t *testing.T) {
 	if !ok || tok == "" {
 		t.Fatalf("context key %q: got %q, want non-empty token", "csrf", tok)
 	}
-	if err := token.Verify([]byte(cfg.App.Security.CSRF.Key), "csrf", tok); err != nil {
+	if err := token.Verify([]byte(cfg.Security.CSRF.Key), "csrf", tok); err != nil {
 		t.Fatalf("token.Verify() error = %v", err)
 	}
 }

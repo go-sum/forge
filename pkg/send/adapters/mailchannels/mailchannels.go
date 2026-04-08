@@ -25,12 +25,17 @@ type Sender struct {
 }
 
 // New constructs a Sender using the given API key and default sender address.
-func New(apiKey, sendFrom string) *Sender {
+// timeout sets the HTTP client timeout in seconds; 0 uses the 10s default.
+func New(apiKey, sendFrom string, timeout int) *Sender {
+	d := time.Duration(timeout) * time.Second
+	if d <= 0 {
+		d = 10 * time.Second
+	}
 	return &Sender{
 		apiKey:   apiKey,
 		sendFrom: sendFrom,
 		apiURL:   defaultAPIURL,
-		client:   &http.Client{Timeout: 10 * time.Second},
+		client:   &http.Client{Timeout: d},
 	}
 }
 

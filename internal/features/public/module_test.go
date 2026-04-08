@@ -17,7 +17,7 @@ import (
 func TestModuleRendersHome(t *testing.T) {
 	e := echo.New()
 	cfg := &config.Config{
-		App: config.AppConfig{Security: config.SecurityConfig{CSRF: config.CSRFConfig{ContextKey: "csrf"}}},
+		Security: config.SecurityConfig{CSRF: config.CSRFConfig{ContextKey: "csrf"}},
 		Nav: config.NavConfig{Brand: config.NavbarBrand{Label: "Starter", Href: "/"}},
 	}
 	noOp := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }

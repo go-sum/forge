@@ -27,7 +27,7 @@ func (f fakeSubmitter) Submit(ctx context.Context, input model.ContactInput) err
 
 func newTestHandler(svc submitter) *Handler {
 	return NewHandler(
-		&config.Config{App: config.AppConfig{Security: config.SecurityConfig{CSRF: config.CSRFConfig{ContextKey: "csrf"}}}},
+		&config.Config{Security: config.SecurityConfig{CSRF: config.CSRFConfig{ContextKey: "csrf"}}},
 		svc,
 		validate.New(),
 	)

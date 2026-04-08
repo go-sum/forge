@@ -16,18 +16,18 @@ import (
 func CrossOriginGuard(cfg *config.Config) echo.MiddlewareFunc {
 	guardCfg := secmw.Config{
 		OriginPolicy: origin.Policy{
-			Enabled:         cfg.App.Security.Origin.Enabled,
-			CanonicalOrigin: cfg.App.Security.ExternalOrigin,
-			RequireHeader:   cfg.App.Security.Origin.RequireHeader,
-			AllowedOrigins:  cfg.App.Security.Origin.AllowedOrigins,
+			Enabled:         cfg.Security.Origin.Enabled,
+			CanonicalOrigin: cfg.Security.ExternalOrigin,
+			RequireHeader:   cfg.Security.Origin.RequireHeader,
+			AllowedOrigins:  cfg.Security.Origin.AllowedOrigins,
 		},
 		FetchPolicy: fetchmeta.Policy{
-			Enabled:                 cfg.App.Security.FetchMetadata.Enabled,
-			AllowedSites:            cfg.App.Security.FetchMetadata.AllowedSites,
-			AllowedModes:            cfg.App.Security.FetchMetadata.AllowedModes,
-			AllowedDestinations:     cfg.App.Security.FetchMetadata.AllowedDestinations,
-			FallbackWhenMissing:     cfg.App.Security.FetchMetadata.FallbackWhenMissing,
-			RejectCrossSiteNavigate: cfg.App.Security.FetchMetadata.RejectCrossSiteNavigate,
+			Enabled:                 cfg.Security.FetchMetadata.Enabled,
+			AllowedSites:            cfg.Security.FetchMetadata.AllowedSites,
+			AllowedModes:            cfg.Security.FetchMetadata.AllowedModes,
+			AllowedDestinations:     cfg.Security.FetchMetadata.AllowedDestinations,
+			FallbackWhenMissing:     cfg.Security.FetchMetadata.FallbackWhenMissing,
+			RejectCrossSiteNavigate: cfg.Security.FetchMetadata.RejectCrossSiteNavigate,
 		},
 	}
 	mw, err := guardCfg.ToMiddleware()
@@ -42,7 +42,7 @@ func CrossOriginGuard(cfg *config.Config) echo.MiddlewareFunc {
 // errors so that token failures are rendered as 403 Forbidden by the app's
 // error handler rather than falling through to a 500 Internal Server Error.
 func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
-	c := cfg.App.Security.CSRF
+	c := cfg.Security.CSRF
 	return csrf.Middleware(csrf.Config{
 		Key:        []byte(c.Key),
 		TokenTTL:   c.TokenTTL,
@@ -56,7 +56,7 @@ func CSRFMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 // When AllowOrigins is empty the middleware permits all origins via "*";
 // AllowCredentials must be false in that case, which is the default.
 func CORSMiddleware(cfg *config.Config) echo.MiddlewareFunc {
-	c := cfg.App.Security.CORS
+	c := cfg.Security.CORS
 	allowOrigins := c.AllowOrigins
 	if len(allowOrigins) == 0 {
 		allowOrigins = []string{"*"}
@@ -75,7 +75,7 @@ func CORSMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 func secureHeaders(cfg *config.Config) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			h := cfg.App.Security.Headers
+			h := cfg.Security.Headers
 			if h.ReferrerPolicy != "" {
 				c.Response().Header().Set("Referrer-Policy", h.ReferrerPolicy)
 			}
@@ -90,7 +90,7 @@ func secureHeaders(cfg *config.Config) echo.MiddlewareFunc {
 // secureMiddleware applies HTTP security headers via Echo's built-in Secure
 // middleware. HSTS is TLS-conditional (not written on plain HTTP in dev).
 func secureMiddleware(cfg *config.Config, processedCSP string) echo.MiddlewareFunc {
-	h := cfg.App.Security.Headers
+	h := cfg.Security.Headers
 	nosniff := ""
 	if h.ContentTypeNosniff {
 		nosniff = "nosniff"

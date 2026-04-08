@@ -1,83 +1,64 @@
-// Package config defines the application's configuration schema.
-// Types are split by their YAML source: app.go, site.go, nav.go, service.go.
-// Configuration is loaded at startup by internal/app.
+// Defines the application configuration schema and loader.
 package config
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	cfgs "github.com/go-sum/server/config"
 )
+
+// Config is the root application configuration struct.
+type Config struct {
+	App      AppConfig
+	Nav      NavConfig
+	Security SecurityConfig
+	Service  ServiceConfig
+	Session  SessionsConfig
+	Site     SiteConfig
+	Store    StoreConfig
+}
 
 // App is the global configuration singleton, initialised at startup.
 var App *Config
 
-// Environment returns c.App.Env lowercased, defaulting to "production" when empty.
-func (c *Config) Environment() string {
-	if c.App.Env != "" {
-		return strings.ToLower(c.App.Env)
-	}
-	return "production"
-}
-
-// IsDevelopment reports whether the application is running in development mode.
-func (c *Config) IsDevelopment() bool { return c.Environment() == "development" }
-
-// IsProduction reports whether the application is running in production mode.
-func (c *Config) IsProduction() bool { return c.Environment() == "production" }
-
-// DSN returns the PostgreSQL connection string. If App.Database.URL is set
-// (e.g. via YAML), it is returned as-is. Otherwise a DSN is built from the
-// standard PG* environment variables (PGHOST, PGPORT, PGDATABASE, PGUSER,
-// PGPASSWORD).
-func (c *Config) DSN() string {
-	if c.App.Database.URL != "" {
-		return c.App.Database.URL
-	}
-	return buildDSN()
-}
-
-// buildDSN constructs a PostgreSQL DSN from standard PG* environment variables.
-func buildDSN() string {
-	host := envOr("PGHOST", "localhost")
-	port := envOr("PGPORT", "5432")
-	name := envOr("PGDATABASE", "postgres")
-	user := envOr("PGUSER", "postgres")
-	password := os.Getenv("PGPASSWORD")
-	sslmode := envOr("PGSSLMODE", "disable")
-
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		user, password, host, port, name, sslmode)
-	return dsn
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-// Load loads the application configuration from the default config/ directory.
-// appEnv is typically os.Getenv("APP_ENV").
+// Load loads the application configuration.
 func Load(appEnv string) (*Config, error) {
-	return LoadFrom("config", appEnv)
+	return cfgs.Load(productionDefault, override(appEnv)...)
 }
 
-// LoadFrom loads configuration from the given directory.
-// It is the primary entry point for both production and test use.
-func LoadFrom(dir, appEnv string) (*Config, error) {
-	return cfgs.Load(func(cfg *Config) cfgs.Options {
-		return cfgs.Options{
-			EnvKey: appEnv,
-			Files: []cfgs.ConfigFile{
-				{Filepath: dir + "/app.yaml", Required: true},
-				{Filepath: dir + "/site.yaml", Required: true},
-				{Filepath: dir + "/nav.yaml"},
-				{Filepath: dir + "/service.yaml", Required: true},
-			},
-		}
-	})
+// productionDefault returns a fully populated Config with production defaults.
+// All values are Go literals; secrets use ExpandEnv for env var injection.
+func productionDefault() Config {
+	return Config{
+		App:      defaultApp(),
+		Nav:      defaultNav(),
+		Security: defaultSecurity(),
+		Service:  defaultService(),
+		Session:  defaultSession(),
+		Site:     defaultSite(),
+		Store:    defaultStore(),
+	}
+}
+
+// developmentConfig applies development-mode configuration.
+func developmentConfig(cfg *Config) {
+	cfg.App.Env = "development"
+	cfg.App.Log.Level = "debug"
+	cfg.App.Server.Port = 3000
+	cfg.Session.Auth.Secure = false
+	cfg.Security.CSPHashes.DevOnly = []string{"'sha256-y933zYNvpVe5f9j5A+OKECUXiWo8bKB5Yp5sLDD3d0I='"}
+	cfg.Security.ExternalOrigin = "https://forge.test"
+	cfg.Security.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+	cfg.Security.Headers.HSTS.Enabled = false
+	cfg.Security.RateLimits["auth"] = RateLimitConfig{Rate: 0.2, Burst: 5, ExpiresIn: 300}
+	cfg.Store.Database.AutoMigrate = true
+	cfg.Store.KV.Enabled = true
+}
+
+// environmentMap maps environment names to their ordered overlay functions.
+var environmentMap = map[string][]func(*Config){
+	"development": {developmentConfig},
+}
+
+// Returns the ordered overlay functions for the given environment.
+func override(appEnv string) []func(*Config) {
+	return environmentMap[appEnv]
 }

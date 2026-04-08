@@ -2,13 +2,13 @@ go 1.26.0
 
 use (
 	.
-	./pkg/componentry
-	./pkg/server
 	./pkg/auth
-	./pkg/security
-	./pkg/site
-	./pkg/send
+	./pkg/componentry
 	./pkg/kv
-	./pkg/session
 	./pkg/queue
+	./pkg/security
+	./pkg/send
+	./pkg/server
+	./pkg/session
+	./pkg/site
 )

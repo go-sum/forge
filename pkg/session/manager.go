@@ -14,6 +14,7 @@ type manager struct {
 	cookieName string
 	maxAge     time.Duration
 	secure     bool
+	sameSite   http.SameSite
 	isServer   bool // true when using server store (BlobStore)
 }
 
@@ -114,7 +115,7 @@ func (m *manager) Destroy(w http.ResponseWriter, r *http.Request) error {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: m.sameSite,
 		Secure:   m.secure,
 	})
 	return nil
@@ -141,7 +142,7 @@ func (m *manager) setCookie(w http.ResponseWriter, value string) {
 		Path:     "/",
 		MaxAge:   int(m.maxAge.Seconds()),
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: m.sameSite,
 		Secure:   m.secure,
 	})
 }
