@@ -3,6 +3,9 @@ package config
 import uilayout "github.com/go-sum/componentry/ui/layout"
 
 type NavConfig = uilayout.NavConfig
+type NavbarBrand = uilayout.NavbarBrand
+type NavSection = uilayout.NavSection
+type NavItem = uilayout.NavItem
 
 func defaultNav() NavConfig {
 	return NavConfig{
