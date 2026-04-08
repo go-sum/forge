@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/go-sum/send"
 	"github.com/go-sum/server"
 	"github.com/go-sum/server/logging"
-
 	"github.com/labstack/echo/v5"
 )
 
@@ -101,10 +101,18 @@ func (r *Runtime) initWeb() {
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "style-src", styleSrcs)
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "font-src", fontCSP.FontSources)
 
+	srv := cfg.App.Server
 	r.ServerConfig = server.Config{
-		Host:            cfg.App.Server.Host,
-		Port:            strconv.Itoa(cfg.App.Server.Port),
-		GracefulTimeout: time.Duration(cfg.App.Server.GracefulTimeout) * time.Second,
+		Host:            srv.Host,
+		Port:            strconv.Itoa(srv.Port),
+		GracefulTimeout: time.Duration(srv.GracefulTimeout) * time.Second,
+		BeforeServeFunc: func(s *http.Server) error {
+			s.IdleTimeout = time.Duration(srv.IdleTimeout) * time.Second
+			s.ReadTimeout = time.Duration(srv.ReadTimeout) * time.Second
+			s.WriteTimeout = time.Duration(srv.WriteTimeout) * time.Second
+			s.MaxHeaderBytes = srv.MaxHeaderBytes
+			return nil
+		},
 	}
 	r.RateLimiters = appserver.NewRateLimiters(cfg)
 	ipExtractor, err := server.BuildIPExtractor(cfg.App.Server.TrustProxy, cfg.App.Server.TrustedProxies)

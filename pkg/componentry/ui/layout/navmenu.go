@@ -29,9 +29,9 @@ type NavItem struct {
 	Slot         string
 	Visibility   NavbarVisibility `validate:"omitempty,oneof=all guest user"`
 	Label        string
-	Href         string
-	Action       string
-	Method       string           `validate:"omitempty,oneof=get post"`
+	Href         string `validate:"excluded_with=Action"`
+	Action       string `validate:"excluded_with=Href"`
+	Method       string `validate:"required_with=Action,excluded_without=Action,omitempty,oneof=get post"`
 	Icon         string
 	MatchPrefix  bool
 	HiddenFields []NavHiddenField `validate:"omitempty,dive"`

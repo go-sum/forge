@@ -21,6 +21,10 @@ type ServerConfig struct {
 	Host            string `validate:"required"`
 	Port            int    `validate:"required,min=1,max=65535"`
 	GracefulTimeout int
+	IdleTimeout     int
+	ReadTimeout     int
+	WriteTimeout    int
+	MaxHeaderBytes  int
 	TrustProxy      string `validate:"omitempty,oneof=direct xff"`
 	TrustedProxies  []string
 }
@@ -44,6 +48,10 @@ func defaultApp() AppConfig {
 			Host:            "0.0.0.0",
 			Port:            8080,
 			GracefulTimeout: 10,
+			IdleTimeout:     120,
+			ReadTimeout:     5,
+			WriteTimeout:    10,
+			MaxHeaderBytes:  1 << 20, // 1 MB
 			TrustProxy:      "xff",
 			TrustedProxies: []string{
 				"172.16.0.0/12",
