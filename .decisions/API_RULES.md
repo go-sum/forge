@@ -6,6 +6,11 @@ weight: 10
 
 # Echo v5 Critical API Rules
 
+> This guide is transport-specific. Use it together with
+> [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md) for architecture and ownership, and
+> [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md) for code-structure and
+> maintainability rules.
+
 ### Handler Signatures — BREAKING CHANGE from v4
 
 ```go
