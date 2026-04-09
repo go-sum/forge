@@ -68,7 +68,7 @@ func actionsCell(req view.Request, entry SessionEntry) g.Node {
 		Size:    core.SizeSm,
 		Type:    "button",
 		Extra: htmx.Attrs(htmx.AttrsProps{
-			Delete:    req.Path("session.revoke", entry.SessionID),
+			Delete:    req.Path("profile.session.revoke", entry.SessionID),
 			Confirm:   "Sign out this session?",
 			Target:    "closest tr",
 			Swap:      "outerHTML swap:300ms",

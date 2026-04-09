@@ -131,7 +131,7 @@ func revokeAllForm(req view.Request) g.Node {
 			Variant: core.VariantDestructiveGhost,
 			Type:    "button",
 			Extra: htmx.Attrs(htmx.AttrsProps{
-				Delete:  req.Path("session.revoke.all"),
+				Delete:  req.Path("profile.session.revoke.all"),
 				Confirm: "Sign out of all other sessions?",
 				Target:  "#sessions-list-region",
 				Swap:    htmx.SwapOuterHTML,

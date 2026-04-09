@@ -98,7 +98,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		SignupPath:      "/signup",
 		VerifyPath:      "/verify",
 		VerifyURL:       "http://localhost:3000/verify",
-		EmailChangePath: "/account/email",
+		EmailChangePath: "/profile/email",
 		HomePath:        "/",
 		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
@@ -295,7 +295,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		SignupPath:      "/signup",
 		VerifyPath:      "/verify",
 		VerifyURL:       "http://localhost:3000/verify",
-		EmailChangePath: "/account/email",
+		EmailChangePath: "/profile/email",
 		HomePath:        "/",
 		RequestFn: func(ec *echo.Context) auth.Request {
 			req := view.NewRequest(ec, cfg)
@@ -360,7 +360,7 @@ func TestUserRowETagCachingCycle(t *testing.T) {
 	e, sessions, _ := newTestApp(t)
 	cookie := adminCookie(t, sessions, adminID)
 
-	path := "/users/" + adminID + "/row"
+	path := "/admin/users/" + adminID + "/row"
 
 	req1 := httptest.NewRequest(http.MethodGet, path, nil)
 	req1.AddCookie(cookie)
@@ -444,19 +444,19 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 		},
 		{
 			name:         "admin route redirects unauthenticated to signin",
-			path:         "/users",
+			path:         "/admin/users",
 			wantStatus:   http.StatusSeeOther,
 			wantLocation: "/signin",
 		},
 		{
 			name:       "admin route rejects authenticated non-admin with 403",
-			path:       "/users",
+			path:       "/admin/users",
 			cookie:     makeCookie(t, regularID),
 			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "admin route allows authenticated admin",
-			path:       "/users",
+			path:       "/admin/users",
 			cookie:     makeCookie(t, adminID),
 			wantStatus: http.StatusOK,
 		},

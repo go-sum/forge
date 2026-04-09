@@ -48,7 +48,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 			h.ColSpan("5"),
 			h.Form(
 				g.Group(htmx.Attrs(htmx.AttrsProps{
-					Put:       req.Path("user.update", id),
+					Put:       req.Path("admin.user.update", id),
 					Target:    "closest tr",
 					Swap:      htmx.SwapOuterHTML,
 					Indicator: "#users-loading",
@@ -115,7 +115,7 @@ func UserEditForm(req view.Request, data UserFormData) g.Node {
 						Variant: core.VariantGhost,
 						Size:    core.SizeSm,
 						Extra: htmx.Attrs(htmx.AttrsProps{
-							Get:       req.Path("user.row", id),
+							Get:       req.Path("admin.user.row", id),
 							Target:    "closest tr",
 							Swap:      htmx.SwapOuterHTML,
 							Indicator: "#users-loading",

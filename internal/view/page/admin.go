@@ -25,7 +25,7 @@ func AdminElevatePage(req view.Request) g.Node {
 			),
 			h.Form(
 				h.Method("post"),
-				h.Action(req.Path("account.admin.post")),
+				h.Action(req.Path("admin.elevate.post")),
 				h.Class("space-y-4"),
 				h.Input(h.Type("hidden"), h.Name(req.CSRFFieldName), h.Value(req.CSRFToken)),
 				h.Div(

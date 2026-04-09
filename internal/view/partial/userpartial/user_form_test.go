@@ -41,7 +41,7 @@ func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 
 	wantSnippets := []string{
 		`id="user-11111111-1111-1111-1111-111111111111"`,
-		`hx-put="/users/11111111-1111-1111-1111-111111111111"`,
+		`hx-put="/admin/users/11111111-1111-1111-1111-111111111111"`,
 		`hx-indicator="#users-loading"`,
 		`sm:grid-cols-2`,
 		`value="csrf-token"`,
@@ -49,7 +49,7 @@ func TestUserEditFormRendersValuesErrorsAndHTMXAttrs(t *testing.T) {
 		`value="Grace Hopper"`,
 		`Email already in use.`,
 		`Save failed.`,
-		`hx-get="/users/11111111-1111-1111-1111-111111111111/row"`,
+		`hx-get="/admin/users/11111111-1111-1111-1111-111111111111/row"`,
 	}
 	for _, want := range wantSnippets {
 		if !strings.Contains(got, want) {

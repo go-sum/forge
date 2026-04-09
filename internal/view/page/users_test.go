@@ -32,8 +32,8 @@ func TestUserListRegionIsHTMXReplaceable(t *testing.T) {
 		` aria-label="pagination"`,
 		`hx-target="#users-list-region"`,
 		`hx-indicator="#users-loading"`,
-		`hx-get="/users?page=1"`,
-		`hx-get="/users?page=3"`,
+		`hx-get="/admin/users?page=1"`,
+		`hx-get="/admin/users?page=3"`,
 	}
 	for _, want := range wantSnippets {
 		if !strings.Contains(got, want) {

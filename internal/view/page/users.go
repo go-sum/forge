@@ -162,7 +162,7 @@ func userCountLabel(total int) string {
 
 func paginatedLinkAttrs(req view.Request, page int) []g.Node {
 	return htmx.PaginatedTableLink(htmx.PaginatedTableProps{
-		Path:      req.Path("user.list"),
+		Path:      req.Path("admin.user.list"),
 		Page:      page,
 		Target:    "#users-list-region",
 		Swap:      htmx.SwapOuterHTML,
@@ -172,7 +172,7 @@ func paginatedLinkAttrs(req view.Request, page int) []g.Node {
 }
 
 func userListPagePath(req view.Request, page int) string {
-	return req.PathWithQuery("user.list", url.Values{
+	return req.PathWithQuery("admin.user.list", url.Values{
 		"page": {fmt.Sprintf("%d", page)},
 	})
 }

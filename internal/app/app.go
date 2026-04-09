@@ -61,7 +61,7 @@ func New(version string) *App {
 			VerifyPathFn:       resolve.Path("verify.get"),
 			VerifyResendPathFn: resolve.Path("verify.resend.post"),
 			VerifyURLFn:        resolve.URL(r.Config.Security.ExternalOrigin, "verify.get"),
-			EmailChangeFn:      resolve.Path("account.email.get"),
+			EmailChangeFn:      resolve.Path("profile.email.get"),
 			HomePathFn:         resolve.Path("home.show"),
 			RequestFn:          requestFn,
 		},

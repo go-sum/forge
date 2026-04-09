@@ -85,7 +85,7 @@ func (h *Handler) Revoke(c *echo.Context) error {
 		if ferr := flash.Error(c.Response(), "Use sign out to end your current session."); ferr != nil {
 			slog.ErrorContext(ctx, "flash error", "error", ferr)
 		}
-		return redirect.New(c.Response(), c.Request()).To(req.Path("session.list")).Go()
+		return redirect.New(c.Response(), c.Request()).To(req.Path("profile.session.list")).Go()
 	}
 
 	if err := h.mgr.DestroySession(ctx, sessionID, userID); err != nil {
@@ -142,5 +142,5 @@ func (h *Handler) RevokeAll(c *echo.Context) error {
 	if flashErr != nil {
 		slog.ErrorContext(ctx, "flash error in revoke-all", "error", flashErr)
 	}
-	return redirect.New(c.Response(), c.Request()).To(req.Path("session.list")).Go()
+	return redirect.New(c.Response(), c.Request()).To(req.Path("profile.session.list")).Go()
 }

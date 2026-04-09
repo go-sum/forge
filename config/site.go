@@ -32,11 +32,10 @@ func defaultSite() SiteConfig {
 			DefaultAllow: true,
 			DisallowPaths: []string{
 				"/_components",
-				"/account",
-				"/users",
+				"/admin",
+				"/profile",
 				"/signin",
 				"/signup",
-				"/signout",
 				"/health",
 			},
 			CacheControl: "public, max-age=86400",

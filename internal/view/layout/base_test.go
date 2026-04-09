@@ -48,7 +48,7 @@ func TestPageRendersAccountDropdownSlotsWithMenuRowStyling(t *testing.T) {
 		CSRFFieldName:   "_csrf",
 		CSRFHeaderName:  "X-CSRF-Token",
 		CSRFToken:       "csrf-token",
-		SignoutPath:      "/signout",
+		SignoutPath:      "/profile/signout",
 		IsAuthenticated: true,
 		UserName:        "John",
 		NavConfig: config.NavConfig{

@@ -22,7 +22,7 @@ func HomePage(req view.Request) g.Node {
 	if req.IsAuthenticated {
 		secondary = core.Button(core.ButtonProps{
 			Label: "Manage Users",
-			Href:  req.Path("user.list"),
+			Href:  req.Path("admin.user.list"),
 		})
 	}
 

@@ -69,40 +69,50 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 		// Authenticated — server rate limit + auth required
 		route.Layout(
 			route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
-			route.GET("/account/email", "account.email.get", authHandler.EmailChangePage),
-			route.GET("/account/admin", "account.admin", adminHandler.AdminElevatePage),
-			route.GET("/account/sessions", "session.list", sessionsModule.Handler().List),
 			route.GET("/_components", "components.list", examplesHandler.Handle),
 
-			// Authenticated POST — adds cross-origin guard
-			route.Layout(
-				route.Use(crossOriginGuard),
-				route.POST("/signout", "signout.post", authHandler.Signout),
-				route.POST("/account/email", "account.email.post", authHandler.BeginEmailChange),
-				route.POST("/account/admin", "account.admin.post", adminHandler.AdminElevate),
-				route.DELETE("/account/sessions/:id", "session.revoke", sessionsModule.Handler().Revoke),
-				route.DELETE("/account/sessions", "session.revoke.all", sessionsModule.Handler().RevokeAll),
+			// Profile — current user account management
+			route.Group("/profile",
+				route.GET("/email", "profile.email.get", authHandler.EmailChangePage),
+				route.GET("/sessions", "profile.session.list", sessionsModule.Handler().List),
+				// Profile writes — adds cross-origin guard
+				route.Layout(
+					route.Use(crossOriginGuard),
+					route.POST("/signout", "profile.signout.post", authHandler.Signout),
+					route.POST("/email", "profile.email.post", authHandler.BeginEmailChange),
+					route.DELETE("/sessions/:id", "profile.session.revoke", sessionsModule.Handler().Revoke),
+					route.DELETE("/sessions", "profile.session.revoke.all", sessionsModule.Handler().RevokeAll),
+				),
 			),
 
-			// Admin — adds role load + admin check
-			route.Layout(
-				route.Use(auth.LoadUserRole(r.AuthStore), auth.RequireAdmin()),
-				route.Group("/users",
-					route.GET("", "user.list", adminHandler.UserList),
-					route.GET("/:id/edit", "user.edit", adminHandler.UserEditForm),
-					// Cached fragments — private cache + ETag
-					route.Layout(
-						route.Use(
-							smw.CacheHeaders(headers.NewCacheControl().Private().MustRevalidate().String(), "Cookie"),
-							etag.Middleware(),
+			// Admin — user management
+			route.Group("/admin",
+				route.GET("/elevate", "admin.elevate", adminHandler.AdminElevatePage),
+				// Admin elevation write — adds cross-origin guard
+				route.Layout(
+					route.Use(crossOriginGuard),
+					route.POST("/elevate", "admin.elevate.post", adminHandler.AdminElevate),
+				),
+				// Admin user management — adds role load + admin check
+				route.Layout(
+					route.Use(auth.LoadUserRole(r.AuthStore), auth.RequireAdmin()),
+					route.Group("/users",
+						route.GET("", "admin.user.list", adminHandler.UserList),
+						route.GET("/:id/edit", "admin.user.edit", adminHandler.UserEditForm),
+						// Cached fragments — private cache + ETag
+						route.Layout(
+							route.Use(
+								smw.CacheHeaders(headers.NewCacheControl().Private().MustRevalidate().String(), "Cookie"),
+								etag.Middleware(),
+							),
+							route.GET("/:id/row", "admin.user.row", adminHandler.UserRow),
 						),
-						route.GET("/:id/row", "user.row", adminHandler.UserRow),
-					),
-					// Admin writes — adds cross-origin guard
-					route.Layout(
-						route.Use(crossOriginGuard),
-						route.PUT("/:id", "user.update", adminHandler.UserUpdate),
-						route.DELETE("/:id", "user.delete", adminHandler.UserDelete),
+						// Admin writes — adds cross-origin guard
+						route.Layout(
+							route.Use(crossOriginGuard),
+							route.PUT("/:id", "admin.user.update", adminHandler.UserUpdate),
+							route.DELETE("/:id", "admin.user.delete", adminHandler.UserDelete),
+						),
 					),
 				),
 			),

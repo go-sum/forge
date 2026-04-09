@@ -40,7 +40,7 @@ func UserRow(req view.Request, p UserRowProps) g.Node {
 					Variant: core.VariantGhost,
 					Size:    core.SizeSm,
 					Extra: htmx.Attrs(htmx.AttrsProps{
-						Get:       req.Path("user.edit", id),
+						Get:       req.Path("admin.user.edit", id),
 						Target:    "closest tr",
 						Swap:      htmx.SwapOuterHTML,
 						Indicator: "#users-loading",
@@ -53,7 +53,7 @@ func UserRow(req view.Request, p UserRowProps) g.Node {
 					Type:    "button",
 					Extra: htmx.Attrs(htmx.AttrsProps{
 						Confirm:   "Delete " + u.DisplayName + "?",
-						Delete:    req.Path("user.delete", id),
+						Delete:    req.Path("admin.user.delete", id),
 						Target:    "closest tr",
 						Swap:      "outerHTML swap:500ms",
 						Indicator: "#users-loading",

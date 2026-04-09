@@ -24,12 +24,12 @@ func mustPartialRoutes(t *testing.T) echo.Routes {
 		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: noOp})
 		route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: noOp})
 
-		users := e.Group("/users")
-		route.Add(users, echo.Route{Method: http.MethodGet, Path: "", Name: "user.list", Handler: noOp})
-		route.Add(users, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "user.edit", Handler: noOp})
-		route.Add(users, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: noOp})
-		route.Add(users, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "user.update", Handler: noOp})
-		route.Add(users, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "user.delete", Handler: noOp})
+		adminUsers := e.Group("/admin/users")
+		route.Add(adminUsers, echo.Route{Method: http.MethodGet, Path: "", Name: "admin.user.list", Handler: noOp})
+		route.Add(adminUsers, echo.Route{Method: http.MethodGet, Path: "/:id/edit", Name: "admin.user.edit", Handler: noOp})
+		route.Add(adminUsers, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "admin.user.row", Handler: noOp})
+		route.Add(adminUsers, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "admin.user.update", Handler: noOp})
+		route.Add(adminUsers, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "admin.user.delete", Handler: noOp})
 
 		partialRoutes = e.Router().Routes()
 	})

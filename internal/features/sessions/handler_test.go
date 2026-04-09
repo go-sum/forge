@@ -202,7 +202,7 @@ func TestListRendersSessionRegion(t *testing.T) {
 	}
 
 	h := newTestSessionHandler(mgr)
-	c, rec := testutil.NewRequestContext(http.MethodGet, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodGet, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -220,7 +220,7 @@ func TestListRendersSessionRegion(t *testing.T) {
 
 func TestListNilManagerRendersEmptyState(t *testing.T) {
 	h := newTestSessionHandler(nil)
-	c, rec := testutil.NewRequestContext(http.MethodGet, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodGet, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -245,7 +245,7 @@ func TestListServiceError(t *testing.T) {
 	mgr.listErr = errors.New("kv down")
 
 	h := newTestSessionHandler(mgr)
-	c, _ := testutil.NewRequestContext(http.MethodGet, "/account/sessions", nil)
+	c, _ := testutil.NewRequestContext(http.MethodGet, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -266,7 +266,7 @@ func TestListMarksCurrentSession(t *testing.T) {
 	}
 
 	h := newTestSessionHandler(mgr)
-	c, rec := testutil.NewRequestContext(http.MethodGet, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodGet, "/profile/sessions", nil)
 	c.Request().AddCookie(cookie)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
@@ -293,7 +293,7 @@ func TestListHTMXPartialReturnsFragment(t *testing.T) {
 	mgr.listSessions = []session.SessionMeta{}
 
 	h := newTestSessionHandler(mgr)
-	c, rec := testutil.NewRequestContext(http.MethodGet, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodGet, "/profile/sessions", nil)
 	c.Request().Header.Set("HX-Request", "true")
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
@@ -323,7 +323,7 @@ func TestRevokeSuccess(t *testing.T) {
 	h := newTestSessionHandler(mgr)
 
 	c, rec := testutil.NewRequestContext(http.MethodDelete, "/account/sessions/abc123", nil)
-	testutil.SetPathParam(c, "/account/sessions/:id", "id", "abc123")
+	testutil.SetPathParam(c, "/profile/sessions/:id", "id", "abc123")
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -355,7 +355,7 @@ func TestRevokeNilManagerReturnsUnavailable(t *testing.T) {
 	h := newTestSessionHandler(nil)
 
 	c, _ := testutil.NewRequestContext(http.MethodDelete, "/account/sessions/some-id", nil)
-	testutil.SetPathParam(c, "/account/sessions/:id", "id", "some-id")
+	testutil.SetPathParam(c, "/profile/sessions/:id", "id", "some-id")
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -372,7 +372,7 @@ func TestRevokeServiceErrorReturnsUnavailable(t *testing.T) {
 	// Use a cookie-mode manager whose Load always produces a random ID, so
 	// "other-session-id" will never match the current session.
 	c, _ := testutil.NewRequestContext(http.MethodDelete, "/account/sessions/other-session-id", nil)
-	testutil.SetPathParam(c, "/account/sessions/:id", "id", "other-session-id")
+	testutil.SetPathParam(c, "/profile/sessions/:id", "id", "other-session-id")
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -391,7 +391,7 @@ func TestRevokeCurrentSessionRedirects(t *testing.T) {
 	// The handler request carries the same cookie, so Load returns the same ID.
 	c, rec := testutil.NewRequestContext(http.MethodDelete, "/account/sessions/"+currentID, nil)
 	c.Request().AddCookie(cookie)
-	testutil.SetPathParam(c, "/account/sessions/:id", "id", currentID)
+	testutil.SetPathParam(c, "/profile/sessions/:id", "id", currentID)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -426,7 +426,7 @@ func TestRevokeAllDestroysOtherSessions(t *testing.T) {
 
 	h := newTestSessionHandler(mgr)
 
-	c, rec := testutil.NewRequestContext(http.MethodDelete, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodDelete, "/profile/sessions", nil)
 	c.Request().AddCookie(cookie)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
@@ -452,7 +452,7 @@ func TestRevokeAllDestroysOtherSessions(t *testing.T) {
 func TestRevokeAllNilManagerReturnsUnavailable(t *testing.T) {
 	h := newTestSessionHandler(nil)
 
-	c, _ := testutil.NewRequestContext(http.MethodDelete, "/account/sessions", nil)
+	c, _ := testutil.NewRequestContext(http.MethodDelete, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -466,7 +466,7 @@ func TestRevokeAllListErrorReturnsUnavailable(t *testing.T) {
 
 	h := newTestSessionHandler(mgr)
 
-	c, _ := testutil.NewRequestContext(http.MethodDelete, "/account/sessions", nil)
+	c, _ := testutil.NewRequestContext(http.MethodDelete, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 
@@ -480,7 +480,7 @@ func TestRevokeAllSkipsDestroyOnEmptySessionList(t *testing.T) {
 
 	h := newTestSessionHandler(mgr)
 
-	c, rec := testutil.NewRequestContext(http.MethodDelete, "/account/sessions", nil)
+	c, rec := testutil.NewRequestContext(http.MethodDelete, "/profile/sessions", nil)
 	testutil.SetUserID(c, "user-1")
 	testutil.SetCSRFToken(c)
 

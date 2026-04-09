@@ -141,7 +141,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		Flash:           r.Flash,
 		NavConfig:       r.NavConfig,
 		FontConfig:      r.FontConfig,
-		SignoutPath:      r.safePath("signout.post", "/signout"),
+		SignoutPath:      r.safePath("profile.signout.post", "/profile/signout"),
 		CopyrightYear:   r.CopyrightYear,
 		AppVersion:      r.AppVersion,
 		Children:        children,
