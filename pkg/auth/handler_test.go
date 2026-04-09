@@ -45,6 +45,18 @@ type fakeHandlerSessionManager struct {
 	commitErr  error
 	destroyErr error
 	rotateErr  error
+	loadErr    error
+
+	bindCalled    bool
+	bindSessionID string
+	bindUserID    string
+	bindMeta      SessionMeta
+	bindErr       error
+
+	unbindCalled    bool
+	unbindSessionID string
+	unbindUserID    string
+	unbindErr       error
 }
 
 func newFakeHandlerSessionManager() *fakeHandlerSessionManager {
@@ -52,7 +64,25 @@ func newFakeHandlerSessionManager() *fakeHandlerSessionManager {
 }
 
 func (m *fakeHandlerSessionManager) Load(r *http.Request) (SessionState, error) {
+	if m.loadErr != nil {
+		return nil, m.loadErr
+	}
 	return m.state, nil
+}
+
+func (m *fakeHandlerSessionManager) BindSession(_ context.Context, sessionID, userID string, meta SessionMeta) error {
+	m.bindCalled = true
+	m.bindSessionID = sessionID
+	m.bindUserID = userID
+	m.bindMeta = meta
+	return m.bindErr
+}
+
+func (m *fakeHandlerSessionManager) UnbindSession(_ context.Context, sessionID, userID string) error {
+	m.unbindCalled = true
+	m.unbindSessionID = sessionID
+	m.unbindUserID = userID
+	return m.unbindErr
 }
 
 func (m *fakeHandlerSessionManager) Commit(w http.ResponseWriter, r *http.Request, s SessionState) error {
@@ -77,6 +107,10 @@ func (m *fakeHandlerSessionManager) RotateID(w http.ResponseWriter, r *http.Requ
 		return m.rotateErr
 	}
 	http.SetCookie(w, &http.Cookie{Name: "test-session", Value: "rotated", MaxAge: 3600})
+	return nil
+}
+
+func (m *fakeHandlerSessionManager) TouchSession(_ context.Context, _, _ string) error {
 	return nil
 }
 
@@ -574,6 +608,7 @@ func TestVerifyRedirectsOnSuccess(t *testing.T) {
 			return model.VerifyResult{
 				Purpose: model.FlowPurposeSignin,
 				User:    handlerTestUser,
+				Method:  "email_totp",
 			}, nil
 		},
 	}, mgr)
@@ -746,5 +781,118 @@ func TestEmailChangeRejectsConflictingEmail(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "Email already in use.") {
 		t.Fatalf("body = %q", rec.Body.String())
+	}
+}
+
+func TestVerifyCallsBindSession(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
+	handler := newTestHandler(fakeAuthService{
+		verifyPendingFn: func(_ context.Context, flow model.PendingFlow, input model.VerifyInput) (model.VerifyResult, error) {
+			return model.VerifyResult{
+				Purpose: model.FlowPurposeSignin,
+				User:    handlerTestUser,
+				Method:  "email_totp",
+			}, nil
+		},
+	}, mgr)
+
+	withPendingFlowSession(t, mgr, model.PendingFlow{
+		Purpose:   model.FlowPurposeSignin,
+		Email:     handlerTestUser.Email,
+		Secret:    "SECRET",
+		IssuedAt:  time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC),
+		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
+	})
+
+	c, _ := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"123456"}})
+	setCSRFToken(c)
+
+	if err := handler.Verify(c); err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if !mgr.bindCalled {
+		t.Fatal("BindSession was not called")
+	}
+	if mgr.bindUserID != handlerTestUser.ID.String() {
+		t.Fatalf("bindUserID = %q, want %q", mgr.bindUserID, handlerTestUser.ID.String())
+	}
+	if mgr.bindMeta.AuthMethod != "email_totp" {
+		t.Fatalf("bindMeta.AuthMethod = %q, want %q", mgr.bindMeta.AuthMethod, "email_totp")
+	}
+}
+
+func TestVerifyBindSessionFailureNonFatal(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
+	mgr.bindErr = errors.New("kv down")
+	handler := newTestHandler(fakeAuthService{
+		verifyPendingFn: func(_ context.Context, flow model.PendingFlow, input model.VerifyInput) (model.VerifyResult, error) {
+			return model.VerifyResult{
+				Purpose: model.FlowPurposeSignin,
+				User:    handlerTestUser,
+				Method:  "email_totp",
+			}, nil
+		},
+	}, mgr)
+
+	withPendingFlowSession(t, mgr, model.PendingFlow{
+		Purpose:   model.FlowPurposeSignin,
+		Email:     handlerTestUser.Email,
+		Secret:    "SECRET",
+		IssuedAt:  time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC),
+		ExpiresAt: time.Date(2026, 3, 28, 12, 5, 0, 0, time.UTC),
+	})
+
+	c, rec := newFormContext(http.MethodPost, "/verify", url.Values{"code": {"123456"}})
+	setCSRFToken(c)
+
+	if err := handler.Verify(c); err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/" {
+		t.Fatalf("location = %q, want /", got)
+	}
+}
+
+func TestSignoutCallsUnbindSession(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
+	handler := newTestHandler(fakeAuthService{}, mgr)
+
+	withAuthSession(t, mgr, handlerTestUser.ID.String(), handlerTestUser.DisplayName)
+
+	c, _ := newRequestContext(http.MethodPost, "/signout", nil)
+
+	if err := handler.Signout(c); err != nil {
+		t.Fatalf("Signout() error = %v", err)
+	}
+	if !mgr.unbindCalled {
+		t.Fatal("UnbindSession was not called")
+	}
+	if mgr.unbindUserID != handlerTestUser.ID.String() {
+		t.Fatalf("unbindUserID = %q, want %q", mgr.unbindUserID, handlerTestUser.ID.String())
+	}
+}
+
+func TestSignoutWithFailedLoadSkipsUnbind(t *testing.T) {
+	mgr := newFakeHandlerSessionManager()
+	mgr.loadErr = errors.New("bad")
+	handler := newTestHandler(fakeAuthService{}, mgr)
+
+	c, rec := newRequestContext(http.MethodPost, "/signout", nil)
+
+	if err := handler.Signout(c); err != nil {
+		t.Fatalf("Signout() error = %v", err)
+	}
+	if mgr.unbindCalled {
+		t.Fatal("UnbindSession should not have been called when Load fails")
+	}
+	setCookie := rec.Header().Get(echo.HeaderSetCookie)
+	if !strings.Contains(setCookie, "Max-Age=0") && !strings.Contains(setCookie, "Max-Age=-1") {
+		t.Fatalf("set-cookie = %q, expected cookie to be cleared", setCookie)
+	}
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/signin" {
+		t.Fatalf("location = %q, want /signin", got)
 	}
 }

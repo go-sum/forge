@@ -3,6 +3,7 @@
 package redisstore
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"time"
@@ -23,6 +24,15 @@ type Config struct {
 	WriteTimeout time.Duration // 0 = default 3s
 }
 
+// defaultConfig holds the zero-omitted defaults applied by New.
+// Edit here to change package-wide defaults.
+var defaultConfig = Config{
+	PoolSize:     10,
+	DialTimeout:  5 * time.Second,
+	ReadTimeout:  3 * time.Second,
+	WriteTimeout: 3 * time.Second,
+}
+
 // RedisStore implements kv.Store and kv.Scanner backed by a Redis-protocol server.
 type RedisStore struct {
 	client *redis.Client
@@ -36,32 +46,15 @@ var (
 
 // New creates a RedisStore connected to the given address.
 func New(cfg Config) (*RedisStore, error) {
-	poolSize := cfg.PoolSize
-	if poolSize == 0 {
-		poolSize = 10
-	}
-	dialTimeout := cfg.DialTimeout
-	if dialTimeout == 0 {
-		dialTimeout = 5 * time.Second
-	}
-	readTimeout := cfg.ReadTimeout
-	if readTimeout == 0 {
-		readTimeout = 3 * time.Second
-	}
-	writeTimeout := cfg.WriteTimeout
-	if writeTimeout == 0 {
-		writeTimeout = 3 * time.Second
-	}
-
 	client := redis.NewClient(&redis.Options{
 		Addr:         cfg.Addr,
 		Password:     cfg.Password,
 		DB:           cfg.DB,
-		PoolSize:     poolSize,
+		PoolSize:     cmp.Or(cfg.PoolSize, defaultConfig.PoolSize),
 		MinIdleConns: cfg.MinIdleConns,
-		DialTimeout:  dialTimeout,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
+		DialTimeout:  cmp.Or(cfg.DialTimeout, defaultConfig.DialTimeout),
+		ReadTimeout:  cmp.Or(cfg.ReadTimeout, defaultConfig.ReadTimeout),
+		WriteTimeout: cmp.Or(cfg.WriteTimeout, defaultConfig.WriteTimeout),
 	})
 
 	return &RedisStore{client: client}, nil

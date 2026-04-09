@@ -8,6 +8,7 @@ import (
 	"github.com/go-sum/forge/internal/features/docs"
 	"github.com/go-sum/forge/internal/features/examples"
 	"github.com/go-sum/forge/internal/features/public"
+	"github.com/go-sum/forge/internal/features/sessions"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/send"
 	"github.com/go-sum/server/headers"
@@ -38,6 +39,7 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 		SendFrom: send.DefaultRegistry.SendFrom(r.Config.Service.Send.Delivery),
 	}), r.Validator)
 	examplesHandler := examples.NewModule(r.Config)
+	sessionsModule := sessions.NewModule(r.Config, r.Sessions, r.Validator)
 
 	crossOriginGuard := appserver.CrossOriginGuard(r.Config)
 
@@ -69,6 +71,7 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 			route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
 			route.GET("/account/email", "account.email.get", authHandler.EmailChangePage),
 			route.GET("/account/admin", "account.admin", adminHandler.AdminElevatePage),
+			route.GET("/account/sessions", "session.list", sessionsModule.Handler().List),
 			route.GET("/_components", "components.list", examplesHandler.Handle),
 
 			// Authenticated POST — adds cross-origin guard
@@ -77,6 +80,8 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 				route.POST("/signout", "signout.post", authHandler.Signout),
 				route.POST("/account/email", "account.email.post", authHandler.BeginEmailChange),
 				route.POST("/account/admin", "account.admin.post", adminHandler.AdminElevate),
+				route.DELETE("/account/sessions/:id", "session.revoke", sessionsModule.Handler().Revoke),
+				route.DELETE("/account/sessions", "session.revoke.all", sessionsModule.Handler().RevokeAll),
 			),
 
 			// Admin — adds role load + admin check

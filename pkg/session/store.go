@@ -23,3 +23,6 @@ type BlobStore interface {
 
 // ErrBlobNotFound must be returned by BlobStore.Get when a key does not exist.
 var ErrBlobNotFound = errors.New("session: blob not found")
+
+// Returned by DestroySession when the session ID is not present in the given user's index.
+var ErrSessionNotOwned = errors.New("session: session does not belong to user")

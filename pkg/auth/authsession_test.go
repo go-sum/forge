@@ -20,6 +20,8 @@ func newFakeSessionState() *fakeSessionState {
 	return &fakeSessionState{data: make(map[string]any)}
 }
 
+func (s *fakeSessionState) ID() string { return "fake-session-id" }
+
 func (s *fakeSessionState) Get(key string, dst any) (bool, error) {
 	v, ok := s.data[key]
 	if !ok {

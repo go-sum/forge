@@ -2,6 +2,8 @@ package config
 
 import (
 	"testing"
+
+	"github.com/go-playground/validator/v10"
 )
 
 // --- ApplyEnv tests ---
@@ -252,5 +254,51 @@ func TestExpandEnvComposed(t *testing.T) {
 func TestExpandEnvComposedDefaultFallback(t *testing.T) {
 	if got := ExpandEnv("${TEST_KV_HOST_MISS:-localhost}:${TEST_KV_PORT_MISS:-6379}"); got != "localhost:6379" {
 		t.Fatalf("ExpandEnv = %q, want %q", got, "localhost:6379")
+	}
+}
+
+// --- Registrar tests ---
+
+type registrarCfg struct {
+	Mode    string `validate:"required,oneof=fast slow"`
+	Workers int
+}
+
+func (c *registrarCfg) RegisterValidationRules(v *validator.Validate) {
+	v.RegisterStructValidation(func(sl validator.StructLevel) {
+		cfg := sl.Current().Interface().(registrarCfg)
+		if cfg.Mode == "fast" && cfg.Workers < 2 {
+			sl.ReportError(cfg.Workers, "Workers", "Workers", "min_workers_for_fast", "")
+		}
+	}, registrarCfg{})
+}
+
+func TestValidateCallsRegistrar(t *testing.T) {
+	s := &registrarCfg{Mode: "fast", Workers: 1}
+	if err := Validate(s); err == nil {
+		t.Fatal("Validate() error = nil, want cross-field validation error")
+	}
+}
+
+func TestValidateRegistrarPassesValidConfig(t *testing.T) {
+	s := &registrarCfg{Mode: "fast", Workers: 5}
+	if err := Validate(s); err != nil {
+		t.Fatalf("Validate() unexpected error: %v", err)
+	}
+}
+
+func TestValidateIgnoresNonRegistrar(t *testing.T) {
+	s := &validateOKStruct{Name: "hello"}
+	if err := Validate(s); err != nil {
+		t.Fatalf("Validate() unexpected error for non-Registrar type: %v", err)
+	}
+}
+
+func TestLoadCallsRegistrarViaValidate(t *testing.T) {
+	_, err := Load(func() registrarCfg {
+		return registrarCfg{Mode: "fast", Workers: 1} // violates cross-field rule
+	})
+	if err == nil {
+		t.Fatal("Load() error = nil, want cross-field validation error")
 	}
 }

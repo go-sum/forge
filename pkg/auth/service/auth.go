@@ -299,12 +299,12 @@ func (s *AuthService) finishSignup(ctx context.Context, flow model.PendingFlow) 
 		if errors.Is(err, model.ErrEmailTaken) {
 			existing, getErr := s.users.GetByEmail(ctx, flow.Email)
 			if getErr == nil && existing.Verified {
-				return model.VerifyResult{Purpose: model.FlowPurposeSignup, User: existing}, nil
+				return model.VerifyResult{Purpose: model.FlowPurposeSignup, User: existing, Method: string(auth.MethodEmailTOTP)}, nil
 			}
 		}
 		return model.VerifyResult{}, fmt.Errorf("create verified user: %w", err)
 	}
-	return model.VerifyResult{Purpose: model.FlowPurposeSignup, User: user}, nil
+	return model.VerifyResult{Purpose: model.FlowPurposeSignup, User: user, Method: string(auth.MethodEmailTOTP)}, nil
 }
 
 func (s *AuthService) finishSignin(ctx context.Context, flow model.PendingFlow) (model.VerifyResult, error) {
@@ -318,7 +318,7 @@ func (s *AuthService) finishSignin(ctx context.Context, flow model.PendingFlow) 
 	if !user.Verified {
 		return model.VerifyResult{}, model.ErrInvalidCredentials
 	}
-	return model.VerifyResult{Purpose: model.FlowPurposeSignin, User: user}, nil
+	return model.VerifyResult{Purpose: model.FlowPurposeSignin, User: user, Method: string(auth.MethodEmailTOTP)}, nil
 }
 
 func (s *AuthService) finishEmailChange(ctx context.Context, flow model.PendingFlow) (model.VerifyResult, error) {
@@ -327,7 +327,7 @@ func (s *AuthService) finishEmailChange(ctx context.Context, flow model.PendingF
 		return model.VerifyResult{}, fmt.Errorf("lookup email-change user: %w", err)
 	}
 	if strings.EqualFold(user.Email, flow.Email) {
-		return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: user}, nil
+		return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: user, Method: string(auth.MethodEmailTOTP)}, nil
 	}
 
 	user, err = s.users.UpdateEmail(ctx, flow.UserID, flow.Email)
@@ -335,12 +335,12 @@ func (s *AuthService) finishEmailChange(ctx context.Context, flow model.PendingF
 		if errors.Is(err, model.ErrEmailTaken) {
 			current, getErr := s.users.GetByID(ctx, flow.UserID)
 			if getErr == nil && strings.EqualFold(current.Email, flow.Email) {
-				return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: current}, nil
+				return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: current, Method: string(auth.MethodEmailTOTP)}, nil
 			}
 		}
 		return model.VerifyResult{}, fmt.Errorf("update verified email: %w", err)
 	}
-	return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: user}, nil
+	return model.VerifyResult{Purpose: model.FlowPurposeEmailChange, User: user, Method: string(auth.MethodEmailTOTP)}, nil
 }
 
 func (s *AuthService) generateCode(secret string, issuedAt time.Time) (string, error) {

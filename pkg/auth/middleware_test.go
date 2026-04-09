@@ -41,6 +41,80 @@ func (m *fakeMiddlewareSessionManager) RotateID(w http.ResponseWriter, r *http.R
 	return nil
 }
 
+func (m *fakeMiddlewareSessionManager) BindSession(_ context.Context, sessionID, userID string, meta SessionMeta) error {
+	return nil
+}
+
+func (m *fakeMiddlewareSessionManager) UnbindSession(_ context.Context, sessionID, userID string) error {
+	return nil
+}
+
+func (m *fakeMiddlewareSessionManager) TouchSession(_ context.Context, _, _ string) error {
+	return nil
+}
+
+type touchTrackingSessionManager struct {
+	*fakeMiddlewareSessionManager
+	touchCalled    bool
+	touchSessionID string
+	touchUserID    string
+}
+
+func (m *touchTrackingSessionManager) TouchSession(_ context.Context, sessionID, userID string) error {
+	m.touchCalled = true
+	m.touchSessionID = sessionID
+	m.touchUserID = userID
+	return nil
+}
+
+func TestLoadSessionTouchesSessionForAuthenticatedUser(t *testing.T) {
+	base := newFakeMiddlewareSessionManager()
+	_ = base.state.Put(sessionKeyUserID, "user-123")
+
+	mgr := &touchTrackingSessionManager{fakeMiddlewareSessionManager: base}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	called := false
+	err := LoadSession(mgr)(func(c *echo.Context) error {
+		called = true
+		return nil
+	})(c)
+
+	if err != nil {
+		t.Fatalf("LoadSession: %v", err)
+	}
+	if !called {
+		t.Fatal("next handler was not called")
+	}
+	if !mgr.touchCalled {
+		t.Error("TouchSession was not called for authenticated user")
+	}
+	if mgr.touchUserID != "user-123" {
+		t.Errorf("TouchSession userID = %q, want %q", mgr.touchUserID, "user-123")
+	}
+}
+
+func TestLoadSessionDoesNotTouchSessionForUnauthenticatedUser(t *testing.T) {
+	base := newFakeMiddlewareSessionManager()
+	// state has no user ID — unauthenticated
+	mgr := &touchTrackingSessionManager{fakeMiddlewareSessionManager: base}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	_ = LoadSession(mgr)(func(c *echo.Context) error { return nil })(c)
+
+	if mgr.touchCalled {
+		t.Error("TouchSession should not be called for unauthenticated user")
+	}
+}
+
 func TestRequireAuthRedirectsToSignin(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)

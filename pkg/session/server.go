@@ -1,6 +1,7 @@
 package session
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"time"
@@ -13,10 +14,7 @@ type serverStore struct {
 }
 
 func newServerStore(store BlobStore, keyPrefix string) *serverStore {
-	if keyPrefix == "" {
-		keyPrefix = "session:"
-	}
-	return &serverStore{store: store, keyPrefix: keyPrefix}
+	return &serverStore{store: store, keyPrefix: cmp.Or(keyPrefix, "session:")}
 }
 
 func (b *serverStore) Load(id string) ([]byte, bool, error) {

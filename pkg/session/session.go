@@ -13,6 +13,7 @@
 package session
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/http"
@@ -39,36 +40,42 @@ type Manager interface {
 
 // Config holds all configuration needed to construct a Manager.
 type Config struct {
-	Store      string    // "cookie" (default) or "server"
-	CookieName string    // default "_session"
-	AuthKey    string    // HMAC signing key (32 or 64 bytes)
-	EncryptKey string    // AES encryption key (16, 24, or 32 bytes)
-	MaxAge     int       // session TTL in seconds
-	Secure     bool      // cookie Secure flag
-	SameSite   string    // "strict" (default), "lax", or "none"
-	BlobStore  BlobStore // required when Store="server"; nil otherwise
-	KeyPrefix  string    // prefix for blob keys (default "session:")
+	Store       string        // "cookie" (default) or "server"
+	CookieName  string        // default "_session"
+	AuthKey     string        // HMAC signing key (32 or 64 bytes)
+	EncryptKey  string        // AES encryption key (16, 24, or 32 bytes)
+	MaxAge      int           // session TTL in seconds
+	Secure      bool          // cookie Secure flag
+	SameSite    string        // "strict" (default), "lax", or "none"
+	BlobStore   BlobStore     // required when Store="server"; nil otherwise
+	KeyPrefix   string        // prefix for session data blobs (default "session:")
+	UserPrefix  string        // prefix for user index blobs (default "user_sessions:")
+	MetaPrefix  string        // prefix for per-session metadata blobs (default "session_meta:")
+	TouchWindow time.Duration // minimum interval between TouchSession KV writes (default 60s)
+}
+
+// defaultConfig holds the zero-omitted defaults applied by NewManager.
+// Edit here to change package-wide defaults.
+var defaultConfig = Config{
+	Store:       "cookie",
+	CookieName:  "_session",
+	MaxAge:      86400, // 24h in seconds
+	KeyPrefix:   "session:",
+	UserPrefix:  "user_sessions:",
+	MetaPrefix:  "session_meta:",
+	TouchWindow: 60 * time.Second,
 }
 
 // NewManager constructs a Manager with the configured backend.
 func NewManager(cfg Config) (Manager, error) {
-	cookieName := cfg.CookieName
-	if cookieName == "" {
-		cookieName = "_session"
-	}
-	maxAge := time.Duration(cfg.MaxAge) * time.Second
-	if maxAge == 0 {
-		maxAge = 24 * time.Hour
-	}
+	cookieName := cmp.Or(cfg.CookieName, defaultConfig.CookieName)
+	maxAge := time.Duration(cmp.Or(cfg.MaxAge, defaultConfig.MaxAge)) * time.Second
 
 	if err := validateKeys(cfg.AuthKey, cfg.EncryptKey); err != nil {
 		return nil, err
 	}
 
-	backend := cfg.Store
-	if backend == "" {
-		backend = "cookie"
-	}
+	backend := cmp.Or(cfg.Store, defaultConfig.Store)
 
 	m := &manager{
 		cookieName: cookieName,
@@ -91,7 +98,8 @@ func NewManager(cfg Config) (Manager, error) {
 		if cfg.BlobStore == nil {
 			return nil, errors.New("session: backend=server requires a BlobStore")
 		}
-		m.store = newServerStore(cfg.BlobStore, cfg.KeyPrefix)
+		keyPrefix := cmp.Or(cfg.KeyPrefix, defaultConfig.KeyPrefix)
+		m.store = newServerStore(cfg.BlobStore, keyPrefix)
 		// Server store still needs cookie codec for signing the session ID cookie
 		cb, err := newCookieStore([]byte(cfg.AuthKey), []byte(cfg.EncryptKey))
 		if err != nil {
@@ -99,6 +107,15 @@ func NewManager(cfg Config) (Manager, error) {
 		}
 		m.cookie = cb
 		m.isServer = true
+
+		return &multiManager{
+			manager:     m,
+			blobStore:   cfg.BlobStore,
+			keyPrefix:   keyPrefix,
+			userPrefix:  cmp.Or(cfg.UserPrefix, defaultConfig.UserPrefix),
+			metaPrefix:  cmp.Or(cfg.MetaPrefix, defaultConfig.MetaPrefix),
+			touchWindow: cmp.Or(cfg.TouchWindow, defaultConfig.TouchWindow),
+		}, nil
 
 	default:
 		return nil, fmt.Errorf("session: unknown backend %q", backend)

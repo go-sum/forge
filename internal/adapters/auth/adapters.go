@@ -1,7 +1,9 @@
 package authadapter
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	auth "github.com/go-sum/auth"
 	"github.com/go-sum/componentry/patterns/flash"
@@ -30,6 +32,37 @@ func (a *SessionManagerAdapter) Destroy(w http.ResponseWriter, r *http.Request) 
 
 func (a *SessionManagerAdapter) RotateID(w http.ResponseWriter, r *http.Request, s auth.SessionState) error {
 	return a.Mgr.RotateID(w, r, s.(*session.State))
+}
+
+func (a *SessionManagerAdapter) BindSession(ctx context.Context, sessionID, userID string, meta auth.SessionMeta) error {
+	mm, ok := a.Mgr.(session.MultiManager)
+	if !ok {
+		return nil
+	}
+	return mm.BindUser(ctx, sessionID, userID, session.SessionMeta{
+		SessionID:    sessionID,
+		AuthMethod:   meta.AuthMethod,
+		IPAddress:    meta.IPAddress,
+		UserAgent:    meta.UserAgent,
+		CreatedAt:    time.Now(),
+		LastActiveAt: time.Now(),
+	})
+}
+
+func (a *SessionManagerAdapter) UnbindSession(ctx context.Context, sessionID, userID string) error {
+	mm, ok := a.Mgr.(session.MultiManager)
+	if !ok {
+		return nil
+	}
+	return mm.UnbindUser(ctx, sessionID, userID)
+}
+
+func (a *SessionManagerAdapter) TouchSession(ctx context.Context, sessionID, userID string) error {
+	mm, ok := a.Mgr.(session.MultiManager)
+	if !ok {
+		return nil
+	}
+	return mm.TouchSession(ctx, sessionID, userID)
 }
 
 // FormParserAdapter wraps form.New(validator).Submit to satisfy auth.FormParser.

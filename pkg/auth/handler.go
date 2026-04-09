@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-sum/auth/model"
@@ -256,6 +257,14 @@ func (h *Handler) Verify(c *echo.Context) error {
 	if err := h.sessions.RotateID(c.Response(), c.Request(), commitState); err != nil {
 		return errInternal(err)
 	}
+	meta := SessionMeta{
+		AuthMethod: result.Method,
+		IPAddress:  c.RealIP(),
+		UserAgent:  c.Request().UserAgent(),
+	}
+	if bindErr := h.sessions.BindSession(c.Request().Context(), commitState.ID(), result.User.ID.String(), meta); bindErr != nil {
+		slog.ErrorContext(c.Request().Context(), "failed to bind session to user", "user_id", result.User.ID, "error", bindErr)
+	}
 	if result.Purpose == model.FlowPurposeEmailChange {
 		if err := h.flash.Success(c.Response(), "Your email address has been updated."); err != nil {
 			return errInternal(err)
@@ -351,6 +360,12 @@ func (h *Handler) BeginEmailChange(c *echo.Context) error {
 
 // Signout clears the session and redirects to the signin page.
 func (h *Handler) Signout(c *echo.Context) error {
+	state, err := h.sessions.Load(c.Request())
+	if err == nil {
+		if userID, ok := getUserID(state); ok {
+			_ = h.sessions.UnbindSession(c.Request().Context(), state.ID(), userID)
+		}
+	}
 	if err := h.sessions.Destroy(c.Response(), c.Request()); err != nil {
 		return errInternal(err)
 	}

@@ -81,4 +81,9 @@ func RegisterTestRoutes(e *echo.Echo) {
 	route.Add(users, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "user.row", Handler: noOp})
 	route.Add(users, echo.Route{Method: http.MethodPut, Path: "/:id", Name: "user.update", Handler: noOp})
 	route.Add(users, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "user.delete", Handler: noOp})
+
+	acctSessions := e.Group("/account/sessions")
+	route.Add(acctSessions, echo.Route{Method: http.MethodGet, Path: "", Name: "session.list", Handler: noOp})
+	route.Add(acctSessions, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "session.revoke", Handler: noOp})
+	route.Add(acctSessions, echo.Route{Method: http.MethodDelete, Path: "", Name: "session.revoke.all", Handler: noOp})
 }

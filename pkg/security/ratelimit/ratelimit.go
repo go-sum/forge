@@ -8,6 +8,7 @@
 package ratelimit
 
 import (
+	"cmp"
 	"errors"
 	"log/slog"
 	"math"
@@ -151,6 +152,12 @@ type MemoryStoreConfig struct {
 	ExpiresIn time.Duration // duration before stale visitors are eligible for cleanup; 0 → 3m
 }
 
+// defaultMemoryStoreConfig holds the zero-omitted defaults applied by NewMemoryStoreWithConfig.
+// Edit here to change package-wide defaults.
+var defaultMemoryStoreConfig = MemoryStoreConfig{
+	ExpiresIn: 3 * time.Minute,
+}
+
 // MemoryStore is an in-process token-bucket store keyed by identifier.
 // Stale entries are lazily swept when the time since the last cleanup
 // exceeds ExpiresIn, preventing unbounded memory growth.
@@ -173,10 +180,7 @@ type visitor struct {
 // MemoryStoreConfig. Burst defaults to ceil(Rate) (min 1) when zero.
 // ExpiresIn defaults to 3 minutes when zero.
 func NewMemoryStoreWithConfig(cfg MemoryStoreConfig) *MemoryStore {
-	expiresIn := cfg.ExpiresIn
-	if expiresIn == 0 {
-		expiresIn = 3 * time.Minute
-	}
+	expiresIn := cmp.Or(cfg.ExpiresIn, defaultMemoryStoreConfig.ExpiresIn)
 	burst := cfg.Burst
 	if burst <= 0 {
 		burst = int(math.Max(1, math.Ceil(cfg.Rate)))

@@ -2,6 +2,8 @@
 package config
 
 import (
+	"github.com/go-playground/validator/v10"
+	uilayout "github.com/go-sum/componentry/ui/layout"
 	cfgs "github.com/go-sum/server/config"
 )
 
@@ -18,6 +20,11 @@ type Config struct {
 
 // App is the global configuration singleton, initialised at startup.
 var App *Config
+
+// environmentMap maps environment names to their ordered overlay functions.
+var environmentMap = map[string][]func(*Config){
+	"development": {developmentConfig},
+}
 
 // Load loads the application configuration.
 func Load(appEnv string) (*Config, error) {
@@ -44,6 +51,7 @@ func developmentConfig(cfg *Config) {
 	cfg.App.Log.Level = "debug"
 	cfg.App.Server.Port = 3000
 	cfg.Session.Auth.Secure = false
+	cfg.Session.Auth.Store = "server"
 	cfg.Security.CSPHashes.DevOnly = []string{"'sha256-y933zYNvpVe5f9j5A+OKECUXiWo8bKB5Yp5sLDD3d0I='"}
 	cfg.Security.ExternalOrigin = "https://forge.test"
 	cfg.Security.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
@@ -53,12 +61,23 @@ func developmentConfig(cfg *Config) {
 	cfg.Store.KV.Enabled = true
 }
 
-// environmentMap maps environment names to their ordered overlay functions.
-var environmentMap = map[string][]func(*Config){
-	"development": {developmentConfig},
-}
-
 // Returns the ordered overlay functions for the given environment.
 func override(appEnv string) []func(*Config) {
 	return environmentMap[appEnv]
+}
+
+// RegisterValidationRules composes all cross-field validation rule-sets that apply to this configuration.
+func (c *Config) RegisterValidationRules(v *validator.Validate) {
+	v.RegisterStructValidation(crossFieldRules, Config{})
+	uilayout.RegisterNavValidations(v)
+}
+
+// crossFieldRules validates cross-field invariants on Config.
+func crossFieldRules(sl validator.StructLevel) {
+	cfg := sl.Current().Interface().(Config)
+
+	// Server-side session store requires the KV store to be enabled.
+	if cfg.Session.Auth.Store == "server" && !cfg.Store.KV.Enabled {
+		sl.ReportError(cfg.Session.Auth.Store, "Session.Auth.Store", "Store", "requires_kv", "")
+	}
 }

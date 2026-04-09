@@ -23,6 +23,7 @@ func LoadSession(mgr SessionManager) echo.MiddlewareFunc {
 				if name, ok := getDisplayName(state); ok {
 					c.Set(ContextKeyDisplayName, name)
 				}
+				_ = mgr.TouchSession(c.Request().Context(), state.ID(), userID)
 			}
 			return next(c)
 		}

@@ -95,6 +95,7 @@ type DeliveryInput struct {
 type VerifyResult struct {
 	Purpose FlowPurpose
 	User    User
+	Method  string // auth method that produced this result (e.g. "email_totp")
 }
 
 // VerifyPageState supplies the verification screen with a purpose and prefilled code.

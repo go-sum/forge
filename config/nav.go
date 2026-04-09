@@ -31,6 +31,7 @@ func defaultNav() NavConfig {
 								Label: "Auth",
 								Items: []uilayout.NavItem{
 									{Label: "Users", Href: "/users"},
+									{Label: "Sessions", Href: "/account/sessions"},
 								},
 							},
 							{

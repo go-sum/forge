@@ -102,9 +102,22 @@ func setField(field reflect.Value, val string) {
 	}
 }
 
+// Registrar is optionally implemented by config types that need cross-field
+// validation rules beyond what struct tags can express. If the target passed
+// to Validate implements Registrar, RegisterValidationRules is called with the validator
+// instance before struct validation runs.
+type Registrar interface {
+	RegisterValidationRules(v *validator.Validate)
+}
+
 // Validate runs go-playground/validator on target.
+// If target implements Registrar, its RegisterValidationRules method is called first
+// to register any cross-field or struct-level validation rules.
 func Validate(target any) error {
 	v := validator.New()
+	if r, ok := target.(Registrar); ok {
+		r.RegisterValidationRules(v)
+	}
 	return v.Struct(target)
 }
 

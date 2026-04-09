@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-sum/auth/model"
@@ -11,9 +12,17 @@ import (
 // SessionState abstracts session key-value operations.
 // *session.State from pkg/session satisfies this implicitly.
 type SessionState interface {
+	ID() string
 	Get(key string, dst any) (bool, error)
 	Put(key string, v any) error
 	Delete(key string)
+}
+
+// SessionMeta holds metadata about a session for binding purposes.
+type SessionMeta struct {
+	AuthMethod string
+	IPAddress  string
+	UserAgent  string
 }
 
 // SessionManager abstracts the HTTP session lifecycle.
@@ -22,6 +31,9 @@ type SessionManager interface {
 	Commit(w http.ResponseWriter, r *http.Request, s SessionState) error
 	Destroy(w http.ResponseWriter, r *http.Request) error
 	RotateID(w http.ResponseWriter, r *http.Request, s SessionState) error
+	BindSession(ctx context.Context, sessionID, userID string, meta SessionMeta) error
+	UnbindSession(ctx context.Context, sessionID, userID string) error
+	TouchSession(ctx context.Context, sessionID, userID string) error
 }
 
 // FormSubmission represents a validated form submission result.
