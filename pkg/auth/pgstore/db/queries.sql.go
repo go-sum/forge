@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countUsers = `-- name: CountUsers :one
@@ -22,11 +23,83 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createPasskeyCredential = `-- name: CreatePasskeyCredential :one
+
+INSERT INTO webauthn_credentials (
+    user_id, credential_id, name, public_key, public_key_alg,
+    attestation_type, aaguid, sign_count, clone_warning,
+    backup_eligible, backup_state, transports, attachment, last_used_at
+) VALUES (
+    $1, $2, $3, $4, $5,
+    $6, $7, $8, $9,
+    $10, $11, $12, $13, $14
+)
+RETURNING id, user_id, credential_id, name, public_key, public_key_alg, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, transports, attachment, last_used_at, created_at, updated_at
+`
+
+type CreatePasskeyCredentialParams struct {
+	UserID          uuid.UUID          `json:"user_id"`
+	CredentialID    []byte             `json:"credential_id"`
+	Name            string             `json:"name"`
+	PublicKey       []byte             `json:"public_key"`
+	PublicKeyAlg    int64              `json:"public_key_alg"`
+	AttestationType string             `json:"attestation_type"`
+	Aaguid          []byte             `json:"aaguid"`
+	SignCount       int64              `json:"sign_count"`
+	CloneWarning    bool               `json:"clone_warning"`
+	BackupEligible  bool               `json:"backup_eligible"`
+	BackupState     bool               `json:"backup_state"`
+	Transports      []string           `json:"transports"`
+	Attachment      string             `json:"attachment"`
+	LastUsedAt      pgtype.Timestamptz `json:"last_used_at"`
+}
+
+// ─── WebAuthn credential operations ─────────────────────────────────────────
+func (q *Queries) CreatePasskeyCredential(ctx context.Context, arg CreatePasskeyCredentialParams) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, createPasskeyCredential,
+		arg.UserID,
+		arg.CredentialID,
+		arg.Name,
+		arg.PublicKey,
+		arg.PublicKeyAlg,
+		arg.AttestationType,
+		arg.Aaguid,
+		arg.SignCount,
+		arg.CloneWarning,
+		arg.BackupEligible,
+		arg.BackupState,
+		arg.Transports,
+		arg.Attachment,
+		arg.LastUsedAt,
+	)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.Name,
+		&i.PublicKey,
+		&i.PublicKeyAlg,
+		&i.AttestationType,
+		&i.Aaguid,
+		&i.SignCount,
+		&i.CloneWarning,
+		&i.BackupEligible,
+		&i.BackupState,
+		&i.Transports,
+		&i.Attachment,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (email, display_name, role, verified)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, display_name, role, verified, created_at, updated_at
+RETURNING id, email, display_name, role, verified, webauthn_id, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -53,10 +126,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.DisplayName,
 		&i.Role,
 		&i.Verified,
+		&i.WebauthnID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deletePasskeyCredential = `-- name: DeletePasskeyCredential :one
+DELETE FROM webauthn_credentials
+WHERE id = $1 AND user_id = $2
+RETURNING id
+`
+
+type DeletePasskeyCredentialParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeletePasskeyCredential(ctx context.Context, arg DeletePasskeyCredentialParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, deletePasskeyCredential, arg.ID, arg.UserID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const deleteUser = `-- name: DeleteUser :exec
@@ -69,8 +161,73 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getPasskeyCredentialByCredentialID = `-- name: GetPasskeyCredentialByCredentialID :one
+SELECT id, user_id, credential_id, name, public_key, public_key_alg, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, transports, attachment, last_used_at, created_at, updated_at FROM webauthn_credentials
+WHERE credential_id = $1
+`
+
+func (q *Queries) GetPasskeyCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, getPasskeyCredentialByCredentialID, credentialID)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.Name,
+		&i.PublicKey,
+		&i.PublicKeyAlg,
+		&i.AttestationType,
+		&i.Aaguid,
+		&i.SignCount,
+		&i.CloneWarning,
+		&i.BackupEligible,
+		&i.BackupState,
+		&i.Transports,
+		&i.Attachment,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPasskeyCredentialByIDForUser = `-- name: GetPasskeyCredentialByIDForUser :one
+SELECT id, user_id, credential_id, name, public_key, public_key_alg, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, transports, attachment, last_used_at, created_at, updated_at FROM webauthn_credentials
+WHERE id = $1 AND user_id = $2
+`
+
+type GetPasskeyCredentialByIDForUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetPasskeyCredentialByIDForUser(ctx context.Context, arg GetPasskeyCredentialByIDForUserParams) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, getPasskeyCredentialByIDForUser, arg.ID, arg.UserID)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.Name,
+		&i.PublicKey,
+		&i.PublicKeyAlg,
+		&i.AttestationType,
+		&i.Aaguid,
+		&i.SignCount,
+		&i.CloneWarning,
+		&i.BackupEligible,
+		&i.BackupState,
+		&i.Transports,
+		&i.Attachment,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, display_name, role, verified, created_at, updated_at
+SELECT id, email, display_name, role, verified, webauthn_id, created_at, updated_at
 FROM users
 WHERE email = $1
 `
@@ -84,6 +241,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.DisplayName,
 		&i.Role,
 		&i.Verified,
+		&i.WebauthnID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -91,7 +249,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, display_name, role, verified, created_at, updated_at
+SELECT id, email, display_name, role, verified, webauthn_id, created_at, updated_at
 FROM users
 WHERE id = $1
 `
@@ -105,6 +263,28 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.DisplayName,
 		&i.Role,
 		&i.Verified,
+		&i.WebauthnID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByWebAuthnID = `-- name: GetUserByWebAuthnID :one
+SELECT id, email, display_name, role, verified, webauthn_id, created_at, updated_at
+FROM users WHERE webauthn_id = $1
+`
+
+func (q *Queries) GetUserByWebAuthnID(ctx context.Context, webauthnID []byte) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByWebAuthnID, webauthnID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Role,
+		&i.Verified,
+		&i.WebauthnID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -122,9 +302,53 @@ func (q *Queries) HasAdminUser(ctx context.Context) (bool, error) {
 	return exists, err
 }
 
+const listPasskeyCredentialsByUserID = `-- name: ListPasskeyCredentialsByUserID :many
+SELECT id, user_id, credential_id, name, public_key, public_key_alg, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, transports, attachment, last_used_at, created_at, updated_at FROM webauthn_credentials
+WHERE user_id = $1
+ORDER BY created_at DESC, id DESC
+`
+
+func (q *Queries) ListPasskeyCredentialsByUserID(ctx context.Context, userID uuid.UUID) ([]WebauthnCredential, error) {
+	rows, err := q.db.Query(ctx, listPasskeyCredentialsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WebauthnCredential{}
+	for rows.Next() {
+		var i WebauthnCredential
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CredentialID,
+			&i.Name,
+			&i.PublicKey,
+			&i.PublicKeyAlg,
+			&i.AttestationType,
+			&i.Aaguid,
+			&i.SignCount,
+			&i.CloneWarning,
+			&i.BackupEligible,
+			&i.BackupState,
+			&i.Transports,
+			&i.Attachment,
+			&i.LastUsedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
 
-SELECT id, email, display_name, role, verified, created_at, updated_at FROM users
+SELECT id, email, display_name, role, verified, webauthn_id, created_at, updated_at FROM users
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -150,6 +374,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.DisplayName,
 			&i.Role,
 			&i.Verified,
+			&i.WebauthnID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -163,6 +388,122 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 	return items, nil
 }
 
+const renamePasskeyCredential = `-- name: RenamePasskeyCredential :one
+UPDATE webauthn_credentials
+SET name = $3
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, credential_id, name, public_key, public_key_alg, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, transports, attachment, last_used_at, created_at, updated_at
+`
+
+type RenamePasskeyCredentialParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+}
+
+func (q *Queries) RenamePasskeyCredential(ctx context.Context, arg RenamePasskeyCredentialParams) (WebauthnCredential, error) {
+	row := q.db.QueryRow(ctx, renamePasskeyCredential, arg.ID, arg.UserID, arg.Name)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.Name,
+		&i.PublicKey,
+		&i.PublicKeyAlg,
+		&i.AttestationType,
+		&i.Aaguid,
+		&i.SignCount,
+		&i.CloneWarning,
+		&i.BackupEligible,
+		&i.BackupState,
+		&i.Transports,
+		&i.Attachment,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setUserWebAuthnID = `-- name: SetUserWebAuthnID :one
+UPDATE users SET webauthn_id = $2 WHERE id = $1
+RETURNING id, email, display_name, role, verified, webauthn_id, created_at, updated_at
+`
+
+type SetUserWebAuthnIDParams struct {
+	ID         uuid.UUID `json:"id"`
+	WebauthnID []byte    `json:"webauthn_id"`
+}
+
+func (q *Queries) SetUserWebAuthnID(ctx context.Context, arg SetUserWebAuthnIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserWebAuthnID, arg.ID, arg.WebauthnID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Role,
+		&i.Verified,
+		&i.WebauthnID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setUserWebAuthnIDIfNull = `-- name: SetUserWebAuthnIDIfNull :one
+UPDATE users SET webauthn_id = $2 WHERE id = $1 AND webauthn_id IS NULL
+RETURNING id, email, display_name, role, verified, webauthn_id, created_at, updated_at
+`
+
+type SetUserWebAuthnIDIfNullParams struct {
+	ID         uuid.UUID `json:"id"`
+	WebauthnID []byte    `json:"webauthn_id"`
+}
+
+func (q *Queries) SetUserWebAuthnIDIfNull(ctx context.Context, arg SetUserWebAuthnIDIfNullParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserWebAuthnIDIfNull, arg.ID, arg.WebauthnID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.Role,
+		&i.Verified,
+		&i.WebauthnID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const touchPasskeyCredential = `-- name: TouchPasskeyCredential :exec
+UPDATE webauthn_credentials
+SET sign_count    = GREATEST(sign_count, $2),
+    clone_warning = clone_warning OR $3,
+    last_used_at  = $4,
+    updated_at    = NOW()
+WHERE id = $1
+`
+
+type TouchPasskeyCredentialParams struct {
+	ID           uuid.UUID          `json:"id"`
+	SignCount    int64              `json:"sign_count"`
+	CloneWarning bool               `json:"clone_warning"`
+	LastUsedAt   pgtype.Timestamptz `json:"last_used_at"`
+}
+
+func (q *Queries) TouchPasskeyCredential(ctx context.Context, arg TouchPasskeyCredentialParams) error {
+	_, err := q.db.Exec(ctx, touchPasskeyCredential,
+		arg.ID,
+		arg.SignCount,
+		arg.CloneWarning,
+		arg.LastUsedAt,
+	)
+	return err
+}
+
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET
@@ -170,7 +511,7 @@ SET
     display_name = COALESCE(NULLIF($2::text, ''), display_name),
     role         = COALESCE(NULLIF($3::text, ''), role)
 WHERE id = $4
-RETURNING id, email, display_name, role, verified, created_at, updated_at
+RETURNING id, email, display_name, role, verified, webauthn_id, created_at, updated_at
 `
 
 type UpdateUserParams struct {
@@ -196,6 +537,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.DisplayName,
 		&i.Role,
 		&i.Verified,
+		&i.WebauthnID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -206,7 +548,7 @@ const updateUserEmail = `-- name: UpdateUserEmail :one
 UPDATE users
 SET email = $2
 WHERE id = $1
-RETURNING id, email, display_name, role, verified, created_at, updated_at
+RETURNING id, email, display_name, role, verified, webauthn_id, created_at, updated_at
 `
 
 type UpdateUserEmailParams struct {
@@ -223,6 +565,7 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 		&i.DisplayName,
 		&i.Role,
 		&i.Verified,
+		&i.WebauthnID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

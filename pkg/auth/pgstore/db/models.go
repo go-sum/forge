@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type User struct {
@@ -16,6 +17,27 @@ type User struct {
 	DisplayName string    `json:"display_name"`
 	Role        string    `json:"role"`
 	Verified    bool      `json:"verified"`
+	WebauthnID  []byte    `json:"webauthn_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type WebauthnCredential struct {
+	ID              uuid.UUID          `json:"id"`
+	UserID          uuid.UUID          `json:"user_id"`
+	CredentialID    []byte             `json:"credential_id"`
+	Name            string             `json:"name"`
+	PublicKey       []byte             `json:"public_key"`
+	PublicKeyAlg    int64              `json:"public_key_alg"`
+	AttestationType string             `json:"attestation_type"`
+	Aaguid          []byte             `json:"aaguid"`
+	SignCount       int64              `json:"sign_count"`
+	CloneWarning    bool               `json:"clone_warning"`
+	BackupEligible  bool               `json:"backup_eligible"`
+	BackupState     bool               `json:"backup_state"`
+	Transports      []string           `json:"transports"`
+	Attachment      string             `json:"attachment"`
+	LastUsedAt      pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }

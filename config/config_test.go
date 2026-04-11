@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	auth "github.com/go-sum/auth"
 	cfgs "github.com/go-sum/server/config"
 )
 
@@ -57,6 +58,23 @@ func TestLoadServerStoreWithKVPasses(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Load() unexpected error for server store with KV enabled: %v", err)
+	}
+}
+
+func TestAuthDefaultPeriodSecondsApplied(t *testing.T) {
+	validSecrets(t)
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	// PeriodSeconds is no longer set in config/service.go; it comes from
+	// pkg/auth defaultConfig via ApplyDefaults called in initAuth.
+	// At load time we just confirm the value stored in the config literal is 0
+	// (default not applied until runtime boundary), which is the expected state.
+	// The real coverage: auth.ApplyDefaults fills it to 300.
+	normalized := auth.ApplyDefaults(cfg.Service.Auth)
+	if normalized.Methods.EmailTOTP.PeriodSeconds != 300 {
+		t.Errorf("ApplyDefaults PeriodSeconds = %d, want 300", normalized.Methods.EmailTOTP.PeriodSeconds)
 	}
 }
 

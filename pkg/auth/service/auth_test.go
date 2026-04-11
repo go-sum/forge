@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +56,18 @@ func (f fakeUserStore) UpdateEmail(ctx context.Context, id uuid.UUID, email stri
 		return f.updateEmailFn(ctx, id, email)
 	}
 	return model.User{}, errors.New("unexpected UpdateEmail call")
+}
+
+func (f fakeUserStore) GetByWebAuthnID(_ context.Context, _ []byte) (model.User, error) {
+	return model.User{}, model.ErrUserNotFound
+}
+
+func (f fakeUserStore) SetWebAuthnID(_ context.Context, _ uuid.UUID, _ []byte) (model.User, error) {
+	return model.User{}, model.ErrUserNotFound
+}
+
+func (f fakeUserStore) SetWebAuthnIDIfNull(_ context.Context, _ uuid.UUID, _ []byte) (model.User, error) {
+	return model.User{}, model.ErrUserNotFound
 }
 
 type capturingNotifier struct {
@@ -231,7 +244,7 @@ func TestVerifyPendingFlowCreatesVerifiedUserOnSignup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifyPendingFlow() error = %v", err)
 	}
-	if result.User != serviceTestUser || !createdVerified {
+	if !reflect.DeepEqual(result.User, serviceTestUser) || !createdVerified {
 		t.Fatalf("result=%#v createdVerified=%v", result, createdVerified)
 	}
 }

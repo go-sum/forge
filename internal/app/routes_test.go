@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	auth "github.com/go-sum/auth"
 	authmodel "github.com/go-sum/auth/model"
@@ -129,7 +130,7 @@ func TestRegisterRoutesSkipsUserHydrationForPublicPages(t *testing.T) {
 		},
 	})
 
-	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH); err != nil {
+	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH, nil); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -195,6 +196,18 @@ func (s *routesTestStore) UpdateEmail(_ context.Context, id uuid.UUID, email str
 	return authmodel.User{}, nil
 }
 
+func (s *routesTestStore) GetByWebAuthnID(_ context.Context, _ []byte) (authmodel.User, error) {
+	return authmodel.User{}, authmodel.ErrUserNotFound
+}
+
+func (s *routesTestStore) SetWebAuthnID(_ context.Context, _ uuid.UUID, _ []byte) (authmodel.User, error) {
+	return authmodel.User{}, authmodel.ErrUserNotFound
+}
+
+func (s *routesTestStore) SetWebAuthnIDIfNull(_ context.Context, _ uuid.UUID, _ []byte) (authmodel.User, error) {
+	return authmodel.User{}, authmodel.ErrUserNotFound
+}
+
 func (s *routesTestStore) List(_ context.Context, _, _ int32) ([]authmodel.User, error) {
 	return nil, nil
 }
@@ -215,7 +228,70 @@ func (s *routesTestStore) HasAdmin(_ context.Context) (bool, error) {
 	return false, nil
 }
 
+func (s *routesTestStore) CreateCredential(_ context.Context, cred authmodel.PasskeyCredential) (authmodel.PasskeyCredential, error) {
+	return cred, nil
+}
+
+func (s *routesTestStore) GetByCredentialID(_ context.Context, _ []byte) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, authmodel.ErrPasskeyNotFound
+}
+
+func (s *routesTestStore) GetByIDForUser(_ context.Context, _, _ uuid.UUID) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, authmodel.ErrPasskeyNotFound
+}
+
+func (s *routesTestStore) ListByUserID(_ context.Context, _ uuid.UUID) ([]authmodel.PasskeyCredential, error) {
+	return nil, nil
+}
+
+func (s *routesTestStore) TouchPasskeyCredential(_ context.Context, _ uuid.UUID, _ int64, _ bool, _ time.Time) error {
+	return nil
+}
+
+func (s *routesTestStore) RenameCredential(_ context.Context, _, _ uuid.UUID, _ string) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, authmodel.ErrPasskeyNotFound
+}
+
+func (s *routesTestStore) DeleteCredential(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
 var _ AuthStore = (*routesTestStore)(nil)
+
+// fakePasskeyService is a stub PasskeyService for route integration tests.
+type fakeRoutesPasskeyService struct{}
+
+func (f *fakeRoutesPasskeyService) BeginRegistration(_ context.Context, _ uuid.UUID) (authmodel.PasskeyCreationOptions, authmodel.PasskeyCeremony, error) {
+	return authmodel.PasskeyCreationOptions{}, authmodel.PasskeyCeremony{}, nil
+}
+
+func (f *fakeRoutesPasskeyService) FinishRegistration(_ context.Context, _ uuid.UUID, _ string, _ authmodel.PasskeyCeremony, _ *http.Request) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, nil
+}
+
+func (f *fakeRoutesPasskeyService) BeginAuthentication(_ context.Context) (authmodel.PasskeyRequestOptions, authmodel.PasskeyCeremony, error) {
+	return authmodel.PasskeyRequestOptions{}, authmodel.PasskeyCeremony{}, nil
+}
+
+func (f *fakeRoutesPasskeyService) FinishAuthentication(_ context.Context, _ authmodel.PasskeyCeremony, _ *http.Request) (authmodel.VerifyResult, error) {
+	return authmodel.VerifyResult{}, nil
+}
+
+func (f *fakeRoutesPasskeyService) GetPasskey(_ context.Context, _, _ uuid.UUID) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, authmodel.ErrPasskeyNotFound
+}
+
+func (f *fakeRoutesPasskeyService) ListPasskeys(_ context.Context, _ uuid.UUID) ([]authmodel.PasskeyCredential, error) {
+	return nil, nil
+}
+
+func (f *fakeRoutesPasskeyService) DeletePasskey(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
+func (f *fakeRoutesPasskeyService) RenamePasskey(_ context.Context, _, _ uuid.UUID, _ string) (authmodel.PasskeyCredential, error) {
+	return authmodel.PasskeyCredential{}, authmodel.ErrPasskeyNotFound
+}
 
 // newTestApp builds a minimal application runtime with fake repositories
 // suitable for route integration tests. The returned Echo instance has all
@@ -326,7 +402,7 @@ func newTestApp(t *testing.T) (*echo.Echo, session.Manager, *routesTestStore) {
 		},
 	})
 
-	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH); err != nil {
+	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH, nil); err != nil {
 		t.Fatalf("RegisterRoutes() error = %v", err)
 	}
 
@@ -480,5 +556,171 @@ func TestRegisterRoutes_AccessTiers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// newTestAppWithPasskey builds a test runtime with passkey routes registered.
+func newTestAppWithPasskey(t *testing.T) (*echo.Echo, session.Manager) {
+	t.Helper()
+	e := echo.New()
+	cfg := &config.Config{
+		Security: config.SecurityConfig{
+			ExternalOrigin: "http://localhost:3000",
+			CSRF: config.CSRFConfig{
+				ContextKey: "csrf",
+				FormField:  "_csrf",
+				HeaderName: "X-CSRF-Token",
+			},
+		},
+		Session: config.SessionsConfig{
+			Auth: config.SessionConfig{
+				Name:       "_session",
+				AuthKey:    "12345678901234567890123456789012",
+				EncryptKey: "12345678901234567890123456789012",
+			},
+		},
+		Nav: config.NavConfig{
+			Brand: config.NavbarBrand{Label: "Starter", Href: "/"},
+		},
+	}
+
+	sessions, err := session.NewManager(session.Config{
+		CookieName: cfg.Session.Auth.Name,
+		AuthKey:    cfg.Session.Auth.AuthKey,
+		EncryptKey: cfg.Session.Auth.EncryptKey,
+	})
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
+	}
+
+	store := &routesTestStore{users: map[uuid.UUID]authmodel.User{}}
+	runtime := &Runtime{
+		Config:       cfg,
+		Web:          e,
+		RateLimiters: appserver.NewRateLimiters(cfg),
+		Sessions:     sessions,
+		Validator:    validate.New(),
+		AuthStore:    store,
+	}
+
+	requestFn := func(ec *echo.Context) auth.Request {
+		req := view.NewRequest(ec, cfg)
+		return auth.Request{
+			CSRFToken:     req.CSRFToken,
+			CSRFFieldName: req.CSRFFieldName,
+			Partial:       req.IsPartial(),
+			State:         req,
+			PageFn:        req.Page,
+		}
+	}
+
+	authH := auth.NewHandler(nil, auth.HandlerConfig{
+		Sessions:        &authadapter.SessionManagerAdapter{Mgr: sessions},
+		Forms:           &authadapter.FormParserAdapter{V: runtime.Validator},
+		Flash:           &authadapter.FlashAdapter{},
+		Redirect:        &authadapter.RedirectAdapter{},
+		Pages:           authadapter.NewRenderer(),
+		CSRFField:       cfg.Security.CSRF.FormField,
+		SigninPath:      "/signin",
+		SignupPath:      "/signup",
+		VerifyPath:      "/verify",
+		VerifyURL:       "http://localhost:3000/verify",
+		EmailChangePath: "/profile/email",
+		HomePath:        "/",
+		RequestFn:       requestFn,
+	})
+
+	adminH := auth.NewAdminHandler(authsvc.NewAdminService(store), auth.AdminHandlerConfig{
+		Forms:     &authadapter.FormParserAdapter{V: runtime.Validator},
+		Redirect:  &authadapter.RedirectAdapter{},
+		Pages:     authadapter.NewRenderer(),
+		HomePath:  "/",
+		RequestFn: requestFn,
+	})
+
+	passkeyH := auth.NewPasskeyHandler(&fakeRoutesPasskeyService{}, auth.PasskeyHandlerConfig{
+		Sessions:  &authadapter.SessionManagerAdapter{Mgr: sessions},
+		Pages:     authadapter.NewRenderer(),
+		HomePath:  "/",
+		RequestFn: requestFn,
+	})
+
+	if err := RegisterRoutes(runtime, availability.NewHandler(func(context.Context) error { return nil }, nil, ""), authH, adminH, passkeyH); err != nil {
+		t.Fatalf("RegisterRoutes() error = %v", err)
+	}
+	return e, sessions
+}
+
+func TestRegisterRoutes_PasskeyHandlerRoutes(t *testing.T) {
+	e, _ := newTestAppWithPasskey(t)
+	routes := e.Router().Routes()
+
+	routeMap := make(map[string]string) // name → method
+	for _, r := range routes {
+		if r.Name != "" {
+			routeMap[r.Name] = r.Method
+		}
+	}
+
+	wantRoutes := []struct {
+		name   string
+		method string
+	}{
+		{"passkey.authenticate.begin", http.MethodPost},
+		{"passkey.authenticate.finish", http.MethodPost},
+		{"passkey.register.begin", http.MethodPost},
+		{"passkey.register.finish", http.MethodPost},
+		{"passkey.list", http.MethodGet},
+		{"passkey.row", http.MethodGet},
+		{"passkey.rename.form", http.MethodGet},
+		{"passkey.rename", http.MethodPost},
+		{"passkey.delete", http.MethodDelete},
+	}
+
+	for _, want := range wantRoutes {
+		got, ok := routeMap[want.name]
+		if !ok {
+			t.Errorf("route %q not registered", want.name)
+			continue
+		}
+		if got != want.method {
+			t.Errorf("route %q method = %q, want %q", want.name, got, want.method)
+		}
+	}
+}
+
+func TestRegisterRoutes_PasskeyDisabled(t *testing.T) {
+	// newTestApp registers routes with passkeyHandler == nil
+	e, _, _ := newTestApp(t)
+	routes := e.Router().Routes()
+
+	routeNames := make(map[string]bool)
+	for _, r := range routes {
+		routeNames[r.Name] = true
+	}
+
+	passkeyRoutes := []string{
+		"passkey.authenticate.begin",
+		"passkey.authenticate.finish",
+		"passkey.register.begin",
+		"passkey.register.finish",
+		"passkey.list",
+		"passkey.row",
+		"passkey.rename.form",
+		"passkey.rename",
+		"passkey.delete",
+	}
+	for _, name := range passkeyRoutes {
+		if routeNames[name] {
+			t.Errorf("route %q should not be registered when passkey is disabled", name)
+		}
+	}
+
+	// TOTP routes must still be present
+	totpRoutes := []string{"signin.get", "signup.get", "verify.get", "signin.post"}
+	for _, name := range totpRoutes {
+		if !routeNames[name] {
+			t.Errorf("TOTP route %q should still be registered", name)
+		}
 	}
 }

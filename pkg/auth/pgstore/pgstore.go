@@ -146,6 +146,52 @@ func (s *PgStore) HasAdmin(ctx context.Context) (bool, error) {
 	return s.queries.HasAdminUser(ctx)
 }
 
+// SetWebAuthnID sets the WebAuthn user handle for an existing user.
+// Returns model.ErrUserNotFound when no row matches id.
+func (s *PgStore) SetWebAuthnID(ctx context.Context, id uuid.UUID, webauthnID []byte) (model.User, error) {
+	u, err := s.queries.SetUserWebAuthnID(ctx, authdb.SetUserWebAuthnIDParams{
+		ID:         id,
+		WebauthnID: webauthnID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.User{}, model.ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, err
+	}
+	return toUserModel(u), nil
+}
+
+// SetWebAuthnIDIfNull sets the WebAuthn user handle only when the user has no handle yet.
+// Returns model.ErrWebAuthnIDAlreadySet when the row already has a webauthn_id set,
+// so callers can detect the "already set" case and re-read the current value.
+func (s *PgStore) SetWebAuthnIDIfNull(ctx context.Context, id uuid.UUID, webauthnID []byte) (model.User, error) {
+	u, err := s.queries.SetUserWebAuthnIDIfNull(ctx, authdb.SetUserWebAuthnIDIfNullParams{
+		ID:         id,
+		WebauthnID: webauthnID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.User{}, model.ErrWebAuthnIDAlreadySet
+	}
+	if err != nil {
+		return model.User{}, err
+	}
+	return toUserModel(u), nil
+}
+
+// GetByWebAuthnID retrieves a user by their WebAuthn user handle.
+// Returns model.ErrUserNotFound when missing.
+func (s *PgStore) GetByWebAuthnID(ctx context.Context, webauthnID []byte) (model.User, error) {
+	u, err := s.queries.GetUserByWebAuthnID(ctx, webauthnID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.User{}, model.ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, err
+	}
+	return toUserModel(u), nil
+}
+
 // toUserModel converts a sqlc-generated db.User to the domain model.
 func toUserModel(u authdb.User) model.User {
 	return model.User{
@@ -154,6 +200,7 @@ func toUserModel(u authdb.User) model.User {
 		DisplayName: u.DisplayName,
 		Role:        u.Role,
 		Verified:    u.Verified,
+		WebAuthnID:  u.WebauthnID,
 		CreatedAt:   u.CreatedAt,
 		UpdatedAt:   u.UpdatedAt,
 	}

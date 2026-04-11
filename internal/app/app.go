@@ -39,11 +39,13 @@ func New(version string) *App {
 	requestFn := func(ec *echo.Context) auth.Request {
 		req := view.NewRequest(ec, r.Config)
 		return auth.Request{
-			CSRFToken:     req.CSRFToken,
-			CSRFFieldName: req.CSRFFieldName,
-			Partial:       req.IsPartial(),
-			State:         req,
-			PageFn:        req.Page,
+			CSRFToken:      req.CSRFToken,
+			CSRFFieldName:  req.CSRFFieldName,
+			Partial:        req.IsPartial(),
+			PasskeyEnabled: r.PasskeyService != nil,
+			Preferred:      r.Config.Service.Auth.PreferredMethod(),
+			State:          req,
+			PageFn:         req.Page,
 		}
 	}
 
@@ -78,7 +80,17 @@ func New(version string) *App {
 		},
 	)
 
-	if err := RegisterRoutes(r, availabilityH, authH, adminH); err != nil {
+	var passkeyH *auth.PasskeyHandler
+	if r.PasskeyService != nil {
+		passkeyH = auth.NewPasskeyHandler(r.PasskeyService, auth.PasskeyHandlerConfig{
+			Sessions:   &authadapter.SessionManagerAdapter{Mgr: r.Sessions},
+			Pages:      authadapter.NewRenderer(),
+			HomePathFn: resolve.Path("home.show"),
+			RequestFn:  requestFn,
+		})
+	}
+
+	if err := RegisterRoutes(r, availabilityH, authH, adminH, passkeyH); err != nil {
 		panic(fmt.Sprintf("routes: %v", err))
 	}
 	return &App{runtime: r}

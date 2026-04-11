@@ -4,6 +4,7 @@ package config
 import (
 	"github.com/go-playground/validator/v10"
 	uilayout "github.com/go-sum/componentry/ui/layout"
+	auth "github.com/go-sum/auth"
 	cfgs "github.com/go-sum/server/config"
 )
 
@@ -59,6 +60,12 @@ func developmentConfig(cfg *Config) {
 	cfg.Security.RateLimits["auth"] = RateLimitConfig{Rate: 0.2, Burst: 5, ExpiresIn: 300}
 	cfg.Store.Database.AutoMigrate = true
 	cfg.Store.KV.Enabled = true
+	cfg.Service.Auth.Methods.Passkey = auth.PasskeyMethodConfig{
+		Enabled:       true,
+		RPDisplayName: "Forge (dev)",
+		RPID:          "forge.test",
+		RPOrigins:     []string{"https://forge.test"},
+	}
 }
 
 // Returns the ordered overlay functions for the given environment.
@@ -69,6 +76,7 @@ func override(appEnv string) []func(*Config) {
 // RegisterValidationRules composes all cross-field validation rule-sets that apply to this configuration.
 func (c *Config) RegisterValidationRules(v *validator.Validate) {
 	v.RegisterStructValidation(crossFieldRules, Config{})
+	c.Service.Auth.RegisterValidationRules(v)
 	uilayout.RegisterNavValidations(v)
 }
 

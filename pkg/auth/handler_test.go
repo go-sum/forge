@@ -41,11 +41,12 @@ var handlerTestUser = model.User{
 // All Load calls return the same fakeSessionState regardless of the request,
 // so tests can pre-populate state without simulating cookie roundtrips.
 type fakeHandlerSessionManager struct {
-	state      *fakeSessionState
-	commitErr  error
-	destroyErr error
-	rotateErr  error
-	loadErr    error
+	state        *fakeSessionState
+	commitErr    error
+	destroyErr   error
+	rotateErr    error
+	loadErr      error
+	rotateCalled bool
 
 	bindCalled    bool
 	bindSessionID string
@@ -103,6 +104,7 @@ func (m *fakeHandlerSessionManager) Destroy(w http.ResponseWriter, r *http.Reque
 }
 
 func (m *fakeHandlerSessionManager) RotateID(w http.ResponseWriter, r *http.Request, s SessionState) error {
+	m.rotateCalled = true
 	if m.rotateErr != nil {
 		return m.rotateErr
 	}

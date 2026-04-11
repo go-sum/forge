@@ -31,6 +31,7 @@ type User struct {
 	DisplayName string
 	Role        string
 	Verified    bool
+	WebAuthnID  []byte    // opaque random ID for WebAuthn user handle; nil until first passkey
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -124,4 +125,5 @@ var (
 	ErrVerificationExpired     = errors.New("verification expired")
 	ErrVerificationMissing     = errors.New("verification missing")
 	ErrUnsupportedMethod       = errors.New("unsupported auth method")
+	ErrWebAuthnIDAlreadySet    = errors.New("webauthn id already set")
 )

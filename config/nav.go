@@ -32,6 +32,7 @@ func defaultNav() NavConfig {
 								Items: []uilayout.NavItem{
 									{Label: "Users", Href: "/admin/users"},
 									{Label: "Sessions", Href: "/profile/sessions"},
+									{Label: "Passkeys", Href: "/account/passkeys", Visibility: "user"},
 								},
 							},
 							{

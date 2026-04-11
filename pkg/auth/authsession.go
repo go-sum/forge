@@ -1,11 +1,15 @@
 package auth
 
-import "github.com/go-sum/auth/model"
+import (
+	"github.com/go-sum/auth/model"
+	"github.com/google/uuid"
+)
 
 const (
-	sessionKeyUserID      = "auth.user_id"
-	sessionKeyDisplayName = "auth.display_name"
-	sessionKeyPendingFlow = "auth.pending_flow"
+	sessionKeyUserID           = "auth.user_id"
+	sessionKeyDisplayName      = "auth.display_name"
+	sessionKeyPendingFlow      = "auth.pending_flow"
+	sessionKeyPasskeyCeremony  = "auth.passkey_ceremony"
 )
 
 func setAuth(s SessionState, userID, displayName string) error {
@@ -39,4 +43,25 @@ func getPendingFlow(s SessionState) (model.PendingFlow, bool) {
 	var flow model.PendingFlow
 	ok, _ := s.Get(sessionKeyPendingFlow, &flow)
 	return flow, ok
+}
+
+// passkeyCeremonyState holds in-progress WebAuthn ceremony data between Begin and Finish calls.
+type passkeyCeremonyState struct {
+	Operation string                `json:"operation"` // "register" or "authenticate"
+	Ceremony  model.PasskeyCeremony `json:"ceremony"`
+	UserID    uuid.UUID             `json:"user_id,omitempty"`
+}
+
+func setPasskeyCeremony(s SessionState, state passkeyCeremonyState) error {
+	return s.Put(sessionKeyPasskeyCeremony, state)
+}
+
+func getPasskeyCeremony(s SessionState) (passkeyCeremonyState, bool) {
+	var state passkeyCeremonyState
+	ok, _ := s.Get(sessionKeyPasskeyCeremony, &state)
+	return state, ok
+}
+
+func clearPasskeyCeremony(s SessionState) {
+	s.Delete(sessionKeyPasskeyCeremony)
 }

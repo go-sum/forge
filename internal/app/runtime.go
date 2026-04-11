@@ -24,6 +24,7 @@ import (
 type AuthStore interface {
 	authrepo.UserStore
 	authrepo.AdminStore
+	authrepo.PasskeyCredentialStore
 }
 
 type BackgroundService interface {
@@ -33,22 +34,23 @@ type BackgroundService interface {
 
 // Runtime owns long-lived infrastructure and lifecycle resources.
 type Runtime struct {
-	Config       *config.Config
-	PublicPrefix string
-	DB           *pgxpool.Pool
-	StartupError error
-	Assets       *assets.Assets
-	Web          *echo.Echo
-	ServerConfig server.Config
-	RateLimiters *appserver.RateLimiters
-	PublicDir    string
-	Sessions     session.Manager
-	Queue        *queue.Client
-	KV           kv.Store
-	Validator    *validate.Validator
-	AuthService  auth.Service
-	AuthStore    AuthStore
-	Sender       send.Sender
+	Config         *config.Config
+	PublicPrefix   string
+	DB             *pgxpool.Pool
+	StartupError   error
+	Assets         *assets.Assets
+	Web            *echo.Echo
+	ServerConfig   server.Config
+	RateLimiters   *appserver.RateLimiters
+	PublicDir      string
+	Sessions       session.Manager
+	Queue          *queue.Client
+	KV             kv.Store
+	Validator      *validate.Validator
+	AuthService    auth.Service
+	PasskeyService auth.PasskeyService
+	AuthStore      AuthStore
+	Sender         send.Sender
 
 	background []BackgroundService
 }

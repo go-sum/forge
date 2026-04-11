@@ -18,10 +18,11 @@ import (
 	sitehandlers "github.com/go-sum/site/handlers"
 
 	"github.com/labstack/echo/v5"
+	echomw "github.com/labstack/echo/v5/middleware"
 )
 
 // RegisterRoutes binds the application's concrete handlers to their URL paths.
-func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler *auth.Handler, adminHandler *auth.AdminHandler) error {
+func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler *auth.Handler, adminHandler *auth.AdminHandler, passkeyHandler *auth.PasskeyHandler) error {
 	registerStaticRoutes(r)
 	resolve := route.NewResolver(func() echo.Routes { return r.Web.Router().Routes() })
 	r.Web.Use(auth.LoadSession(&authadapter.SessionManagerAdapter{Mgr: r.Sessions}))
@@ -52,38 +53,11 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 		route.GET("/docs", "docs.index", docsHandler.Handle),
 		route.GET("/docs/*", "docs.show", docsHandler.Handle),
 		route.GET("/contact", "contact.show", contactHandler.Form),
-		route.GET("/signin", "signin.get", authHandler.SigninPage),
-		route.GET("/signup", "signup.get", authHandler.SignupPage),
-		route.GET("/verify", "verify.get", authHandler.VerifyPage),
-
-		// Public POST — cross-origin guard + auth rate limit
-		route.Layout(
-			route.Use(crossOriginGuard, r.RateLimiters.Middleware(r.Config, "auth")),
-			route.POST("/signin", "signin.post", authHandler.Signin),
-			route.POST("/signup", "signup.post", authHandler.Signup),
-			route.POST("/verify", "verify.post", authHandler.Verify),
-			route.POST("/verify/resend", "verify.resend.post", authHandler.ResendVerify),
-			route.POST("/contact", "contact.submit", contactHandler.Submit),
-		),
 
 		// Authenticated — server rate limit + auth required
 		route.Layout(
 			route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
 			route.GET("/_components", "components.list", examplesHandler.Handle),
-
-			// Profile — current user account management
-			route.Group("/profile",
-				route.GET("/email", "profile.email.get", authHandler.EmailChangePage),
-				route.GET("/sessions", "profile.session.list", sessionsModule.Handler().List),
-				// Profile writes — adds cross-origin guard
-				route.Layout(
-					route.Use(crossOriginGuard),
-					route.POST("/signout", "profile.signout.post", authHandler.Signout),
-					route.POST("/email", "profile.email.post", authHandler.BeginEmailChange),
-					route.DELETE("/sessions/:id", "profile.session.revoke", sessionsModule.Handler().Revoke),
-					route.DELETE("/sessions", "profile.session.revoke.all", sessionsModule.Handler().RevokeAll),
-				),
-			),
 
 			// Admin — user management
 			route.Group("/admin",
@@ -118,6 +92,77 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 			),
 		),
 	)
+
+	route.Register(r.Web,
+		// TOTP public GET
+		route.GET("/signin", "signin.get", authHandler.SigninPage),
+		route.GET("/signup", "signup.get", authHandler.SignupPage),
+		route.GET("/verify", "verify.get", authHandler.VerifyPage),
+
+		// TOTP public POST — cross-origin guard + auth rate limit
+		route.Layout(
+			route.Use(crossOriginGuard, r.RateLimiters.Middleware(r.Config, "auth")),
+			route.POST("/signin", "signin.post", authHandler.Signin),
+			route.POST("/signup", "signup.post", authHandler.Signup),
+			route.POST("/verify", "verify.post", authHandler.Verify),
+			route.POST("/verify/resend", "verify.resend.post", authHandler.ResendVerify),
+			route.POST("/contact", "contact.submit", contactHandler.Submit),
+		),
+
+		// TOTP authenticated profile routes
+		route.Layout(
+			route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
+			route.Group("/profile",
+				route.GET("/email", "profile.email.get", authHandler.EmailChangePage),
+				route.GET("/sessions", "profile.session.list", sessionsModule.Handler().List),
+				// Profile writes — adds cross-origin guard
+				route.Layout(
+					route.Use(crossOriginGuard),
+					route.POST("/signout", "profile.signout.post", authHandler.Signout),
+					route.POST("/email", "profile.email.post", authHandler.BeginEmailChange),
+					route.DELETE("/sessions/:id", "profile.session.revoke", sessionsModule.Handler().Revoke),
+					route.DELETE("/sessions", "profile.session.revoke.all", sessionsModule.Handler().RevokeAll),
+				),
+			),
+		),
+	)
+
+	if passkeyHandler != nil {
+		passkeyBodyLimit := echomw.BodyLimit(64 * 1024)
+		route.Register(r.Web,
+			// Public authenticate ceremony — crossOriginGuard + auth rate limit + body limit
+			route.Layout(
+				route.Use(crossOriginGuard, r.RateLimiters.Middleware(r.Config, "auth"), passkeyBodyLimit),
+				route.Group("/auth/passkeys/authenticate",
+					route.POST("/begin", "passkey.authenticate.begin", passkeyHandler.AuthenticateBegin),
+					route.POST("/finish", "passkey.authenticate.finish", passkeyHandler.AuthenticateFinish),
+				),
+			),
+			// Authenticated passkey routes — server rate limit + auth required
+			route.Layout(
+				route.Use(r.RateLimiters.Middleware(r.Config, "server"), auth.RequireAuthPath(resolve.Path("signin.get"))),
+				// Registration ceremony — JSON + crossOriginGuard + body limit
+				route.Layout(
+					route.Use(crossOriginGuard, passkeyBodyLimit),
+					route.Group("/auth/passkeys/register",
+						route.POST("/begin", "passkey.register.begin", passkeyHandler.RegisterBegin),
+						route.POST("/finish", "passkey.register.finish", passkeyHandler.RegisterFinish),
+					),
+				),
+				// Management — HTMX
+				route.Group("/account/passkeys",
+					route.GET("", "passkey.list", passkeyHandler.ListPasskeys),
+					route.GET("/:id/row", "passkey.row", passkeyHandler.GetPasskeyRow),
+					route.GET("/:id/rename", "passkey.rename.form", passkeyHandler.GetRenameForm),
+					route.Layout(
+						route.Use(crossOriginGuard),
+						route.POST("/:id/rename", "passkey.rename", passkeyHandler.RenamePasskey),
+						route.DELETE("/:id", "passkey.delete", passkeyHandler.DeletePasskey),
+					),
+				),
+			),
+		)
+	}
 
 	return nil
 }

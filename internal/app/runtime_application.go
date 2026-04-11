@@ -15,6 +15,7 @@ import (
 
 // Session/auth bootstrap.
 func (r *Runtime) initAuth() {
+	r.Config.Service.Auth = auth.ApplyDefaults(r.Config.Service.Auth)
 	cfg := r.Config.Session.Auth
 	mgr, err := session.NewManager(session.Config{
 		Store:      cfg.Store,
@@ -34,6 +35,7 @@ func (r *Runtime) initAuth() {
 
 	r.registerQueueHandlers()
 	r.initAuthService()
+	r.initPasskeyService()
 }
 
 // Validation bootstrap.
@@ -42,10 +44,20 @@ func (r *Runtime) initValidator() {
 	r.Web.Validator = r.Validator
 }
 
-func (r *Runtime) initAuthService() {
-	if err := auth.ValidateConfig(r.Config.Service.Auth); err != nil {
-		panic(fmt.Sprintf("app: auth: %v", err))
+func (r *Runtime) initPasskeyService() {
+	cfg := r.Config.Service.Auth.Methods.Passkey
+	if !cfg.Enabled {
+		return
 	}
+	svc, err := authsvc.NewPasskeyService(r.AuthStore, r.AuthStore, cfg)
+	if err != nil {
+		panic(fmt.Sprintf("app: passkey: %v", err))
+	}
+	r.PasskeyService = svc
+	slog.Info("passkey service initialized")
+}
+
+func (r *Runtime) initAuthService() {
 	r.AuthService = authsvc.NewAuthService(
 		r.AuthStore,
 		authsvc.Config{

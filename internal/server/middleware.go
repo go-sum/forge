@@ -37,11 +37,11 @@ func RegisterMiddleware(e *echo.Echo, cfg *config.Config, processedCSP string) {
 	// Log 5xx as Error, 4xx as Warn, 2xx/3xx only in debug mode.
 	// Each Log* flag must be explicitly enabled — Echo v5 opts out of capture by default.
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		// HandleError:  true,
-		// LogMethod:    true,
-		// LogURI:       true,
-		// LogStatus:    true,
-		// LogLatency:   true,
+		HandleError: true,
+		LogMethod:   true,
+		LogURI:      true,
+		LogStatus:   true,
+		LogLatency:  true,
 		LogRemoteIP: true,
 		// LogRequestID: true,
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {

@@ -35,6 +35,7 @@ type Request struct {
 	UserRole        string
 	UserName        string
 	Flash           []flash.Message
+	PasskeyEnabled  bool
 	NavConfig       config.NavConfig
 	FontConfig      font.Config
 	CopyrightYear   int
@@ -53,12 +54,21 @@ func NewRequest(c *echo.Context, cfg *config.Config) Request {
 		Description:    cfg.Site.Description,
 		MetaKeywords:   cfg.Site.MetaKeywords,
 		OGImage:        cfg.Site.OGImage,
-		NavConfig:      cfg.Nav,
 		FontConfig:     cfg.Site.Fonts,
 		CopyrightYear:  cfg.Site.CopyrightYear,
 		AppVersion:     cfg.App.Version,
 		HTMX:           htmx.NewRequest(c.Request()),
 		Routes:         c.Echo().Router().Routes(),
+	}
+	req.PasskeyEnabled = cfg.Service.Auth.Methods.Passkey.Enabled
+	if !req.PasskeyEnabled {
+		passkeyPath, ok := route.SafeReverse(req.Routes, "passkey.list")
+		if !ok || passkeyPath == "" {
+			passkeyPath = "/account/passkeys"
+		}
+		req.NavConfig = removeNavHref(cfg.Nav, passkeyPath)
+	} else {
+		req.NavConfig = cfg.Nav
 	}
 
 	if userID := auth.UserID(c); userID != "" {
@@ -141,7 +151,7 @@ func (r Request) LayoutProps(title string, children ...g.Node) layout.Props {
 		Flash:           r.Flash,
 		NavConfig:       r.NavConfig,
 		FontConfig:      r.FontConfig,
-		SignoutPath:      r.safePath("profile.signout.post", "/profile/signout"),
+		SignoutPath:      r.safePath("profile.signout.post", ""),
 		CopyrightYear:   r.CopyrightYear,
 		AppVersion:      r.AppVersion,
 		Children:        children,
@@ -168,4 +178,31 @@ func RenderWithStatus(c *echo.Context, req Request, status int, full, partial g.
 		return render.FragmentWithStatus(c, status, partial)
 	}
 	return render.ComponentWithStatus(c, status, full)
+}
+
+// removeNavHref returns a deep copy of nav with all items matching href removed.
+func removeNavHref(nav config.NavConfig, href string) config.NavConfig {
+	result := nav
+	sections := make([]config.NavSection, len(nav.Sections))
+	for i, section := range nav.Sections {
+		s := section
+		s.Items = filterItemsByHref(section.Items, href)
+		sections[i] = s
+	}
+	result.Sections = sections
+	return result
+}
+
+func filterItemsByHref(items []config.NavItem, href string) []config.NavItem {
+	result := make([]config.NavItem, 0, len(items))
+	for _, item := range items {
+		if item.Href == href {
+			continue
+		}
+		if len(item.Items) > 0 {
+			item.Items = filterItemsByHref(item.Items, href)
+		}
+		result = append(result, item)
+	}
+	return result
 }

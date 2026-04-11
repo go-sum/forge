@@ -48,3 +48,7 @@ func errNotFound(msg string) *HTTPError {
 func errUnavailable(msg string, cause error) *HTTPError {
 	return &HTTPError{status: http.StatusServiceUnavailable, message: msg, cause: cause}
 }
+
+func errConflict(msg string) *HTTPError {
+	return &HTTPError{status: http.StatusConflict, message: msg}
+}

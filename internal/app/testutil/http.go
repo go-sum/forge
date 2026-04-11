@@ -65,6 +65,7 @@ func AssertAppErrorStatus(t *testing.T, err error, status int) {
 func RegisterTestRoutes(e *echo.Echo) {
 	noOp := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/", Name: "home.show", Handler: noOp})
+	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/health", Name: "health.show", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/_components", Name: "components.list", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signin", Name: "signin.get", Handler: noOp})
 	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/signup", Name: "signup.get", Handler: noOp})
@@ -89,4 +90,19 @@ func RegisterTestRoutes(e *echo.Echo) {
 	route.Add(profile, echo.Route{Method: http.MethodGet, Path: "/sessions", Name: "profile.session.list", Handler: noOp})
 	route.Add(profile, echo.Route{Method: http.MethodDelete, Path: "/sessions/:id", Name: "profile.session.revoke", Handler: noOp})
 	route.Add(profile, echo.Route{Method: http.MethodDelete, Path: "/sessions", Name: "profile.session.revoke.all", Handler: noOp})
+
+	passkeyAuthenticate := e.Group("/auth/passkeys/authenticate")
+	route.Add(passkeyAuthenticate, echo.Route{Method: http.MethodPost, Path: "/begin", Name: "passkey.authenticate.begin", Handler: noOp})
+	route.Add(passkeyAuthenticate, echo.Route{Method: http.MethodPost, Path: "/finish", Name: "passkey.authenticate.finish", Handler: noOp})
+
+	passkeyRegister := e.Group("/auth/passkeys/register")
+	route.Add(passkeyRegister, echo.Route{Method: http.MethodPost, Path: "/begin", Name: "passkey.register.begin", Handler: noOp})
+	route.Add(passkeyRegister, echo.Route{Method: http.MethodPost, Path: "/finish", Name: "passkey.register.finish", Handler: noOp})
+
+	passkeys := e.Group("/account/passkeys")
+	route.Add(passkeys, echo.Route{Method: http.MethodGet, Path: "", Name: "passkey.list", Handler: noOp})
+	route.Add(passkeys, echo.Route{Method: http.MethodGet, Path: "/:id/row", Name: "passkey.row", Handler: noOp})
+	route.Add(passkeys, echo.Route{Method: http.MethodGet, Path: "/:id/rename", Name: "passkey.rename.form", Handler: noOp})
+	route.Add(passkeys, echo.Route{Method: http.MethodPost, Path: "/:id/rename", Name: "passkey.rename", Handler: noOp})
+	route.Add(passkeys, echo.Route{Method: http.MethodDelete, Path: "/:id", Name: "passkey.delete", Handler: noOp})
 }

@@ -56,26 +56,62 @@ Defines the provider-agnostic `Service` interface, auth method configuration, an
 
 | Field | Type | YAML Key | Description |
 |-------|------|----------|-------------|
-| `Selected` | `MethodName` | `selected` | Active auth method. Defaults to `"email_totp"` when empty. |
+| `Preferred` | `MethodName` | `preferred` | UI-only: which enabled method renders first on the signin page. Does not affect which methods are wired — that is controlled by `Methods.*.Enabled`. Defaults to `"email_totp"` via `defaultConfig`. |
 | `Methods` | `MethodsConfig` | `methods` | Method-specific configuration group. |
+
+Both methods can be enabled simultaneously. The `Preferred` field determines only the visual order on the signin page — the non-preferred method is still accessible as a secondary option. At least one method must be enabled.
+
+Package defaults (`defaultConfig`):
+
+| Field | Default |
+|-------|---------|
+| `Preferred` | `"email_totp"` |
+| `Methods.EmailTOTP.PeriodSeconds` | `300` (5 minutes) |
+
+Call `auth.ApplyDefaults(cfg)` at the composition-root boundary to fill zero-valued fields from these defaults:
+
+```go
+r.Config.Service.Auth = auth.ApplyDefaults(r.Config.Service.Auth)
+```
+
+Then register cross-field validation rules via:
+
+```go
+cfg.RegisterValidationRules(v)
+```
+
+The validator enforces:
+- At least one method must have `Enabled: true` (`at_least_one_method`)
+- If `Preferred` is set, the named method must be enabled (`preferred_method_disabled`)
 
 Methods:
 
-- `SelectedMethod() MethodName` -- returns `Selected` if non-empty, otherwise `MethodEmailTOTP`
+- `PreferredMethod() MethodName` -- returns `Preferred` if non-empty, otherwise `MethodEmailTOTP`
+- `ApplyDefaults(cfg Config) Config` -- fills zero-valued fields from the package default; call once at startup
 
 **`MethodsConfig`** -- groups method-specific configuration.
 
 | Field | Type | YAML Key | Description |
 |-------|------|----------|-------------|
 | `EmailTOTP` | `EmailTOTPMethodConfig` | `email_totp` | Configuration for the email-TOTP method. |
+| `Passkey` | `PasskeyMethodConfig` | `passkey` | Configuration for the WebAuthn passkey method. |
 
 **`EmailTOTPMethodConfig`** -- configures the email-backed TOTP auth method.
 
 | Field | Type | YAML Key | Description |
 |-------|------|----------|-------------|
-| `Enabled` | `bool` | `enabled` | Whether this method is active. Must be `true` for the method to function. |
-| `Issuer` | `string` | `issuer` | Issuer name used in TOTP generation context. |
-| `PeriodSeconds` | `int` | `period_seconds` | TOTP validity window in seconds. Defaults to 300 (5 minutes) when zero or negative. |
+| `Enabled` | `bool` | `enabled` | Whether this method is active. |
+| `Issuer` | `string` | `issuer` | Issuer name used in TOTP generation context (host-specific; not set by `defaultConfig`). |
+| `PeriodSeconds` | `int` | `period_seconds` | TOTP validity window in seconds. Defaults to 300 via `defaultConfig`. |
+
+**`PasskeyMethodConfig`** -- configures the WebAuthn passkey method.
+
+| Field | Type | YAML Key | Description |
+|-------|------|----------|-------------|
+| `Enabled` | `bool` | `enabled` | Whether this method is active. |
+| `RPDisplayName` | `string` | `rp_display_name` | Relying Party display name (required when `Enabled`). |
+| `RPID` | `string` | `rp_id` | Relying Party ID, e.g. `"example.com"` (required when `Enabled`). |
+| `RPOrigins` | `[]string` | `rp_origins` | Allowed WebAuthn origins, e.g. `["https://example.com"]` (required when `Enabled`). |
 
 ### Interface
 
@@ -90,16 +126,6 @@ type Service interface {
     VerifyPendingFlow(context.Context, model.PendingFlow, model.VerifyInput) (model.VerifyResult, error)
     VerifyToken(context.Context, string, model.VerifyInput) (model.VerifyResult, error)
     VerifyPageState(string) (model.VerifyPageState, error)
-}
-```
-
-### Functions
-
-**`ValidateConfig(cfg Config) error`** -- checks that `cfg` selects a supported, enabled method. Returns an error suitable for wrapping in a startup panic if the selected method is unsupported or disabled.
-
-```go
-if err := auth.ValidateConfig(cfg.Auth); err != nil {
-    panic(fmt.Sprintf("auth config: %v", err))
 }
 ```
 

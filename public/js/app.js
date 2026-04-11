@@ -294,6 +294,169 @@
     cycleTheme();
   });
 
+  // static/js/lib/fetch.js
+  function csrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute("content") : "";
+  }
+  function postJSON(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+      body: JSON.stringify(body || {}),
+      credentials: "same-origin"
+    }).then(handleResponse);
+  }
+  function handleResponse(res) {
+    if (!res.ok) {
+      return res.json().catch(function() {
+        return {};
+      }).then(function(data2) {
+        var err = new Error(data2.message || res.statusText);
+        err.status = res.status;
+        throw err;
+      });
+    }
+    var ct = res.headers.get("content-type") || "";
+    if (ct.indexOf("application/json") !== -1) return res.json();
+    return res.text();
+  }
+
+  // static/js/lib/encoding.js
+  function bufferToBase64url(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var binary = "";
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function base64urlToBuffer(str) {
+    var base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) base64 += "=";
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  // static/js/components/passkeys.js
+  registerUpgrade(function(scope) {
+    if (!window.PublicKeyCredential) {
+      return;
+    }
+    var enabledEl = (scope.matches && scope.matches("[data-passkey-enabled]") ? scope : null) || (scope.querySelector ? scope.querySelector("[data-passkey-enabled]") : null) || (scope.closest ? scope.closest("[data-passkey-enabled]") : null);
+    if (!enabledEl) {
+      return;
+    }
+    findAll(scope, "[data-passkey-visible]").forEach(function(el) {
+      el.classList.remove("hidden");
+    });
+  });
+  delegate("click", "[data-passkey-authenticate]", function(event, el) {
+    event.preventDefault();
+    authenticate(el);
+  });
+  delegate("click", "[data-passkey-register]", function(event, el) {
+    event.preventDefault();
+    register(el);
+  });
+  function showPasskeyError(message) {
+    var errEl = find(document, "[data-passkey-error]");
+    if (!errEl) {
+      return;
+    }
+    if (!message) {
+      errEl.classList.add("hidden");
+      errEl.textContent = "";
+      return;
+    }
+    errEl.textContent = message;
+    errEl.classList.remove("hidden");
+  }
+  function mapWebAuthnError(err) {
+    if (err.name === "NotAllowedError") return "Cancelled by user or device.";
+    if (err.name === "InvalidStateError") return "This passkey is already registered.";
+    if (err.name === "AbortError") return null;
+    return "Something went wrong. Try signing in with email.";
+  }
+  function authenticate(el) {
+    var beginUrl = el.dataset.beginUrl;
+    var finishUrl = el.dataset.finishUrl;
+    postJSON(beginUrl, {}).then(function(options) {
+      var pk = options.publicKey;
+      pk.challenge = base64urlToBuffer(pk.challenge);
+      if (pk.allowCredentials) {
+        pk.allowCredentials = pk.allowCredentials.map(function(c) {
+          return Object.assign({}, c, { id: base64urlToBuffer(c.id) });
+        });
+      }
+      return navigator.credentials.get({ publicKey: pk });
+    }).then(function(credential) {
+      var resp = credential.response;
+      var body = {
+        id: credential.id,
+        rawId: bufferToBase64url(credential.rawId),
+        type: credential.type,
+        response: {
+          authenticatorData: bufferToBase64url(resp.authenticatorData),
+          clientDataJSON: bufferToBase64url(resp.clientDataJSON),
+          signature: bufferToBase64url(resp.signature),
+          userHandle: resp.userHandle ? bufferToBase64url(resp.userHandle) : null
+        }
+      };
+      return postJSON(finishUrl, body);
+    }).then(function(result) {
+      window.location.href = result.redirect;
+    }).catch(function(err) {
+      var msg = mapWebAuthnError(err);
+      if (msg) {
+        showPasskeyError(msg);
+      }
+    });
+  }
+  function register(el) {
+    var beginUrl = el.dataset.beginUrl;
+    var finishUrl = el.dataset.finishUrl;
+    var listUrl = el.dataset.listUrl;
+    postJSON(beginUrl, {}).then(function(options) {
+      var pk = options.publicKey;
+      pk.challenge = base64urlToBuffer(pk.challenge);
+      pk.user.id = base64urlToBuffer(pk.user.id);
+      if (pk.excludeCredentials) {
+        pk.excludeCredentials = pk.excludeCredentials.map(function(c) {
+          return Object.assign({}, c, { id: base64urlToBuffer(c.id) });
+        });
+      }
+      return navigator.credentials.create({ publicKey: pk });
+    }).then(function(credential) {
+      var resp = credential.response;
+      var name = "Passkey " + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      var body = {
+        id: credential.id,
+        rawId: bufferToBase64url(credential.rawId),
+        type: credential.type,
+        name,
+        response: {
+          attestationObject: bufferToBase64url(resp.attestationObject),
+          clientDataJSON: bufferToBase64url(resp.clientDataJSON),
+          transports: resp.getTransports ? resp.getTransports() : []
+        }
+      };
+      return postJSON(finishUrl, body);
+    }).then(function() {
+      if (window.htmx) {
+        htmx.ajax("GET", listUrl, { target: "#passkeys-list-region", swap: "innerHTML" });
+      } else {
+        location.reload();
+      }
+    }).catch(function(err) {
+      console.error("[passkey] registration error:", err.name, "|", err.message);
+      var msg = mapWebAuthnError(err);
+      if (msg) {
+        showPasskeyError(msg);
+      }
+    });
+  }
+
   // static/js/components.js
   function init() {
     if (document.documentElement.dataset.componentsInitialized === "true") {

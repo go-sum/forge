@@ -1,7 +1,7 @@
 -- Schema: starter application
--- This file is used by:
---   1. make db-compose — to generate migration files in db/migrations/
--- Migrations are applied via goose: make db-migrate
+--   1. make db-compose — compose migration files in db/migrations/
+--   2. make db-gen — generate go queries in db/sql/queries/
+--   3. make db-migrate — apply migrations from db/migrations/
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS citext;

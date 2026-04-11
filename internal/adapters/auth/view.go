@@ -1,6 +1,7 @@
 package authadapter
 
 import (
+	"cmp"
 	"fmt"
 
 	auth "github.com/go-sum/auth"
@@ -8,6 +9,7 @@ import (
 	uiform "github.com/go-sum/componentry/form"
 	"github.com/go-sum/componentry/ui/core"
 	uidata "github.com/go-sum/componentry/ui/data"
+	"github.com/go-sum/server/route"
 
 	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
@@ -74,24 +76,94 @@ func signinForm(req auth.Request, submission auth.FormSubmission, input model.Be
 		emailErrors = submission.GetFieldErrors("Email")
 		formErrors = submission.GetFormErrors()
 	}
+	autocomplete := "email"
+	if req.PasskeyEnabled {
+		autocomplete = "username webauthn"
+	}
+
+	passkeyFirst := req.PasskeyEnabled && req.Preferred == auth.MethodPasskey
+
 	return h.Form(
 		h.Method("post"),
 		h.Action(signinPath),
 		h.Class("w-full flex flex-col gap-4"),
+		g.If(req.PasskeyEnabled, g.Attr("data-passkey-enabled", "")),
 		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, FormError(formErrors)),
-		emailField(input.Email, emailErrors),
+		// Sub-container groups the swappable blocks so footer items (error, signup
+		// link) are never included in the flex ordering context.
+		h.Div(
+			h.Class("flex flex-col gap-4"),
+			signinEmailBlock(input.Email, emailErrors, autocomplete, passkeyFirst),
+			g.If(req.PasskeyEnabled, signinPasskeyBlock(req, passkeyFirst)),
+		),
+		g.If(req.PasskeyEnabled,
+			h.P(
+				h.Class("hidden text-sm text-destructive text-center"),
+				g.Attr("data-passkey-error", ""),
+			),
+		),
+		h.P(
+			h.Class("pt-1 text-center text-sm text-muted-foreground"),
+			g.Text("Need an account? "),
+			h.A(h.Href(signupPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Sign up")),
+		),
+	)
+}
+
+// signinEmailBlock renders the email field and "Send Code" submit button.
+// When passkeyFirst is true, order-2 is applied so CSS flex renders it below
+// the passkey block without changing DOM order.
+func signinEmailBlock(email string, emailErrors []string, autocomplete string, passkeyFirst bool) g.Node {
+	class := "flex flex-col gap-4"
+	if passkeyFirst {
+		class = "order-2 flex flex-col gap-4"
+	}
+	return h.Div(
+		h.Class(class),
+		emailField(email, emailErrors, autocomplete),
 		core.Button(core.ButtonProps{
 			Label:     "Send Code",
 			Type:      "submit",
 			FullWidth: true,
 			Extra:     []g.Node{h.Class("mt-2")},
 		}),
-		h.P(
-			h.Class("pt-1 text-center text-sm text-muted-foreground"),
-			g.Text("Need an account? "),
-			h.A(h.Href(signupPath), h.Class("underline underline-offset-4 hover:text-primary"), g.Text("Sign up")),
+	)
+}
+
+// signinPasskeyBlock renders the "or / Sign in with passkey" section.
+// Hidden by default; passkeys.js removes the hidden class when WebAuthn is
+// available. When passkeyFirst is true, order-1 is applied so CSS flex renders
+// it above the email block without changing DOM order.
+func signinPasskeyBlock(req auth.Request, passkeyFirst bool) g.Node {
+	vreq := hostRequest(req)
+	beginURL, _ := route.SafeReverse(vreq.Routes, "passkey.authenticate.begin")
+	finishURL, _ := route.SafeReverse(vreq.Routes, "passkey.authenticate.finish")
+
+	dividerText := "or"
+	class := "order-2 hidden flex flex-col gap-4"
+	if passkeyFirst {
+		dividerText = "or continue with email"
+		class = "order-1 hidden flex flex-col gap-4"
+	}
+	return h.Div(
+		h.Class(class),
+		g.Attr("data-passkey-visible", ""),
+		h.Div(
+			h.Class("relative flex items-center justify-center"),
+			h.Span(h.Class("bg-card px-2 text-xs text-muted-foreground"), g.Text(dividerText)),
 		),
+		core.Button(core.ButtonProps{
+			Label:     "Sign in with passkey",
+			Variant:   core.VariantOutline,
+			FullWidth: true,
+			Extra: []g.Node{
+				h.Type("button"),
+				g.Attr("data-passkey-authenticate", ""),
+				g.Attr("data-begin-url", beginURL),
+				g.Attr("data-finish-url", finishURL),
+			},
+		}),
 	)
 }
 
@@ -108,7 +180,7 @@ func signupForm(req auth.Request, submission auth.FormSubmission, input model.Be
 		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, FormError(formErrors)),
-		emailField(input.Email, emailErrors),
+		emailField(input.Email, emailErrors, ""),
 		uiform.Field(uiform.FieldProps{
 			ID:     "display_name",
 			Label:  "Display Name",
@@ -214,7 +286,7 @@ func emailChangeForm(req auth.Request, submission auth.FormSubmission, input mod
 		h.Class("w-full flex flex-col gap-4"),
 		h.Input(h.Type("hidden"), h.Name(csrfField), h.Value(req.CSRFToken)),
 		g.If(len(formErrors) > 0, FormError(formErrors)),
-		emailField(input.Email, emailErrors),
+		emailField(input.Email, emailErrors, ""),
 		core.Button(core.ButtonProps{
 			Label:     "Send Verification Code",
 			Type:      "submit",
@@ -237,7 +309,8 @@ func authCard(title, description string, content g.Node) g.Node {
 	)
 }
 
-func emailField(value string, errors []string) g.Node {
+func emailField(value string, errors []string, autocomplete string) g.Node {
+	ac := cmp.Or(autocomplete, "email")
 	return uiform.Field(uiform.FieldProps{
 		ID:     "email",
 		Label:  "Email",
@@ -249,7 +322,7 @@ func emailField(value string, errors []string) g.Node {
 			Value:    value,
 			Required: true,
 			HasError: len(errors) > 0,
-			Extra:    uiform.FieldControlAttrs("email", "", "", errors),
+			Extra:    append(uiform.FieldControlAttrs("email", "", "", errors), h.AutoComplete(ac)),
 		}),
 	})
 }

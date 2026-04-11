@@ -40,12 +40,18 @@ func defaultService() ServiceConfig {
 			},
 		},
 		Auth: auth.Config{
-			Selected: "email_totp",
+			// Preferred defaults to email_totp via pkg/auth defaultConfig; omit here.
 			Methods: auth.MethodsConfig{
 				EmailTOTP: auth.EmailTOTPMethodConfig{
-					Enabled:       true,
-					Issuer:        "Forge",
-					PeriodSeconds: 300,
+					Enabled: true,
+					Issuer:  "Forge", // host-specific branding
+				},
+				Passkey: auth.PasskeyMethodConfig{
+					// Passkey auth requires site-specific RPID and RPOrigins.
+					// Enable and configure in the environment overlay (e.g. developmentConfig).
+					Enabled:               false,
+					RegistrationTimeout:   300,
+					AuthenticationTimeout: 120,
 				},
 			},
 		},

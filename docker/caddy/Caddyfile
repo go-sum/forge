@@ -1,4 +1,4 @@
-forge.test {
-	tls internal
+{$DEV_DOMAIN} {
+	tls /certs/{$DEV_DOMAIN}.pem /certs/{$DEV_DOMAIN}-key.pem
 	reverse_proxy forge-app-1:8080
 }

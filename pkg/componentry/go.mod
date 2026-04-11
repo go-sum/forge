@@ -3,7 +3,7 @@ module github.com/go-sum/componentry
 go 1.26.0
 
 require (
-	github.com/go-playground/validator/v10 v10.30.1
+	github.com/go-playground/validator/v10 v10.30.2
 	github.com/labstack/echo/v5 v5.0.4
 	go.yaml.in/yaml/v3 v3.0.4
 	maragu.dev/gomponents v1.2.0

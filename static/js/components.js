@@ -8,6 +8,7 @@ import './components/fileupload.js';
 import './components/popover.js';
 import './components/tabs.js';
 import './components/theme.js';
+import './components/passkeys.js';
 
 export { closest, data, delegate, find, findAll, remove, toggleClass, upgrade } from './lib/dom.js';
 

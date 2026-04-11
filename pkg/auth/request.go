@@ -8,11 +8,13 @@ import (
 // Request carries the render-time context needed by auth pages.
 // The host application provides PageFn to wrap auth content in its layout.
 type Request struct {
-	CSRFToken     string
-	CSRFFieldName string
-	Partial       bool
-	State         any
-	PageFn        func(title string, children ...g.Node) g.Node
+	CSRFToken      string
+	CSRFFieldName  string
+	Partial        bool
+	PasskeyEnabled bool
+	Preferred      MethodName // which method renders first on /signin; does not affect wiring
+	State          any
+	PageFn         func(title string, children ...g.Node) g.Node
 }
 
 // Page delegates to PageFn for layout rendering.
