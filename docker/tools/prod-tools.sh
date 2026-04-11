@@ -20,3 +20,8 @@ tar -xzf /tmp/hugo.tar.gz -C /tmp hugo
 mv /tmp/hugo /usr/local/bin/hugo
 chmod +x /usr/local/bin/hugo
 rm -f /tmp/hugo.tar.gz
+
+# ── mkcert (local TLS certificate authority) ─────────────────────────────────
+curl -fsSLo /usr/local/bin/mkcert \
+  "https://github.com/FiloSottile/mkcert/releases/download/v${MKCERT_VERSION}/mkcert-v${MKCERT_VERSION}-linux-${TARGETARCH}"
+chmod +x /usr/local/bin/mkcert

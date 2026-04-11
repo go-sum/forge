@@ -4,6 +4,7 @@ export
 
 PROJECT_NAME    ?= $(notdir $(CURDIR))
 APP_NAME        := $(PROJECT_NAME)-dev
+DEV_DOMAIN      := $(PROJECT_NAME).test
 PACKAGE         ?=
 VERSION         ?=
 
@@ -28,7 +29,8 @@ WORKSPACE := go run ./cli/workspace
         package-list package-push package-release package-status package-sync \
         dev prod test test-race \
         docker-build docker-dev docker-down docker-logs docker-prune docker-up \
-        dev-tools prod-tools
+        dev-tools prod-tools \
+        caddy-up caddy-down certs
 
 # ── Build & Quality ───────────────────────────────────────────────────────────
 
@@ -60,12 +62,7 @@ test-race: ## Run tests with race detector (uses tools container with CGO)
 
 db-compose: ## Compose schemas and generate migration with diff (NAME=add_queue_jobs)
 	@test -n "$(NAME)" || { echo "error: NAME is required  e.g. make db-compose NAME=add_queue_jobs" >&2; exit 1; }
-	$(RUN_APP) \
-	  -e PGSCHEMA_PLAN_HOST=$$PGHOST \
-	  -e PGSCHEMA_PLAN_DB=$${PGDATABASE}_plan \
-	  -e PGSCHEMA_PLAN_USER=$$PGUSER \
-	  -e PGSCHEMA_PLAN_PASSWORD=$$PGPASSWORD \
-	  app go run ./cli/db compose "$(NAME)"
+	$(RUN_TOOLS) tools sh -c 'go run ./cli/db compose "$(NAME)"'
 
 db-gen: ## Regenerate sqlc Go code from SQL queries
 	$(RUN_TOOLS) tools sqlc generate -f pkg/auth/pgstore/.sqlc.yaml
@@ -156,7 +153,25 @@ docker-dev: ## Build dev Docker image
 docker-down: ## Stop and remove containers
 	$(D_COMPOSE) --profile dev down $(ARGS)
 
-caddy-up: ## Start Caddy reverse proxy for local production testing
+certs: ## Generate mkcert TLS certs for $(DEV_DOMAIN) → .certs/
+	@mkdir -p .certs
+	$(RUN_TOOLS) tools sh -c '\
+	  mkdir -p /app/.certs/.ca && \
+	  CAROOT=/app/.certs/.ca mkcert -install && \
+	  CAROOT=/app/.certs/.ca mkcert \
+	    -cert-file /app/.certs/$(DEV_DOMAIN).pem \
+	    -key-file  /app/.certs/$(DEV_DOMAIN)-key.pem \
+	    $(DEV_DOMAIN) && \
+	  mv /app/.certs/.ca/rootCA.pem /app/.certs/rootCA.pem'
+	@echo "--------------------------------------------------------------------------------------------"
+	@echo "Trust the root CA on macOS (once per machine) then quit and reopen any web browser sessions:"
+	@echo "  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain .certs/rootCA.pem"
+	@echo ""
+	@echo "  Then: make caddy-down caddy-up"
+	@echo "        rm .certs/rootCA.pem"
+	@echo "--------------------------------------------------------------------------------------------"
+
+caddy-up: ## Start Caddy reverse proxy (run make certs-gen first on a new machine)
 	docker compose -f docker/caddy/docker-compose.yml up -d
 
 caddy-down: ## Stop Caddy reverse proxy
