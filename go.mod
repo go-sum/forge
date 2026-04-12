@@ -18,16 +18,16 @@ replace (
 require (
 	github.com/evanw/esbuild v0.27.4
 	github.com/go-playground/validator/v10 v10.30.2
-	github.com/go-sum/auth v0.0.3
-	github.com/go-sum/componentry v0.0.2
-	github.com/go-sum/docs v0.0.0
-	github.com/go-sum/kv v0.0.4
-	github.com/go-sum/queue v0.0.2
-	github.com/go-sum/security v0.0.2
-	github.com/go-sum/send v0.0.2
-	github.com/go-sum/server v0.0.4
-	github.com/go-sum/session v0.0.2
-	github.com/go-sum/site v0.0.3
+	github.com/go-sum/auth v0.0.4
+	github.com/go-sum/componentry v0.0.3
+	github.com/go-sum/docs v0.0.1
+	github.com/go-sum/kv v0.0.5
+	github.com/go-sum/queue v0.0.3
+	github.com/go-sum/security v0.0.3
+	github.com/go-sum/send v0.0.3
+	github.com/go-sum/server v0.0.5
+	github.com/go-sum/session v0.0.3
+	github.com/go-sum/site v0.0.4
 	github.com/google/go-github/v68 v68.0.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.1
