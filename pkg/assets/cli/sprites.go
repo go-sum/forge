@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/assets/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -97,7 +97,7 @@ func processSVG(data []byte, id string) (string, error) {
 // target file to force a rebuild (or run `task sprites`). Any local source
 // causes an unconditional rebuild since local files are fast reads and may have
 // changed.
-func buildSprite(name string, cfg assetconfig.SpriteConfig, dryRun bool) error {
+func buildSprite(name string, cfg config.SpriteConfig, dryRun bool) error {
 	if !dryRun && allRemoteSources(cfg.Sources) {
 		if _, err := os.Stat(cfg.Target); err == nil {
 			fmt.Printf("  ↷ %s: target exists, skipping (delete to force rebuild)\n", name)
@@ -167,7 +167,7 @@ func buildSprite(name string, cfg assetconfig.SpriteConfig, dryRun bool) error {
 
 // allRemoteSources reports whether every source in the slice uses an http/https
 // URL. A sprite with any local source is always rebuilt.
-func allRemoteSources(sources []assetconfig.SourcesConfig) bool {
+func allRemoteSources(sources []config.SourcesConfig) bool {
 	for _, src := range sources {
 		if !strings.HasPrefix(src.Path, "http://") && !strings.HasPrefix(src.Path, "https://") {
 			return false
@@ -188,7 +188,7 @@ func newSpritesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configPath, "config", assetconfig.DefaultConfigPath, "path to assets config file")
+	cmd.Flags().StringVar(&configPath, "config", config.DefaultConfigPath, "path to assets config file")
 	cmd.Flags().StringVar(&spriteName, "sprite", "", "build only this named sprite (default: all enabled)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print output without writing files")
 
@@ -196,7 +196,7 @@ func newSpritesCmd() *cobra.Command {
 }
 
 func runSpritesCmd(configPath, spriteName string, dryRun bool) error {
-	cfg, err := assetconfig.Load(configPath)
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}

@@ -10,16 +10,16 @@ import (
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
-	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/assets/config"
 	"github.com/spf13/cobra"
 )
 
 type assetBuildOptions struct {
-	ConfigPath   string
-	Minify       bool
-	BuildCSS     bool
-	BuildFonts   bool
-	BuildJS      bool
+	ConfigPath string
+	Minify     bool
+	BuildCSS   bool
+	BuildFonts bool
+	BuildJS    bool
 }
 
 // resolveAssetsOpts builds the options struct from individual flag values.
@@ -50,7 +50,7 @@ func newAssetsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configPath, "config", assetconfig.DefaultConfigPath, "path to assets config file")
+	cmd.Flags().StringVar(&configPath, "config", config.DefaultConfigPath, "path to assets config file")
 	cmd.Flags().BoolVar(&minify, "minify", false, "minify compiled CSS and JS")
 	cmd.Flags().BoolVar(&css, "css", false, "build CSS (default: all asset types)")
 	cmd.Flags().BoolVar(&js, "js", false, "build JS (default: all asset types)")
@@ -60,7 +60,7 @@ func newAssetsCmd() *cobra.Command {
 }
 
 func buildAssets(opts assetBuildOptions) error {
-	cfg, err := assetconfig.Load(opts.ConfigPath)
+	cfg, err := config.Load(opts.ConfigPath)
 	if err != nil {
 		return err
 	}
@@ -87,8 +87,8 @@ func buildAssets(opts assetBuildOptions) error {
 // Each download is skipped when the target file already exists, matching the
 // JS download convention. Delete the target to force a re-download.
 // Downloaded files land in public_dir/fonts/ and are automatically included
-// in the content-hash manifest by assets.Assets on next server start.
-func buildFonts(cfg assetconfig.FontConfig) error {
+// in the content-hash manifest by publish.Assets on next server start.
+func buildFonts(cfg config.FontConfig) error {
 	for _, dl := range cfg.Downloads {
 		if err := downloadFont(dl); err != nil {
 			return err
@@ -97,7 +97,7 @@ func buildFonts(cfg assetconfig.FontConfig) error {
 	return nil
 }
 
-func downloadFont(dl assetconfig.FontDownload) (err error) {
+func downloadFont(dl config.FontDownload) (err error) {
 	if _, err := os.Stat(dl.Target); err == nil {
 		fmt.Printf("  ↷ font %s: target exists, skipping (delete to force re-download)\n", dl.Name)
 		return nil
@@ -132,7 +132,7 @@ func downloadFont(dl assetconfig.FontDownload) (err error) {
 	return nil
 }
 
-func buildJS(cfg assetconfig.JSConfig, minify bool) error {
+func buildJS(cfg config.JSConfig, minify bool) error {
 	if err := removeStaleJSOutputs(cfg); err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func buildJS(cfg assetconfig.JSConfig, minify bool) error {
 // file to force a re-download on the next asset build.
 // The version is read from the {NAME}_VERSION environment variable first,
 // falling back to the value in .assets.yaml.
-func downloadJS(dl assetconfig.JSDownload) (err error) {
+func downloadJS(dl config.JSDownload) (err error) {
 	if _, err := os.Stat(dl.Target); err == nil {
 		fmt.Printf("  ↷ %s: target exists, skipping (delete to force re-download)\n", dl.Name)
 		return nil
@@ -193,7 +193,7 @@ func downloadJS(dl assetconfig.JSDownload) (err error) {
 	return nil
 }
 
-func bundleJS(cfg assetconfig.JSBundle, minify bool) error {
+func bundleJS(cfg config.JSBundle, minify bool) error {
 	if cfg.Entry == "" || cfg.Target == "" {
 		return nil
 	}
@@ -221,7 +221,7 @@ func bundleJS(cfg assetconfig.JSBundle, minify bool) error {
 	return nil
 }
 
-func removeStaleJSOutputs(cfg assetconfig.JSConfig) error {
+func removeStaleJSOutputs(cfg config.JSConfig) error {
 	managed := make(map[string]bool, len(cfg.Downloads)+len(cfg.Bundles))
 	dirs := make(map[string]bool, len(cfg.Downloads)+len(cfg.Bundles))
 
@@ -259,7 +259,7 @@ func removeStaleJSOutputs(cfg assetconfig.JSConfig) error {
 	return nil
 }
 
-func buildCSSAll(entries []assetconfig.CSSConfig, minify bool) error {
+func buildCSSAll(entries []config.CSSConfig, minify bool) error {
 	for _, cfg := range entries {
 		if err := buildCSS(cfg, minify); err != nil {
 			return err
@@ -268,7 +268,7 @@ func buildCSSAll(entries []assetconfig.CSSConfig, minify bool) error {
 	return nil
 }
 
-func buildCSS(cfg assetconfig.CSSConfig, minify bool) error {
+func buildCSS(cfg config.CSSConfig, minify bool) error {
 	if err := os.MkdirAll(filepath.Dir(cfg.Output), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(cfg.Output), err)
 	}

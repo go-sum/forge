@@ -1,7 +1,8 @@
-// Package assets provides content-hash-based cache-busting for public files.
+// Package publish provides content-hash-based cache-busting for public files
+// and a sprite registry for resolving named SVG sprite assets to public URLs.
 //
-// New walks the built public directory, computes an 8-char SHA-256 hash of each
-// file's contents, and builds a URL manifest. Path then returns versioned
+// Assets walks the built public directory, computes an 8-char SHA-256 hash of
+// each file's contents, and builds a URL manifest. Path then returns versioned
 // URLs like "/public/css/app.css?v=abc12345".
 //
 // Hashing runs in both development and production so that cache headers,
@@ -18,11 +19,11 @@
 // package-level default for ergonomic use in views:
 //
 //	// main.go — called once at startup
-//	assets.MustInit("public", "/public")
+//	publish.MustInit("public", "/public")
 //
 //	// views — no instance required
-//	src := assets.Path("css/app.css")
-package assets
+//	src := publish.Path("css/app.css")
+package publish
 
 import (
 	"crypto/sha256"
@@ -126,7 +127,7 @@ func Init(publicDir, prefix string) error {
 // MustInit calls Init and panics on error. Intended for use in main().
 func MustInit(publicDir, prefix string) {
 	if err := Init(publicDir, prefix); err != nil {
-		panic(fmt.Sprintf("assets.MustInit: %v", err))
+		panic(fmt.Sprintf("publish.MustInit: %v", err))
 	}
 }
 

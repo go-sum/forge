@@ -1,7 +1,7 @@
 package install
 
 import (
-	assets "github.com/go-sum/componentry/assets"
+	assets "github.com/go-sum/assets/publish"
 	"github.com/go-sum/componentry/assets/iconset"
 	icons "github.com/go-sum/componentry/icons"
 )

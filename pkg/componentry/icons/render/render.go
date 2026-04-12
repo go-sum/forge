@@ -1,7 +1,7 @@
 package render
 
 import (
-	assets "github.com/go-sum/componentry/assets"
+	assets "github.com/go-sum/assets/publish"
 	icons "github.com/go-sum/componentry/icons"
 	"github.com/go-sum/componentry/ui/core"
 )

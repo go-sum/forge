@@ -1,0 +1,52 @@
+paths:
+  source_dir: static       # raw asset sources committed in the repo
+  public_dir: public       # built output served by the app
+  public_prefix: /public   # URL prefix the app serves assets from
+
+js:
+  downloads:
+    # Third-party JS files to fetch from a CDN. The target is skipped if it
+    # already exists; delete it to force a re-download.
+    # {version} in the URL is replaced by the resolved version at build time.
+    # Set {NAME}_VERSION env var to override the pinned version.
+    #
+    # - name: htmx
+    #   version: "2.0.4"
+    #   url: "https://unpkg.com/htmx.org@{version}/dist/htmx.min.js"
+    #   target: js/htmx.min.js
+  bundles:
+    # Local JS entry points bundled with esbuild (tree-shaking, IIFE format).
+    #
+    # - entry: js/app.js
+    #   target: js/app.js
+
+css:
+  # CSS compilation steps driven by an external tool (e.g. tailwindcss).
+  #
+  # - tool: tailwindcss
+  #   input: css/tailwind.css
+  #   output: css/app.css
+
+fonts:
+  downloads:
+    # Self-hosted font files to download. Once downloaded, the file is
+    # automatically content-hashed by publish.Assets on next server start.
+    # Delete the target to force a re-download.
+    #
+    # - name: inter-regular
+    #   url: "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-400-normal.woff2"
+    #   target: fonts/inter-latin-400-normal.woff2
+
+sprites:
+  # SVG sprite sheets assembled from individual icon files.
+  # Sources may be http/https URLs or local paths (relative to source_dir).
+  # Remote-only sprites are skipped if the target already exists; delete to rebuild.
+  #
+  # lucide-icons:
+  #   enabled: true
+  #   target: img/svg/lucide-icons.svg
+  #   sources:
+  #     - path: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/"
+  #       files:
+  #         - "chevron-down.svg"
+  #         - "x.svg"

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/assets/config"
 )
 
 func TestBuildJSBundlesSingleAppEntrypoint(t *testing.T) {
@@ -36,8 +36,8 @@ func TestBuildJSBundlesSingleAppEntrypoint(t *testing.T) {
 		t.Fatalf("write stale components.js: %v", err)
 	}
 
-	cfg := assetconfig.JSConfig{
-		Bundles: []assetconfig.JSBundle{{
+	cfg := config.JSConfig{
+		Bundles: []config.JSBundle{{
 			Entry:  filepath.Join(sourceDir, "app.js"),
 			Target: filepath.Join(publicDir, "app.js"),
 		}},
@@ -84,8 +84,8 @@ func TestBuildJSBundlesWithMinification(t *testing.T) {
 		t.Fatalf("write app.js: %v", err)
 	}
 
-	cfg := assetconfig.JSConfig{
-		Bundles: []assetconfig.JSBundle{{
+	cfg := config.JSConfig{
+		Bundles: []config.JSBundle{{
 			Entry:  filepath.Join(sourceDir, "app.js"),
 			Target: filepath.Join(publicDir, "app.min.js"),
 		}},

@@ -3,6 +3,7 @@ module github.com/go-sum/forge
 go 1.26.0
 
 replace (
+	github.com/go-sum/assets => ./pkg/assets
 	github.com/go-sum/auth => ./pkg/auth
 	github.com/go-sum/componentry => ./pkg/componentry
 	github.com/go-sum/docs => ./pkg/docs
@@ -18,6 +19,7 @@ replace (
 require (
 	github.com/evanw/esbuild v0.27.4
 	github.com/go-playground/validator/v10 v10.30.2
+	github.com/go-sum/assets v0.0.1
 	github.com/go-sum/auth v0.0.4
 	github.com/go-sum/componentry v0.0.3
 	github.com/go-sum/docs v0.0.1

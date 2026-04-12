@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-sum/componentry/assets"
+	"github.com/go-sum/assets/publish"
 	"github.com/go-sum/forge/config"
 	"github.com/go-sum/forge/internal/features/availability"
 	appserver "github.com/go-sum/forge/internal/server"
@@ -15,8 +15,8 @@ import (
 )
 
 func TestRegisterStartupRoutesServesUnavailableAndHealth(t *testing.T) {
-	if err := assets.Init("public", "/public"); err != nil {
-		t.Fatalf("assets.Init() error = %v", err)
+	if err := publish.Init("public", "/public"); err != nil {
+		t.Fatalf("publish.Init() error = %v", err)
 	}
 
 	e := echo.New()

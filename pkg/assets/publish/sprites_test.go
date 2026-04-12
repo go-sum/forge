@@ -1,4 +1,4 @@
-package assets
+package publish
 
 import "testing"
 

@@ -2,7 +2,7 @@
 package layout
 
 import (
-	"github.com/go-sum/componentry/assets"
+	"github.com/go-sum/assets/publish"
 	"github.com/go-sum/componentry/interactive"
 	"github.com/go-sum/componentry/patterns/flash"
 	"github.com/go-sum/componentry/patterns/font"
@@ -51,12 +51,12 @@ func Page(p Props) g.Node {
 					OGImage:     p.OGImage,
 				},
 				Stylesheets: []head.Stylesheet{{
-					Href: assets.Path("css/app.css"),
+					Href: publish.Path("css/app.css"),
 				}},
 				Extra: buildHeadExtras(p),
 				Scripts: []head.Script{
-					{Src: assets.Path("js/app.js"), Defer: true},
-					{Src: assets.Path("js/htmx.min.js"), Defer: true},
+					{Src: publish.Path("js/app.js"), Defer: true},
+					{Src: publish.Path("js/htmx.min.js"), Defer: true},
 				},
 			}),
 			h.Body(
@@ -98,7 +98,7 @@ func buildHeadExtras(p Props) []g.Node {
 		// CSRF meta tag for non-HTMX fetch calls.
 		h.Meta(h.Name("csrf-token"), h.Content(p.CSRFToken)),
 	}
-	extras = append(extras, font.Nodes(font.BuildProviders(p.FontConfig, assets.Path)...)...)
+	extras = append(extras, font.Nodes(font.BuildProviders(p.FontConfig, publish.Path)...)...)
 	return extras
 }
 

@@ -7,7 +7,7 @@ import (
 
 	auth "github.com/go-sum/auth"
 	authrepo "github.com/go-sum/auth/repository"
-	"github.com/go-sum/componentry/assets"
+	"github.com/go-sum/assets/publish"
 	"github.com/go-sum/forge/config"
 	appserver "github.com/go-sum/forge/internal/server"
 	"github.com/go-sum/kv"
@@ -38,7 +38,7 @@ type Runtime struct {
 	PublicPrefix   string
 	DB             *pgxpool.Pool
 	StartupError   error
-	Assets         *assets.Assets
+	Assets         *publish.Assets
 	Web            *echo.Echo
 	ServerConfig   server.Config
 	RateLimiters   *appserver.RateLimiters

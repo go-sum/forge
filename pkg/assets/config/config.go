@@ -1,4 +1,4 @@
-package assetconfig
+package config
 
 import (
 	"fmt"
@@ -63,7 +63,7 @@ type CSSConfig struct {
 // FontConfig configures self-hosted font file acquisition.
 // Downloads lists font files to fetch from remote URLs, using the same
 // skip-if-exists logic as JS downloads. Once downloaded to public_dir, font
-// files are automatically included in the content-hash manifest by assets.Assets.
+// files are automatically included in the content-hash manifest by publish.Assets.
 type FontConfig struct {
 	Downloads []FontDownload `yaml:"downloads"`
 }

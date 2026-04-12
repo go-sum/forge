@@ -4,7 +4,7 @@
 package examples
 
 import (
-	assets "github.com/go-sum/componentry/assets"
+	assets "github.com/go-sum/assets/publish"
 	uiform "github.com/go-sum/componentry/form"
 	icons "github.com/go-sum/componentry/icons"
 	iconrender "github.com/go-sum/componentry/icons/render"

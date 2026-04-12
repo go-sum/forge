@@ -41,8 +41,8 @@ tasks:
   assets:
     desc: "Build all generated frontend assets"
     cmds:
-      - "{{.RUN_TOOLS}} -e HTMX_VERSION={{.HTMX_VERSION}} tools go run ./cli/build assets --minify"
-      - "{{.RUN_TOOLS}} tools go run ./cli/build sprites"
+      - "{{.RUN_TOOLS}} -e HTMX_VERSION={{.HTMX_VERSION}} tools go run ./pkg/assets/cli assets --minify"
+      - "{{.RUN_TOOLS}} tools go run ./pkg/assets/cli sprites"
       - "{{.RUN_TOOLS}} tools go run ./pkg/docs/cli build"
 
   build:

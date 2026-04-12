@@ -6,11 +6,11 @@ func TestResolveAssetsOpts(t *testing.T) {
 	const defaultConfig = ".assets.yaml"
 
 	tests := []struct {
-		name   string
-		css    bool
-		js     bool
-		fonts  bool
-		want   assetBuildOptions
+		name  string
+		css   bool
+		js    bool
+		fonts bool
+		want  assetBuildOptions
 	}{
 		{
 			name: "no flags defaults to all asset types",

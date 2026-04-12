@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-sum/componentry/assets"
+	"github.com/go-sum/assets/publish"
 	icons "github.com/go-sum/componentry/icons"
 	install "github.com/go-sum/componentry/install"
 	"github.com/go-sum/componentry/interactive"
@@ -59,16 +59,16 @@ func (r *Runtime) initAssets() {
 	publicDir := r.Config.App.Assets.PublicDir
 	publicPrefix := r.Config.App.Assets.PublicPrefix
 
-	if err := assets.Init(publicDir, publicPrefix); err != nil {
+	if err := publish.Init(publicDir, publicPrefix); err != nil {
 		panic(fmt.Sprintf("assets: %v", err))
 	}
 
 	install.ApplyDefault(install.Config{
-		PathFunc:      assets.Path,
+		PathFunc:      publish.Path,
 		IconOverrides: componentIconOverrides,
 	})
 
-	r.Assets = assets.Default
+	r.Assets = publish.Default
 	r.PublicDir = publicDir
 	r.PublicPrefix = publicPrefix
 }
@@ -95,7 +95,7 @@ func (r *Runtime) initWeb() {
 		scriptHashes = append(scriptHashes, cfg.Security.CSPHashes.DevOnly...)
 	}
 
-	fontCSP := font.CollectCSPSources(font.BuildProviders(cfg.Site.Fonts, assets.Path))
+	fontCSP := font.CollectCSPSources(font.BuildProviders(cfg.Site.Fonts, publish.Path))
 	styleSrcs := append(fontCSP.StyleSources, fontCSP.StyleInlineHashes...)
 	processedCSP := secheaders.InjectDirectiveSources(cfg.Security.Headers.ContentSecurityPolicy, "script-src", scriptHashes)
 	processedCSP = secheaders.InjectDirectiveSources(processedCSP, "style-src", styleSrcs)

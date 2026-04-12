@@ -5,7 +5,7 @@
 # All paths are relative to the repository root.
 exclude:
   # Monorepo-only zones — not in .gitignore, explicitly exclude.
-  - .decisions/MONOREPO_PACKAGES.md
+  - .decisions/WORKSPACE_PACKAGES.md
   - .docs/
   - .project/
   - go.mod

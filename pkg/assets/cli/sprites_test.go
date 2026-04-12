@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-sum/componentry/assetconfig"
+	"github.com/go-sum/assets/config"
 )
 
 func TestProcessSVG(t *testing.T) {
@@ -87,12 +87,12 @@ func TestProcessSVG(t *testing.T) {
 func TestAllRemoteSources(t *testing.T) {
 	tests := []struct {
 		name    string
-		sources []assetconfig.SourcesConfig
+		sources []config.SourcesConfig
 		want    bool
 	}{
 		{
 			name: "all https sources returns true",
-			sources: []assetconfig.SourcesConfig{
+			sources: []config.SourcesConfig{
 				{Path: "https://cdn.example.com/icons/"},
 				{Path: "https://other.example.com/svg/"},
 			},
@@ -100,7 +100,7 @@ func TestAllRemoteSources(t *testing.T) {
 		},
 		{
 			name: "mixed local and remote returns false",
-			sources: []assetconfig.SourcesConfig{
+			sources: []config.SourcesConfig{
 				{Path: "https://cdn.example.com/icons/"},
 				{Path: "./local/icons"},
 			},
@@ -108,15 +108,15 @@ func TestAllRemoteSources(t *testing.T) {
 		},
 		{
 			name: "all local sources returns false",
-			sources: []assetconfig.SourcesConfig{
+			sources: []config.SourcesConfig{
 				{Path: "./icons"},
 				{Path: "/absolute/icons"},
 			},
 			want: false,
 		},
 		{
-			name: "empty slice returns false",
-			sources: []assetconfig.SourcesConfig{},
+			name:    "empty slice returns false",
+			sources: []config.SourcesConfig{},
 			want:    false,
 		},
 		{
@@ -126,14 +126,14 @@ func TestAllRemoteSources(t *testing.T) {
 		},
 		{
 			name: "http source returns true",
-			sources: []assetconfig.SourcesConfig{
+			sources: []config.SourcesConfig{
 				{Path: "http://cdn.example.com/icons/"},
 			},
 			want: true,
 		},
 		{
 			name: "file URI is not remote",
-			sources: []assetconfig.SourcesConfig{
+			sources: []config.SourcesConfig{
 				{Path: "file:///local/icons"},
 			},
 			want: false,

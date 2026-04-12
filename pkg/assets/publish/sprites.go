@@ -1,4 +1,4 @@
-package assets
+package publish
 
 import (
 	"maps"
@@ -68,17 +68,17 @@ func (r *Registry) SpritePath(key string) string {
 	return resolve(rel)
 }
 
-// Default is the package-level component asset registry.
+// DefaultRegistry is the package-level component asset registry.
 var DefaultRegistry = NewRegistry()
 
-// RegisterSprite adds or replaces a single sprite on Default.
+// RegisterSprite adds or replaces a single sprite on DefaultRegistry.
 func RegisterSprite(key, rel string) { DefaultRegistry.RegisterSprite(key, rel) }
 
-// RegisterSprites adds or replaces multiple sprites on Default.
+// RegisterSprites adds or replaces multiple sprites on DefaultRegistry.
 func RegisterSprites(files map[string]string) { DefaultRegistry.RegisterSprites(files) }
 
-// SetPathFunc replaces the path resolver on Default.
+// SetPathFunc replaces the path resolver on DefaultRegistry.
 func SetPathFunc(f func(string) string) { DefaultRegistry.SetPathFunc(f) }
 
-// SpritePath returns the resolved URL for a sprite in Default.
+// SpritePath returns the resolved URL for a sprite in DefaultRegistry.
 func SpritePath(key string) string { return DefaultRegistry.SpritePath(key) }
