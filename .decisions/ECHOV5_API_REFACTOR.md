@@ -1,17 +1,13 @@
----
-title: Echo v5 Critical API Rules
-description: Echo v5 handler signatures, imports, binding rules, and migration notes used by Forge.
-weight: 10
----
+# ECHOV5_API_REFACTOR.md — Echo v5 Critical API Rules
 
-# Echo v5 Critical API Rules
-
-> This guide is transport-specific. Use it together with
+> Transport-specific rules for Echo v5. Use alongside
 > [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md) for architecture and ownership, and
 > [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md) for code-structure and
 > maintainability rules.
 
-### Handler Signatures — BREAKING CHANGE from v4
+---
+
+## Handler Signatures — BREAKING CHANGE from v4
 
 ```go
 // ✅ v5: pointer to concrete struct
@@ -21,7 +17,9 @@ func MyHandler(c *echo.Context) error
 func MyHandler(c echo.Context) error
 ```
 
-### Import Paths
+---
+
+## Import Paths
 
 ```go
 import (
@@ -30,7 +28,9 @@ import (
 )
 ```
 
-### Type-Safe Parameter Extraction
+---
+
+## Type-Safe Parameter Extraction
 
 ```go
 // Path parameters
@@ -52,7 +52,9 @@ tags, err := echo.FormValues[string](c, "tags")
 user, err := echo.ContextGet[User](c, "user")
 ```
 
-### Request Body Binding
+---
+
+## Request Body Binding
 
 ```go
 echo.BindBody(c, &payload)
@@ -60,7 +62,9 @@ echo.BindHeaders(c, &headers)
 echo.BindQueryParams(c, &query)
 ```
 
-### Response Methods
+---
+
+## Response Methods
 
 ```go
 c.String(http.StatusOK, "text")
@@ -71,9 +75,12 @@ c.Redirect(http.StatusSeeOther, "/target")
 c.File("path/to/file")
 ```
 
-`c.Response()` returns `http.ResponseWriter` directly. Use `c.UnwrapResponse()` for the Echo response wrapper.
+`c.Response()` returns `http.ResponseWriter` directly. Use
+`c.UnwrapResponse()` for the Echo response wrapper.
 
-### Error Handling
+---
+
+## Error Handling
 
 ```go
 // HTTPError.Message is now string (was interface{} in v4)
@@ -88,6 +95,9 @@ echo.ErrMethodNotAllowed    // 405
 echo.ErrInternalServerError // 500
 ```
 
-### Removed APIs (v4 → v5)
+---
 
-`ParamNames()`, `ParamValues()`, `SetParamNames()`, `SetParamValues()` — removed from Context. Use type-safe extraction instead.
+## Removed APIs (v4 → v5)
+
+`ParamNames()`, `ParamValues()`, `SetParamNames()`, `SetParamValues()` —
+removed from Context. Use type-safe extraction instead.

@@ -1,17 +1,16 @@
 ---
 title: Patterns and Coding Principles
-description: Coding standards, design patterns, and maintainability rules for Forge.
+description: Coding standards, design patterns, and maintainability rules for this application.
 weight: 25
 ---
 
 # Patterns and coding principles:
 
 > This guide is the authoritative source for how new functions, types, packages,
-> and features should be structured and maintained in Forge.
+> and features should be structured and maintained in this application.
 >
 > It complements [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md), which defines
-> architecture and ownership, and [`API_RULES.md`](./API_RULES.md), which
-> defines Echo v5 transport rules.
+> architecture and ownership.
 >
 > This guide is derived from:
 >
@@ -35,20 +34,21 @@ approach that keeps ownership clear and leaves the code easy to test.
 
 ---
 
-## 2. What Already Works Well In Forge
+## 2. What Already Works Well In This App
 
-The current codebase already demonstrates several patterns worth preserving:
+The application inherits several patterns worth preserving:
 
 - **Composition-root wiring** in `internal/app/`, where dependencies are
   assembled once and passed down explicitly.
-- **Package-owned config and defaults** in packages such as `pkg/auth`,
-  `pkg/session`, and `pkg/kv/redisstore`.
+- **External-module config and defaults** in the `github.com/go-sum/*` modules
+  this app depends on (e.g., `github.com/go-sum/auth`,
+  `github.com/go-sum/session`, `github.com/go-sum/kv`).
 - **Zero-value fallback via `cmp.Or`** for comparable config fields where zero
   means "unset".
-- **Factory/registry construction** in `pkg/send`, which keeps provider
-  selection flexible without complicating callers.
-- **Thin transport handlers** such as `internal/features/contact/handler.go`,
-  where parsing, validation, service calls, and rendering remain separate.
+- **Factory/registry construction** in `github.com/go-sum/send`, which keeps
+  provider selection flexible without complicating callers.
+- **Thin transport handlers** in app feature packages, where parsing,
+  validation, service calls, and rendering remain separate.
 - **Route naming and centralized registration** in `internal/app/routes.go`,
   which keeps route policy explicit and avoids path duplication.
 - **Cross-cutting behavior via middleware chains**, not duplicated per handler.
@@ -130,29 +130,20 @@ When creating a new function:
 
 ## 5. Package Structure And Layer Discipline
 
-Choose the owner first by using [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md).
-
 ### App-owned code
 
 Inside `internal/`:
 
 - feature modules own app-specific handlers and orchestration
-- `internal/repository/` owns only app-specific persistence
+- `internal/repository/` owns only app-specific persistence (app-owned tables)
 - `internal/view/` owns pages, partials, layout composition, and request-aware
   presentation state
 
-### Package-owned code
+### External module boundaries
 
-Inside `pkg/`:
-
-- each module should remain extractable
-- each module should own its types, defaults, repository interfaces, and stores when it owns the domain
-- packages must not reach into `internal/`
-
-### Leaf-node rule
-
-Treat `pkg/*` modules as leaf nodes relative to the application. They should be
-portable and inward-facing, not coupled to app state or app-specific policies.
+The `github.com/go-sum/*` modules are external dependencies. Treat their
+public APIs as fixed contracts. To change their behavior, file a change
+upstream. Never reach into their internals or mirror their types in `internal/`.
 
 ### Layer rule
 
@@ -167,26 +158,29 @@ Do not let a lower layer depend on a higher one:
 
 ## 6. Configuration Ownership And Defaults
 
-Where relevant, each package component should own its configuration struct and apply package defaults locally.
+Where relevant, each component should own its configuration struct and apply
+defaults locally.
 
 The standard shape is:
 
 ```go
 type Config struct {
-	// package-owned settings
+    // component-specific settings
 }
 
 var defaultConfig = Config{
-	// package-owned defaults
+    // component-specific defaults
 }
 ```
 
 ### Rules
 
-- The package that defines a behavior should define that behavior's `Config` type.
-- The package should apply its own defaults instead of forcing callers to duplicate them.
-- Application config in `config/` should compose package config and override
-  only the values that are app-specific.
+- App-specific config composition lives in this repo's `config/` package.
+- Each external `github.com/go-sum/*` module owns its own `Config` type and
+  applies its own defaults. The app composes those configs at the composition
+  root.
+- Application config in `config/` should compose external-module config and
+  override only the values that are app-specific.
 - Cross-field config validation should be registered through `RegisterValidationRules`.
 - Config defaults should be applied at the boundary before consumers start reading fields.
 
@@ -225,7 +219,7 @@ It is appropriate when:
 
 Current acceptable example:
 
-- `send.DefaultRegistry`, which acts as a process-wide provider registry
+- `github.com/go-sum/send.DefaultRegistry`, which acts as a process-wide provider registry
 
 Prefer a single runtime-owned instance over scattered globals when the resource
 is application-specific.
@@ -250,7 +244,7 @@ This is the preferred pattern for:
 
 Current example:
 
-- `pkg/send`
+- `github.com/go-sum/send`
 
 ### Chain of Responsibility
 
@@ -267,11 +261,11 @@ This is the preferred pattern for:
 Current examples:
 
 - Echo middleware composition
-- route policies assembled with `route.Layout(...)`
+- route policies assembled with `github.com/go-sum/server/route.Layout(...)`
 
 ### Adapter
 
-Use adapters when a package-owned interface must be satisfied by app-owned
+Use adapters when an external-module interface must be satisfied by app-owned
 rendering, session, form, or redirect behavior.
 
 Current examples:
@@ -349,9 +343,9 @@ Do not refactor just to increase abstraction count.
 
 - speculative abstractions
 - package globals used as hidden request-time dependencies
-- duplicated defaults across app and package layers
+- duplicated defaults across app and external-module layers
 - field-for-field wrapper types with no semantic change
-- mirrored schemas or query code for a package-owned domain
+- mirrored schemas or query code for a domain owned by an external module
 - transport code that owns SQL or business rules
 - business logic embedded in views
 - unbounded goroutines or background work with no lifecycle
@@ -366,10 +360,9 @@ that instead of reaching for a pattern.
 
 Before merging a new function or feature, verify:
 
-- ownership is clear: app-owned or package-owned
-- the code lives in the correct layer
-- configuration is owned by the package/component that uses it
-- package defaults are local to the package
+- the code lives in the correct layer inside `internal/`
+- configuration is owned by the component/module that uses it
+- external-module defaults remain owned by the upstream module
 - `cmp.Or` is used for comparable zero-value fallback where appropriate
 - external input is parsed and validated at the boundary
 - domain errors are returned from the owning layer and mapped at the transport

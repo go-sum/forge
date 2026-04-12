@@ -1,34 +1,34 @@
 ---
 title: UI Design Guide
-description: Visual design and composition guidance for the Forge starter UI.
+description: Visual design and composition guidance for this application's UI.
 weight: 30
 ---
 
 # UI Design Guide
 
-> This guide defines how UI should be designed and composed in the starter.
+> This guide defines how UI should be designed and composed in this application.
 > It is the visual companion to [`CLAUDE.md`](../CLAUDE.md) and the
 > implementation companion to [`DESIGN_GUIDE.md`](./DESIGN_GUIDE.md).
 >
 > It incorporates the relevant design principles from [`tailwindcss.com`](https://tailwindcss.com/) 
 > and one of the definitive guides on design [`Refactoring UI`](https://refactoringui.com/) 
-> by Adam Wathan & Steve Schoger, adapted to the repository's current UI surface and
-> `pkg/componentry` package layout.  This guide should stand on its own without
-> requiring the source text.
+> by Adam Wathan & Steve Schoger, adapted to the application's current UI surface and
+> the `github.com/go-sum/componentry` package layout. This guide should stand on its own
+> without requiring the source text.
 >
 > The guidance is tailored to:
 >
-> - reusable components in `pkg/componentry/ui/`
-> - form controls in `pkg/componentry/form/`
-> - higher-level interaction and HTMX helpers in `pkg/componentry/interactive/`
->   and `pkg/componentry/patterns/`
+> - reusable components in `github.com/go-sum/componentry/ui/`
+> - form controls in `github.com/go-sum/componentry/form/`
+> - higher-level interaction and HTMX helpers in `github.com/go-sum/componentry/interactive/`
+>   and `github.com/go-sum/componentry/patterns/`
 > - app-specific composition in `internal/view/`
 
 ---
 
 ## Purpose
 
-This starter targets high-performance modern web applications rendered
+This application targets high-performance modern web applications rendered
 primarily on the server. The UI should therefore feel:
 
 - clear before it feels decorative
@@ -46,9 +46,9 @@ inside views.
 
 This guide covers:
 
-- visual principles for components in `pkg/componentry/ui/`
-- how `pkg/componentry/form`, `pkg/componentry/interactive`, and
-  `pkg/componentry/patterns` should shape interface behavior
+- visual principles for components in `github.com/go-sum/componentry/ui/`
+- how `github.com/go-sum/componentry/form`, `github.com/go-sum/componentry/interactive`, and
+  `github.com/go-sum/componentry/patterns` should shape interface behavior
 - how full pages and HTMX partials in `internal/view/` should compose those
   pieces
 - the default spacing, typography, color, and elevation language of the app
@@ -58,14 +58,14 @@ rendering behavior, read the package source and tests.
 
 Primary code references:
 
-- `pkg/componentry/examples/`
-- `pkg/componentry/ui/core/`
-- `pkg/componentry/ui/data/`
-- `pkg/componentry/ui/feedback/`
-- `pkg/componentry/ui/layout/`
-- `pkg/componentry/form/`
-- `pkg/componentry/interactive/`
-- `pkg/componentry/patterns/`
+- `github.com/go-sum/componentry/examples`
+- `github.com/go-sum/componentry/ui/core`
+- `github.com/go-sum/componentry/ui/data`
+- `github.com/go-sum/componentry/ui/feedback`
+- `github.com/go-sum/componentry/ui/layout`
+- `github.com/go-sum/componentry/form`
+- `github.com/go-sum/componentry/interactive`
+- `github.com/go-sum/componentry/patterns`
 - `internal/view/layout/`
 - `internal/view/page/`
 - `internal/view/partial/`
@@ -88,9 +88,9 @@ In this repo that means:
 
 Good current examples:
 
-- [`internal/view/page/users.go`](../internal/view/page/users.go)
-- [`internal/view/partial/userpartial/user_form.go`](../internal/view/partial/userpartial/user_form.go)
-- [`internal/view/page/contact.go`](../internal/view/page/contact.go)
+- `internal/view/page/users.go`
+- `internal/view/partial/userpartial/user_form.go`
+- `internal/view/page/contact.go`
 
 The shell should emerge from repeated feature needs. It should not be the first
 thing designed.
@@ -144,13 +144,13 @@ Preferred loop:
 3. exercise the working interface
 4. refine only where real usage exposes friction
 
-This starter favors server-rendered HTML precisely because it makes iteration
+This application favors server-rendered HTML precisely because it makes iteration
 cheap. Use that advantage.
 
 ### 5. Choose a personality deliberately
 
 Every interface communicates a personality whether intended or not. The
-starter's default personality should be:
+default personality should be:
 
 - clear
 - competent
@@ -165,14 +165,14 @@ That personality is expressed through:
 - straightforward copy
 - quiet but polished interaction states
 
-If a project built on this starter needs a different tone, change it centrally
+If the product needs a different tone, change it centrally
 through tokens, typography, and component defaults. Do not drift page by page.
 
 ### 6. Limit choices on purpose
 
 Design quality improves when the system narrows the decision surface.
 
-This starter should rely on predefined systems for:
+This application relies on predefined systems for:
 
 - typography
 - spacing
@@ -207,9 +207,9 @@ Current hierarchy defaults:
 
 Examples:
 
-- [`pkg/componentry/ui/data/card.go`](../pkg/componentry/ui/data/card.go)
-- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
-- [`internal/view/page/home.go`](../internal/view/page/home.go)
+- `github.com/go-sum/componentry/ui/data` (card)
+- `github.com/go-sum/componentry/ui/core` (button)
+- `internal/view/page/home.go`
 
 ### 8. Size is not everything
 
@@ -231,7 +231,7 @@ be quieter.
 When a screen feels noisy, the fix is usually not to make the important thing
 louder. The fix is to soften everything that is less important.
 
-Common repo patterns:
+Common patterns:
 
 - row actions use `ghost` or destructive ghost buttons so table data dominates
 - descriptions use `text-muted-foreground` so headings and values lead
@@ -277,7 +277,7 @@ component variant already exists.
 
 ### 13. Keep the scale tight
 
-The repo already leans on a small number of recurring sizes. Keep using them.
+The app already leans on a small number of recurring sizes. Keep using them.
 
 Recommended spacing rhythm:
 
@@ -371,10 +371,10 @@ Current patterns to preserve:
 
 Examples:
 
-- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
-- [`pkg/componentry/form/field.go`](../pkg/componentry/form/field.go)
-- [`pkg/componentry/ui/feedback/alert.go`](../pkg/componentry/ui/feedback/alert.go)
-- [`pkg/componentry/interactive/pagination/pagination.go`](../pkg/componentry/interactive/pagination/pagination.go)
+- `github.com/go-sum/componentry/ui/core` (button)
+- `github.com/go-sum/componentry/form` (field)
+- `github.com/go-sum/componentry/ui/feedback` (alert)
+- `github.com/go-sum/componentry/interactive/pagination`
 
 ---
 
@@ -540,9 +540,9 @@ as a rhythm, not as a pile of local tweaks.
 
 Good current examples:
 
-- [`internal/view/page/users.go`](../internal/view/page/users.go)
-- [`internal/view/page/home.go`](../internal/view/page/home.go)
-- [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
+- `internal/view/page/users.go`
+- `internal/view/page/home.go`
+- `internal/view/errorpage/error.go`
 
 #### Establish a spacing and sizing system
 
@@ -685,7 +685,7 @@ Prefer:
 
 #### Backgrounds should support, not distract
 
-Most screens in this starter should lean on:
+Most screens should lean on:
 
 - `bg-background` for the page
 - `bg-card` for elevated surfaces
@@ -706,13 +706,13 @@ Every meaningful surface should consider:
 
 The empty users card and loading indicator are the current model for this:
 
-- [`internal/view/page/users.go`](../internal/view/page/users.go)
+- `internal/view/page/users.go`
 
 ---
 
 ## Component Guide
 
-### `pkg/componentry/ui/core`
+### `github.com/go-sum/componentry/ui/core`
 
 Use `ui/core` for the smallest shared primitives.
 
@@ -753,7 +753,7 @@ Use sizes consistently:
 - `SizeSm` for row actions, pagination controls, and compact nav actions
 - `SizeLg` only when the layout genuinely needs a larger target
 
-### `pkg/componentry/ui/data`
+### `github.com/go-sum/componentry/ui/data`
 
 Use `ui/data` for grouped informational surfaces and tabular display.
 
@@ -771,7 +771,7 @@ Rules:
 - keep table actions compact and aligned for scanning
 - keep card padding inside card subcomponents, not wrapper `div` clutter
 
-### `pkg/componentry/ui/feedback`
+### `github.com/go-sum/componentry/ui/feedback`
 
 Use `ui/feedback` for feedback surfaces and progress, not for terse status
 chips.
@@ -789,7 +789,7 @@ Rules:
 - destructive variants are for danger or failure, not generic emphasis
 - preserve the accessibility roles and structure already encoded in the package
 
-### `pkg/componentry/ui/layout`
+### `github.com/go-sum/componentry/ui/layout`
 
 Use `ui/layout` for shell-level navigation and structural navigation patterns.
 
@@ -806,7 +806,7 @@ Rules:
   drawer pattern
 - push auth and theme differences through nav slots, not duplicated view logic
 
-### `pkg/componentry/form`
+### `github.com/go-sum/componentry/form`
 
 Use `form` for accessible field composition and consistent input wiring.
 
@@ -829,7 +829,7 @@ Rules:
 - prefer package defaults over hand-assembling error markup
 - keep standalone forms narrow unless the task genuinely requires density
 
-### `pkg/componentry/interactive`
+### `github.com/go-sum/componentry/interactive`
 
 Use `interactive/*` for higher-level UI that remains HTML-first and progressive.
 
@@ -849,7 +849,7 @@ Rules:
 - keep interaction affordances consistent with the rest of the design language
 - use these packages when behavior would otherwise be reimplemented in a page
 
-### `pkg/componentry/patterns`
+### `github.com/go-sum/componentry/patterns`
 
 Use `patterns/*` for cross-cutting UI behavior and wiring rather than visual
 primitives.
@@ -871,10 +871,10 @@ Rules:
 - use flash and head helpers for app-wide conventions instead of view-local
   duplication
 
-### `pkg/componentry/examples`
+### `github.com/go-sum/componentry/examples`
 
-Treat [`pkg/componentry/examples/examples.go`](../pkg/componentry/examples/examples.go)
-as the living visual reference for the component library.
+Treat `github.com/go-sum/componentry/examples` as the living visual reference
+for the component library.
 
 Use it to:
 
@@ -888,8 +888,7 @@ Use it to:
 
 ### `internal/view/layout/`
 
-[`internal/view/layout/base.go`](../internal/view/layout/base.go) is the
-application shell.
+`internal/view/layout/base.go` is the application shell.
 
 It is responsible for:
 
@@ -951,7 +950,7 @@ Follow the existing pattern:
 
 Reference:
 
-- [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
+- `internal/view/errorpage/error.go`
 
 ---
 
@@ -997,7 +996,7 @@ of no return.
 
 ### Keep forms readable
 
-Most forms in this repo should follow this shape:
+Most forms in this app should follow this shape:
 
 - constrained width when standalone
 - `form.Field` for each control
@@ -1024,7 +1023,7 @@ When one element feels too heavy:
 
 ### Writing is part of the design
 
-Default copy style for this starter:
+Default copy style:
 
 - direct
 - plain
@@ -1064,31 +1063,24 @@ Before merging a UI change, confirm:
 
 ## Reference Map
 
-Use these files as the practical source of truth:
+Use these as the practical source of truth:
 
-- [`pkg/componentry/examples/examples.go`](../pkg/componentry/examples/examples.go)
-- [`pkg/componentry/ui/core/button.go`](../pkg/componentry/ui/core/button.go)
-- [`pkg/componentry/ui/core/badge.go`](../pkg/componentry/ui/core/badge.go)
-- [`pkg/componentry/ui/core/label.go`](../pkg/componentry/ui/core/label.go)
-- [`pkg/componentry/ui/data/card.go`](../pkg/componentry/ui/data/card.go)
-- [`pkg/componentry/ui/data/table.go`](../pkg/componentry/ui/data/table.go)
-- [`pkg/componentry/ui/feedback/alert.go`](../pkg/componentry/ui/feedback/alert.go)
-- [`pkg/componentry/ui/feedback/toast.go`](../pkg/componentry/ui/feedback/toast.go)
-- [`pkg/componentry/ui/feedback/progress.go`](../pkg/componentry/ui/feedback/progress.go)
-- [`pkg/componentry/ui/layout/navmenu.go`](../pkg/componentry/ui/layout/navmenu.go)
-- [`pkg/componentry/ui/layout/navbar.go`](../pkg/componentry/ui/layout/navbar.go)
-- [`pkg/componentry/ui/layout/sidebar.go`](../pkg/componentry/ui/layout/sidebar.go)
-- [`pkg/componentry/form/field.go`](../pkg/componentry/form/field.go)
-- [`pkg/componentry/interactive/pagination/pagination.go`](../pkg/componentry/interactive/pagination/pagination.go)
-- [`pkg/componentry/patterns/htmx/patterns.go`](../pkg/componentry/patterns/htmx/patterns.go)
-- [`internal/view/layout/base.go`](../internal/view/layout/base.go)
-- [`internal/view/page/home.go`](../internal/view/page/home.go)
-- [`internal/view/page/users.go`](../internal/view/page/users.go)
-- [`internal/view/page/contact.go`](../internal/view/page/contact.go)
-- [`internal/view/errorpage/error.go`](../internal/view/errorpage/error.go)
-- [`internal/view/partial/contactpartial/contact_form.go`](../internal/view/partial/contactpartial/contact_form.go)
-- [`internal/view/partial/userpartial/user_form.go`](../internal/view/partial/userpartial/user_form.go)
-- [`internal/view/partial/userpartial/user_row.go`](../internal/view/partial/userpartial/user_row.go)
+- `github.com/go-sum/componentry/examples`
+- `github.com/go-sum/componentry/ui/core` (button, badge, label)
+- `github.com/go-sum/componentry/ui/data` (card, table)
+- `github.com/go-sum/componentry/ui/feedback` (alert, toast, progress)
+- `github.com/go-sum/componentry/ui/layout` (navmenu, navbar, sidebar)
+- `github.com/go-sum/componentry/form` (field)
+- `github.com/go-sum/componentry/interactive/pagination`
+- `github.com/go-sum/componentry/patterns/htmx`
+- `internal/view/layout/base.go`
+- `internal/view/page/home.go`
+- `internal/view/page/users.go`
+- `internal/view/page/contact.go`
+- `internal/view/errorpage/error.go`
+- `internal/view/partial/contactpartial/contact_form.go`
+- `internal/view/partial/userpartial/user_form.go`
+- `internal/view/partial/userpartial/user_row.go`
 
 When this guide and the code diverge, update the guide quickly. UI guidance is
 only useful if it describes the UI that actually exists.

@@ -1,29 +1,29 @@
 ---
 title: Design Principles
-description: Current project architecture, ownership boundaries, runtime assembly, and routing/rendering guidance for Forge.
+description: Architecture, ownership boundaries, runtime assembly, and routing/rendering guidance for this application.
 weight: 20
 ---
 
 # Design Principles
 
-> This guide is the authoritative source for Forge's current architecture and
+> This guide is the authoritative source for the current architecture and
 > ownership rules.
 >
 > Read this together with [`CLAUDE.md`](../CLAUDE.md),
-> [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md),
-> [`UI_GUIDE.md`](./UI_GUIDE.md), and [`API_RULES.md`](./API_RULES.md).
+> [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md), and
+> [`UI_GUIDE.md`](./UI_GUIDE.md).
 
 ---
 
 ## 1. Purpose
 
-Forge is a server-rendered Go web application starter built around:
+This is a server-rendered Go web application built around:
 
 - Echo v5 for HTTP transport
 - Gomponents for HTML rendering
 - HTMX for progressive enhancement
 - PostgreSQL + pgx + sqlc for persistence
-- extractable packages under `pkg/`
+- Reusable external modules from `github.com/go-sum/*`
 
 This guide answers:
 
@@ -40,10 +40,12 @@ general design-pattern usage. Those rules now live in
 
 ## 2. Current Architecture Overview
 
-The repo has two design zones:
+The application has one source zone:
 
-- `internal/` for application-specific behavior and composition
-- `pkg/` for extractable, reusable modules
+- `internal/` for all code authored in this repository
+
+External reusable modules from `github.com/go-sum/*` are ordinary Go
+dependencies consumed via `go.mod`. They are not part of this repository.
 
 Runtime assembly is centered in `internal/app`. The composition root wires:
 
@@ -54,92 +56,63 @@ Runtime assembly is centered in `internal/app`. The composition root wires:
 - database pool and migrations
 - sessions
 - queue client and background services
-- package-owned auth, site, and storage modules
+- external auth, site, and storage modules wired in from `github.com/go-sum/*`
 - app-owned feature modules and views
 
 The current application is intentionally hybrid:
 
-- some domains are package-owned and integrated into the app, such as auth,
-  queue storage, sessions, senders, and site metadata handlers
-- some domains are app-owned, such as contact flow, availability handling, and page composition
-
-Use the ownership rules in [3](#3-domain-ownership-decision-framework) before adding a new feature.
+- some domains are provided by external modules and integrated into the app,
+  such as auth, queue storage, sessions, senders, and site metadata handlers
+- some domains are app-owned, such as contact flow, availability handling, and
+  page composition
 
 ---
 
-## 3. Domain Ownership Decision Framework
+## 3. Ownership Model
 
-Every feature in Forge is either **package-owned** or **app-owned**. That
-decision drives where code lives, who owns schema and types, and which layer
-holds the main business rules.
+All code authored in this repository is **app-owned** and lives in `internal/`.
+Reusable functionality lives in the external `github.com/go-sum/*` modules and
+is consumed as ordinary Go dependencies. There is no `pkg/` directory in this
+repository.
 
-### 3.1 The two ownership models
+The external modules this application depends on:
 
-**Package-owned** means the domain lives in `pkg/<name>/` as a self-contained,
-extractable module. The package owns its schema, queries, generated code,
-repository interfaces, service logic, and any package-level transport helpers.
-The app integrates the package from `internal/app`.
+- `github.com/go-sum/auth`
+- `github.com/go-sum/componentry`
+- `github.com/go-sum/kv`
+- `github.com/go-sum/queue`
+- `github.com/go-sum/security`
+- `github.com/go-sum/send`
+- `github.com/go-sum/server`
+- `github.com/go-sum/session`
+- `github.com/go-sum/site`
 
-**App-owned** means the domain lives in `internal/`. The app owns its types,
-error sentinels, persistence, service orchestration, handlers, and views.
+### Type and error boundaries
 
-### 3.2 Decision criteria
-
-Answer these questions in order. The first "yes" decides ownership.
-
-| # | Question | If yes -> |
-|---|----------|-----------|
-| 1 | Could this domain deploy cleanly in a different Go application with no `internal/` dependency? | **Package-owned** |
-| 2 | Does this domain define a schema contract that other apps would consume the same way? | **Package-owned** |
-| 3 | Does the capability already exist in a `pkg/` module? | **Package-owned** |
-| 4 | Is the behavior specific to this app's product logic, policies, or page composition? | **App-owned** |
-| 5 | Does the feature exist mainly to orchestrate package-owned capabilities? | **App-owned** |
-
-If ownership is still unclear, default to **app-owned** and extract later if
-real reuse demand appears.
-
-### 3.3 Current ownership map
-
-| Concern | Owner | Current location |
-|---------|-------|------------------|
-| app wiring and runtime | app-owned | `internal/app/` |
-| public pages and fragments | app-owned | `internal/view/` |
-| contact workflow | app-owned | `internal/features/contact/` |
-| availability / degraded startup | app-owned | `internal/features/availability/` |
-| docs/examples/sessions feature modules | app-owned | `internal/features/*` |
-| auth domain | package-owned | `pkg/auth/` |
-| queue domain and store | package-owned | `pkg/queue/` |
-| session engine | package-owned | `pkg/session/` |
-| site metadata handlers | package-owned | `pkg/site/handlers/` |
-| generic server/security helpers | package-owned | `pkg/server/`, `pkg/security/` |
-
-### 3.4 Type and error boundaries
-
-For package-owned domains, the app should use package-owned model types and
-error sentinels directly unless the app truly needs different semantics or
-fields.
+Use external module types and error sentinels directly unless the app truly
+needs different semantics or fields.
 
 Use app-owned wrapper types only when:
 
-- the app needs fields that do not belong in the package
-- multiple packages feed the same app-level concept
+- the app needs fields that do not belong in the external module
+- multiple external modules feed the same app-level concept
 - the app needs to enforce app-specific invariants in its own type
 
-Do not create field-for-field mirror types or re-export package errors in
-`internal/`.
+Do not create field-for-field mirror types or re-export external-module errors
+in `internal/`.
 
-### 3.5 Interface ownership
+### Interface composition
 
-When the app depends on a package store, the interface stays owned by the
-package. `internal/app` may define a combined wiring interface when it needs to
-bundle multiple package-owned interfaces together.
+When the app depends on an external module store, the interface stays owned by
+the external module. `internal/app` may define a combined wiring interface when
+it needs to bundle multiple external-module interfaces together.
 
 Current example:
 
 ```go
 type AuthStore interface {
-	authrepo.UserStore
-	authrepo.AdminStore
+    authrepo.UserStore
+    authrepo.AdminStore
 }
 ```
 
@@ -156,7 +129,7 @@ how the full application is assembled.
 
 - bootstrap order
 - dependency construction
-- package integration
+- external-module integration
 - middleware registration
 - route registration
 - startup degradation behavior
@@ -176,10 +149,10 @@ how the full application is assembled.
 ### Rules
 
 - Feature packages must not reach up into the composition root.
-- New background workers, route groups, and package integrations must be wired
-  explicitly here.
-- If a package needs app configuration, pass it in from `internal/app`.
-- Do not make reusable packages read `config.App` directly.
+- New background workers, route groups, and external-module integrations must be
+  wired explicitly here.
+- If an external module needs app configuration, pass it in from `internal/app`.
+- Do not make external modules read `config.App` directly.
 
 ---
 
@@ -214,7 +187,7 @@ Handlers own:
 
 - request parsing
 - validation
-- calling services or package-owned collaborators
+- calling services or external-module collaborators
 - response rendering, redirects, and HTTP status mapping
 
 Services own:
@@ -229,79 +202,68 @@ Views own:
 - partial composition
 - request-aware route reversal and presentation state
 
-Persistence for app-owned domains lives in `internal/repository/` only when the
-domain is truly app-owned.
+Persistence for app-owned tables lives in `internal/repository/`. Persistence
+for tables owned by external `github.com/go-sum/*` modules is owned by those
+modules — do not mirror their schemas here.
 
 For function-level coding rules inside these layers, use
-[`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md) and
-[`API_RULES.md`](./API_RULES.md).
+[`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md).
 
 ---
 
-## 6. `pkg/` Module Boundary
+## 6. External Module Boundary
 
-Top-level reusable packages under `pkg/` are extractable modules. They must not
-import `internal/`.
-
-Current module families include:
-
-- `pkg/auth`
-- `pkg/componentry`
-- `pkg/kv`
-- `pkg/queue`
-- `pkg/security`
-- `pkg/send`
-- `pkg/server`
-- `pkg/session`
-- `pkg/site`
+The `github.com/go-sum/*` modules are external Go dependencies, not part of
+this repository. They are consumed via `go.mod`.
 
 ### Rules
 
-- `pkg/` modules are leaf modules relative to the application.
-- Package APIs must accept configuration and collaborators from the host app.
-- Package-owned handlers are valid when the package intentionally exposes an
-  HTTP surface, as `pkg/auth` and `pkg/site/handlers` do.
-- Package-owned persistence is valid when the package intentionally owns a
-  reusable domain and schema, as `pkg/auth/pgstore` and `pkg/queue/pgstore` do.
+- Their public APIs accept configuration and collaborators from this app at the
+  composition root.
+- To change behavior provided by an external module, file a change in the
+  upstream repository — do not vendor or fork inside `internal/`.
+- External module HTTP handlers are valid when the module intentionally exposes
+  an HTTP surface, as `github.com/go-sum/auth` and `github.com/go-sum/site`
+  do — register them from `internal/app/routes.go`.
+- External module persistence is valid when the module intentionally owns a
+  reusable domain and schema, as `github.com/go-sum/auth` and
+  `github.com/go-sum/queue` do.
 - App-specific page composition still belongs in `internal/view/`.
-
-For config/default ownership and code-structure discipline inside packages, use
-[`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md).
 
 ---
 
 ## 7. Persistence Ownership Model
 
-Forge uses distributed schema ownership.
+This application uses a single app-owned schema file plus external-module-owned
+schemas.
 
 ### Canonical ownership
 
-| Domain | Canonical schema file | Owner |
-|--------|------------------------|-------|
-| app-owned shared DB objects | `db/sql/schema.sql` | `internal/` |
-| users and auth data | `pkg/auth/pgstore/sql/schema.sql` | `pkg/auth` |
-| queue jobs | `pkg/queue/pgstore/sql/schema.sql` | `pkg/queue` |
+| Domain | Canonical schema | Owner |
+|--------|-----------------|-------|
+| App-owned tables | `db/sql/schema.sql` | `internal/` |
+| Users and auth data | owned by `github.com/go-sum/auth` upstream | external module |
+| Queue jobs | owned by `github.com/go-sum/queue` upstream | external module |
 
 `db/sql/schemas.yaml` is the schema composition registry used for migration
 diffing.
 
 ### Query ownership
 
-Each package-owned store owns its own sqlc config and generated code:
+All queries for app-owned tables live in `db/sql/queries/*.sql`. The root
+`.sqlc.yaml` generates output for app-owned tables only.
 
-- `pkg/auth/pgstore/.sqlc.yaml` -> `pkg/auth/pgstore/db/`
-- `pkg/queue/pgstore/.sqlc.yaml` -> `pkg/queue/pgstore/db/`
-
-The root `.sqlc.yaml` is reserved for app-owned tables and queries.
+External modules own their own sqlc configuration and generated code — do not
+add their queries here.
 
 ### Rules
 
 - App-owned tables belong in `db/sql/schema.sql`.
-- Package-owned tables belong beside the owning package.
-- If the app needs new behavior from a package-owned table, add it in the
-  owning package rather than mirroring that schema or query set in the root.
-- Every new schema or query surface must have an explicit owner before
-  implementation starts.
+- If the app needs new behavior from an external-module-owned table, add the
+  capability in the upstream module rather than mirroring that schema or query
+  set here.
+- Every new schema or query surface must have an explicit owner (this app or an
+  external module) before implementation starts.
 
 ---
 
@@ -311,8 +273,8 @@ Route registration is orchestrated from `internal/app/routes.go`.
 
 There is no separate route-constant package or independent routing composition
 layer in the current app. Route policies are assembled inline using
-`pkg/server/route` helpers such as `route.Register`, `route.Layout`, and
-`route.Group`.
+`github.com/go-sum/server/route` helpers such as `route.Register`,
+`route.Layout`, and `route.Group`.
 
 ### Current route-policy families
 
@@ -329,8 +291,8 @@ layer in the current app. Route policies are assembled inline using
 
 Use named route reversal through:
 
-- `pkg/server/route.Reverse(...)`
-- `pkg/server/route.ReverseWithQuery(...)`
+- `github.com/go-sum/server/route.Reverse(...)`
+- `github.com/go-sum/server/route.ReverseWithQuery(...)`
 - `view.Request.Path(...)`
 - `view.Request.PathWithQuery(...)`
 
@@ -339,13 +301,13 @@ Use named route reversal through:
 - Register every application route with a stable route name.
 - Do not hardcode application URLs when a named route already exists.
 - Route-policy composition belongs in `internal/app/routes.go`.
-- Package-owned handlers may be registered directly by the composition root.
+- External-module handlers may be registered directly by the composition root.
 
 ---
 
 ## 9. Rendering Model
 
-Forge supports multiple HTML response modes without splitting the app into
+The application supports multiple HTML response modes without splitting into
 separate rendering stacks.
 
 ### Canonical rendering modes
@@ -368,9 +330,6 @@ separate rendering stacks.
 - Let the global error handler decide between HTML, HTMX fragment, and problem
   JSON responses.
 
-For handler-shape and Echo-specific transport rules, use
-[`API_RULES.md`](./API_RULES.md).
-
 ---
 
 ## 10. Security and Middleware Model
@@ -388,18 +347,18 @@ Current responsibilities include:
 
 ### Rules
 
-- Use `pkg/security` and `pkg/server` primitives rather than hand-rolling
-  security or middleware logic.
+- Use `github.com/go-sum/security` and `github.com/go-sum/server` primitives
+  rather than hand-rolling security or middleware logic.
 - Apply cross-origin protections at unsafe route boundaries.
 - Keep app-specific middleware composition in `internal/server/`.
-- Keep reusable middleware implementations in `pkg/server` or `pkg/security`
-  when they are extractable.
+- Keep reusable middleware implementations in the upstream external modules when
+  they are extractable.
 
 ---
 
 ## 11. Background Services and Startup Degradation
 
-Forge has first-class background-service support.
+The application has first-class background-service support.
 
 ### Background service lifecycle
 
@@ -437,7 +396,7 @@ Current flow:
 
 ## 12. Configuration Architecture
 
-Forge is currently **Go-struct-first**, not YAML-driven.
+The application is currently **Go-struct-first**, not YAML-driven.
 
 ### Current model
 
@@ -445,24 +404,27 @@ Forge is currently **Go-struct-first**, not YAML-driven.
 - `productionDefault()` returns a fully populated root config in Go.
 - environment overlays are applied by ordered functions such as
   `developmentConfig`.
-- `pkg/server/config.Load(...)` runs defaults, overlays, and validation.
+- `github.com/go-sum/server/config.Load(...)` runs defaults, overlays, and
+  validation.
 - `RegisterValidationRules` composes cross-field validation at the config
   boundary.
 
 ### Ownership
 
 - app runtime config structs live in `config/`
-- reusable config loading and validation mechanics live in `pkg/server/config`
-- package-specific defaults remain owned by the package that defines them
+- reusable config loading and validation mechanics live in
+  `github.com/go-sum/server/config`
+- external-module config defaults remain owned by the upstream module that
+  defines them
 
 ### Rules
 
 - Keep app-specific config composition in `config/`.
-- Keep reusable config mechanics in `pkg/server/config`.
+- Keep reusable config mechanics in `github.com/go-sum/server/config`.
 - If a config struct changes, trace all callers and all mappings that depend on
   it.
 - Use [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md) for detailed rules on
-  package-owned `Config` types, defaults, `cmp.Or`, and validation registration.
+  config types, defaults, `cmp.Or`, and validation registration.
 
 ---
 
@@ -474,7 +436,6 @@ Use the decision docs this way:
   assembled
 - [`PATTERNS_PRINCIPLES.md`](./PATTERNS_PRINCIPLES.md): how new code should be
   structured and maintained
-- [`API_RULES.md`](./API_RULES.md): Echo v5 transport specifics
 - [`UI_GUIDE.md`](./UI_GUIDE.md): visual and UI composition guidance
 
 ---
@@ -483,8 +444,8 @@ Use the decision docs this way:
 
 ### Ownership checklist
 
-- [ ] Is this app-owned or package-owned?
-- [ ] Does schema ownership match code ownership?
+- [ ] Is all new code in `internal/`?
+- [ ] Does schema ownership match the owning layer (app or external module)?
 - [ ] Does the route get wired from `internal/app/routes.go`?
 - [ ] Is the URL generated from a route name instead of a hardcoded string?
 - [ ] Is the rendering path full-page, dual-mode, or fragment-only?
@@ -501,14 +462,15 @@ Use the decision docs this way:
 | view request state | `internal/view/request.go` |
 | app-owned schema | `db/sql/schema.sql` |
 | schema composition registry | `db/sql/schemas.yaml` |
-| package-owned auth persistence | `pkg/auth/pgstore/` |
-| package-owned queue persistence | `pkg/queue/pgstore/` |
+| auth persistence | `github.com/go-sum/auth` (external module) |
+| queue persistence | `github.com/go-sum/queue` (external module) |
 
 ### Avoid these stale assumptions
 
-- There is no current `internal/routing/` package.
-- Config is currently Go-struct-first, not YAML-file-first.
-- `pkg/componentry` is the current shared component library, not `pkg/components`.
-- `internal/repository` is not the center of all persistence.
-- Package-owned transport and service layers are valid parts of the current
-  architecture.
+- There is no `pkg/` directory in this repository.
+- Config is Go-struct-first, not YAML-file-first.
+- `github.com/go-sum/componentry` is the shared component library.
+- `internal/repository` is not the center of all persistence; external-module
+  tables are persisted by their respective upstream modules.
+- External-module transport and service layers are valid parts of the
+  architecture when the module intentionally exposes them.
