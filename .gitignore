@@ -6,8 +6,9 @@
 bin/
 tmp/
 /server
+.project/
 
-# Generated / downloaded assets — rebuild with `make css` and `make js`
+# Generated / downloaded assets — rebuild with `make assets`
 public/css/
 public/doc/
 public/img/

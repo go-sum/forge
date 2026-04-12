@@ -9,7 +9,7 @@ tmp_dir = "tmp"
   cmd = "go build -ldflags=\"-X main.version=${APP_VERSION}\" -o ./tmp/server ./cmd/server"
   entrypoint = ["./tmp/server"]
   include_ext = ["go", "toml", "css", "js", "yaml", "html"]
-  exclude_dir = ["bin", "cli", "db", "docker", "public", "scripts", "tmp"]
+  exclude_dir = ["bin", "cli", "db", "docker", "pkg", "public", "scripts", "tmp", "tools"]
 
 [proxy]
   enabled = true

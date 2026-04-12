@@ -12,21 +12,17 @@ TOOLS_IMAGE  := $(PROJECT_NAME)-tools
 TOOLS_DEV    := $(TOOLS_IMAGE):dev
 TOOLS_PROD   := $(TOOLS_IMAGE):prod
 TOOLS_DIR    := docker/tools
-LINT_PATHS   := $(shell awk '/use \(/{f=1;next} /\)/{f=0} f{printf "%s/... ", $$1}' go.work)
 
 # ── Compose helpers ──────────────────────────────────────────────────────────
 # Tools and app commands run via compose, which auto-builds images on first use.
 D_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name $(PROJECT_NAME)
 RUN_TOOLS := $(D_COMPOSE) --profile tools run --rm
 RUN_APP   := $(D_COMPOSE) --profile dev run --rm
-WORKSPACE := go run ./cli/workspace
 
 .PHONY: help \
         build clean lint vet hash-air-csp \
         db-compose db-gen db-migrate db-rollback db-status \
         assets \
-        deploy \
-        package-list package-push package-release package-status package-sync \
         dev prod test test-race \
         docker-build docker-dev docker-down docker-logs docker-prune docker-up \
         dev-tools prod-tools \
@@ -47,16 +43,16 @@ hash-air-csp: ## Recompute CSP hash for air's proxy script and update config/app
 	$(RUN_TOOLS) tools go run ./cli/util hash-air-csp
 
 lint: ## Run golangci-lint
-	$(RUN_TOOLS) tools golangci-lint run internal/... $(LINT_PATHS)
+	$(RUN_TOOLS) tools golangci-lint run internal/...
 
-test: ## Run tests (fast, no race detector — skips cli/package which needs CGO)
+test: ## Run tests (fast, no race detector)
 	$(RUN_APP) app sh -c 'DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable go run ./cli/db migrate'
-	$(RUN_APP) app sh -c 'TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 $(WORKSPACE) exec -j 4 -x cli/package -- go test -count=1 ./...'
+	$(RUN_APP) app sh -c 'TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 go test -count=1 ./...'
 
 test-race: ## Run tests with race detector (uses tools container with CGO)
 	$(D_COMPOSE) --profile dev up -d db kv
 	$(RUN_TOOLS) tools sh -c 'DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable go run ./cli/db migrate'
-	$(RUN_TOOLS) tools sh -c 'CGO_ENABLED=1 TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 $(WORKSPACE) exec -j 1 -- go test -race -count=1 ./...'
+	$(RUN_TOOLS) tools sh -c 'CGO_ENABLED=1 TEST_DATABASE_URL=postgres://$$PGUSER:$$PGPASSWORD@$$PGHOST:$$PGPORT/$${PGDATABASE}_test?sslmode=disable TEST_KV_URL=redis://$$KV_HOST:$$KV_PORT/1 go test -race -count=1 ./...'
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
@@ -65,8 +61,7 @@ db-compose: ## Compose schemas and generate migration with diff (NAME=add_queue_
 	$(RUN_TOOLS) tools sh -c 'go run ./cli/db compose "$(NAME)"'
 
 db-gen: ## Regenerate sqlc Go code from SQL queries
-	$(RUN_TOOLS) tools sqlc generate -f pkg/auth/pgstore/.sqlc.yaml
-	$(RUN_TOOLS) tools sqlc generate -f pkg/queue/pgstore/.sqlc.yaml
+	$(RUN_TOOLS) tools sqlc generate -f .sqlc.yaml
 
 db-migrate: ## Apply pending migrations
 	$(RUN_APP) app go run ./cli/db migrate
@@ -83,37 +78,6 @@ assets: ## Build all generated frontend assets
 	$(RUN_TOOLS) -e HTMX_VERSION=$(HTMX_VERSION) tools go run ./cli/build assets --minify
 	$(RUN_TOOLS) tools go run ./cli/build docs
 	$(RUN_TOOLS) tools go run ./cli/build sprites
-
-# ── Deploy ────────────────────────────────────────────────────────────────────
-
-deploy: ## Validate and deploy (AUTO=1 to auto-release and push)
-	$(RUN_TOOLS) tools sh -c '\
-	  git config --global user.email "$${GIT_USER_EMAIL}" && \
-	  git config --global user.name "$${GIT_USER_NAME}" && \
-	  git config --global url."https://x-access-token:$${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" && \
-	  go run ./cli/package deploy $(if $(AUTO),--auto) $(if $(VERSION),"$(VERSION)")'
-
-# ── Package Sync & Release ────────────────────────────────────────────────────
-
-package-list: ## List all discovered packages
-	$(RUN_TOOLS) tools go run ./cli/package list
-
-package-push: ## Push a package subtree to its mirror repo (PACKAGE=auth)
-	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-push PACKAGE=auth" >&2; exit 1; }
-	$(RUN_TOOLS) tools go run ./cli/package push "$(PACKAGE)"
-
-package-release: ## Release a package (PACKAGE=auth|all [VERSION=v0.1.0, single name only])
-	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-release PACKAGE=auth" >&2; exit 1; }
-	$(RUN_TOOLS) tools go run ./cli/package release "$(PACKAGE)" $(if $(VERSION),"$(VERSION)")
-
-package-status: ## Show sync status for a package (PACKAGE=auth|all)
-	@test -n "$(PACKAGE)" || { echo "error: PACKAGE is required  e.g. make package-status PACKAGE=auth" >&2; exit 1; }
-	$(RUN_TOOLS) tools go run ./cli/package status "$(PACKAGE)"
-
-package-sync: ## Regenerate go.prod.mod + go.prod.sum from go.mod
-	$(RUN_TOOLS) tools sh -c '\
-	  git config --global url."https://x-access-token:$${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" && \
-	  go run ./cli/package sync'
 
 # ── Toolchain ────────────────────────────────────────────────────────────────
 
@@ -186,3 +150,7 @@ docker-prune: ## Remove all project containers, images, networks, and volumes
 
 docker-up: ## Apply schema, then start containers in background
 	$(D_COMPOSE) --profile dev up -d $(ARGS)
+
+# ── Tools extensions (package management, workspace fan-out) ─────────────────
+# Loaded only when tools/Makefile exists (stripped on app clone).
+-include tools/Makefile
