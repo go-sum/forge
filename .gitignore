@@ -8,7 +8,7 @@ tmp/
 /server
 .project/
 
-# Generated / downloaded assets — rebuild with `make assets`
+# Generated / downloaded assets — rebuild with `task assets`
 public/css/
 public/doc/
 public/img/

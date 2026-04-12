@@ -3,7 +3,7 @@
 # desired table state. Files are concatenated in order for pgschema diffing
 # and migration generation.
 #
-# Usage: make db-compose NAME=add_feature
+# Usage: task db:compose NAME=add_feature
 schemas:
   - db/sql/schema.sql
   - pkg/auth/pgstore/sql/schema.sql

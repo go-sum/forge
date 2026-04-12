@@ -94,7 +94,7 @@ This is enforced architecturally: each `pkg/*` has its own `go.mod`
 | `pkg/queue` tables | `pkg/queue/pgstore/sql/queries.sql` | `pkg/queue/pgstore/db/` |
 
 If a query is missing in a `pkg/` module, add it to the owning `.sql` file
-and run `make db-gen`. Never hand-edit files in `*/pgstore/db/`.
+and run `task ws:db:gen`. Never hand-edit files in `*/pgstore/db/`.
 
 ---
 
@@ -138,8 +138,8 @@ Tooling that operates on `pkg/*`, `go.work`, or mirror repos lives in
 | `tools/cli/workspace` | Fan-out a command across all `go.work` modules |
 | `tools/cli/starter` | Clone forge into a new app (exclude + rename) |
 
-Run with `go run ./tools/cli/<name> <subcommand>` or via Makefile
-targets defined in `tools/Makefile`.
+Run with `go run ./tools/cli/<name> <subcommand>` or via `task ws:*`
+targets defined in `tools/Taskfile.yml`.
 
 ---
 
@@ -151,7 +151,7 @@ Pre-planning checklist additions when `pkg/` is present:
 2. Apply the Package Extraction Test before assigning to `internal/`.
 3. If adding to `pkg/`, confirm the leaf-node rule holds (no `internal/`
    or cross-`pkg/` imports).
-4. `db-gen` requires `make db-gen` — plan which `.sqlc.yaml` configs are
+4. `db:gen` requires `task ws:db:gen` — plan which `.sqlc.yaml` configs are
    affected (root and/or `pkg/*/pgstore/.sqlc.yaml`).
 
 ---

@@ -94,7 +94,7 @@ func processSVG(data []byte, id string) (string, error) {
 //
 // When every source is remote, the build is skipped if the target file already
 // exists, avoiding unnecessary network fetches on every dev rebuild. Delete the
-// target file to force a rebuild (or run `make sprites`). Any local source
+// target file to force a rebuild (or run `task sprites`). Any local source
 // causes an unconditional rebuild since local files are fast reads and may have
 // changed.
 func buildSprite(name string, cfg assetconfig.SpriteConfig, dryRun bool) error {

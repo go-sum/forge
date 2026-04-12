@@ -1,0 +1,214 @@
+version: '3'
+
+dotenv:
+  - '.gitenv'
+  - '.versions'
+
+vars:
+  PROJECT_NAME:
+    sh: basename "{{.USER_WORKING_DIR}}"
+  APP_NAME:    "{{.PROJECT_NAME}}-dev"
+  DEV_DOMAIN:  "{{.PROJECT_NAME}}.test"
+  TOOLS_IMAGE: "{{.PROJECT_NAME}}-tools"
+  TOOLS_DEV:   "{{.TOOLS_IMAGE}}:dev"
+  TOOLS_PROD:  "{{.TOOLS_IMAGE}}:prod"
+  D_COMPOSE:  docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name {{.PROJECT_NAME}}
+  RUN_TOOLS: "{{.D_COMPOSE}} --profile tools run --rm"
+  RUN_APP:   "{{.D_COMPOSE}} --profile dev run --rm"
+
+# Export computed vars so Docker Compose can interpolate them from compose files.
+# Mirrors the effect of Make's 'export' directive.
+env:
+  TOOLS_DEV:  "{{.TOOLS_DEV}}"
+  TOOLS_PROD: "{{.TOOLS_PROD}}"
+  APP_NAME:   "{{.APP_NAME}}"
+
+includes:
+  ws:
+    taskfile: ./tools/Taskfile.yml
+    optional: true
+    dir: '{{.USER_WORKING_DIR}}'
+
+tasks:
+
+  default:
+    desc: "List all available tasks"
+    silent: true
+    cmd: task --list
+
+  # ── Build & Quality ──────────────────────────────────────────────────────────
+
+  assets:
+    desc: "Build all generated frontend assets"
+    cmds:
+      - "{{.RUN_TOOLS}} -e HTMX_VERSION={{.HTMX_VERSION}} tools go run ./cli/build assets --minify"
+      - "{{.RUN_TOOLS}} tools go run ./cli/build sprites"
+      - "{{.RUN_TOOLS}} tools go run ./pkg/docs/cli build"
+
+  build:
+    desc: "Build production binary into bin/"
+    cmd: "{{.RUN_TOOLS}} tools sh -c 'CGO_ENABLED=0 go build -o ./bin/server ./cmd/server'"
+
+  clean:
+    desc: "Remove build artifacts"
+    cmd: rm -rf ./bin ./tmp ./public/css/app.css
+
+  lint:
+    desc: "Run golangci-lint (includes workspace modules when go.work is present)"
+    vars:
+      _EXTRA:
+        sh: "awk '/use \\(/{f=1;next} /\\)/{f=0} f{printf \"%s/... \", $1}' go.work 2>/dev/null || true"
+    cmd: "{{.RUN_TOOLS}} tools golangci-lint run internal/... {{._EXTRA}}"
+
+  hash-air-csp:
+    desc: "Recompute CSP hash for air's proxy script and update config/app.development.yaml"
+    cmd: "{{.RUN_TOOLS}} tools go run ./cli/util hash-air-csp"
+
+  # ── Tests — use ws:test / ws:test-race in the monorepo ──────────────────────
+
+  test:
+    desc: "Run tests (single module — use ws:test in monorepo)"
+    cmds:
+      - "{{.D_COMPOSE}} --profile dev up -d db kv"
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        go run ./cli/db migrate'
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'CGO_ENABLED=1
+        TEST_DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        TEST_KV_URL=redis://$KV_HOST:$KV_PORT/1
+        go test -count=1 ./...'
+
+  test-race:
+    desc: "Run tests with race detector (single module — use ws:test-race in monorepo)"
+    cmds:
+      - "{{.D_COMPOSE}} --profile dev up -d db kv"
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        go run ./cli/db migrate'
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'CGO_ENABLED=1
+        TEST_DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        TEST_KV_URL=redis://$KV_HOST:$KV_PORT/1
+        go test -race -count=1 ./...'
+
+  # ── Database — use ws:db-gen in monorepo ─────────────────────────────────────
+
+  db:gen:
+    desc: "Regenerate sqlc Go code (app only — use ws:db-gen in monorepo)"
+    cmd: "{{.RUN_TOOLS}} tools sqlc generate -f .sqlc.yaml"
+
+  db:compose:
+    desc: "Compose schemas and generate migration — task db:compose -- add_queue_jobs"
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: "migration name required — e.g. task db:compose -- add_queue_jobs"
+    cmd: "{{.RUN_TOOLS}} tools sh -c 'go run ./cli/db compose {{.CLI_ARGS}}'"
+
+  db:migrate:
+    desc: "Apply pending migrations"
+    cmd: "{{.RUN_APP}} app go run ./cli/db migrate"
+
+  db:rollback:
+    desc: "Rollback the last migration"
+    cmd: "{{.RUN_APP}} app go run ./cli/db rollback"
+
+  db:status:
+    desc: "Show migration status"
+    cmd: "{{.RUN_APP}} app go run ./cli/db status"
+
+  # ── Dev stack ─────────────────────────────────────────────────────────────────
+
+  dev:
+    desc: "Rebuild and attach to the dev stack (use dev:up to detach)"
+    cmd: "{{.D_COMPOSE}} --profile dev up --build {{.CLI_ARGS}}"
+
+  dev:up:
+    desc: "Start dev stack detached"
+    cmd: "{{.D_COMPOSE}} --profile dev up --detach {{.CLI_ARGS}}"
+
+  dev:down:
+    desc: "Stop dev stack"
+    cmd: "{{.D_COMPOSE}} --profile dev down {{.CLI_ARGS}}"
+
+  dev:logs:
+    desc: "Follow dev stack logs"
+    cmd: "{{.D_COMPOSE}} --profile dev logs -f {{.CLI_ARGS}}"
+
+  dev:prune:
+    desc: "Remove all project containers, images, networks, and volumes"
+    cmds:
+      - "{{.D_COMPOSE}} --profile dev --profile tools down -v --rmi all --remove-orphans"
+      - "docker rmi forge:latest 2>/dev/null || true"
+
+  dev:tools:
+    desc: "Rebuild dev toolchain image"
+    cmd: "{{.D_COMPOSE}} --profile tools build tools"
+
+  dev:image:
+    desc: "Build dev Docker image"
+    cmd: |
+      docker build --target dev_target \
+        --file docker/app/Dockerfile --build-arg GO_VERSION={{.GO_VERSION}} --build-arg TOOLS_DEV_IMAGE={{.TOOLS_DEV}} \
+        -t {{.APP_NAME}} .
+
+  # ── Production ────────────────────────────────────────────────────────────────
+
+  prod:
+    desc: "Build production image and start the production stack locally"
+    deps: [prod:build]
+    cmd: docker compose up -d
+
+  prod:build:
+    desc: "Build production Docker image"
+    cmd: |
+      GITHUB_ACCESS_TOKEN="${GITHUB_ACCESS_TOKEN:-$(grep '^GITHUB_ACCESS_TOKEN=' .env 2>/dev/null | cut -d= -f2-)}"
+      export GITHUB_ACCESS_TOKEN
+      docker build --target production_target \
+        --file docker/app/Dockerfile \
+        --build-arg GO_VERSION={{.GO_VERSION}} \
+        --build-arg HTMX_VERSION={{.HTMX_VERSION}} \
+        --build-arg APP_VERSION={{.APP_VERSION}} \
+        --build-arg TOOLS_PROD_IMAGE={{.TOOLS_PROD}} \
+        --secret id=github_token,env=GITHUB_ACCESS_TOKEN \
+        -t forge:latest .
+
+  prod:tools:
+    desc: "Rebuild production toolchain image"
+    cmd: "{{.D_COMPOSE}} --profile tools build prod-tools"
+
+  # ── Caddy & Certs ─────────────────────────────────────────────────────────────
+
+  certs:
+    desc: "Generate mkcert TLS certs for {{.DEV_DOMAIN}} → .certs/"
+    cmds:
+      - mkdir -p .certs
+      - |
+        {{.RUN_TOOLS}} tools sh -c '
+          mkdir -p /app/.certs/.ca &&
+          CAROOT=/app/.certs/.ca mkcert -install &&
+          CAROOT=/app/.certs/.ca mkcert \
+            -cert-file /app/.certs/{{.DEV_DOMAIN}}.pem \
+            -key-file  /app/.certs/{{.DEV_DOMAIN}}-key.pem \
+            {{.DEV_DOMAIN}} &&
+          mv /app/.certs/.ca/rootCA.pem /app/.certs/rootCA.pem'
+      - |
+        echo "--------------------------------------------------------------------------------------------"
+        echo "Trust the root CA on macOS (once per machine) then quit and reopen any web browser sessions:"
+        echo "  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain .certs/rootCA.pem"
+        echo ""
+        echo "  Then: task caddy:down caddy:up"
+        echo "        rm .certs/rootCA.pem"
+        echo "--------------------------------------------------------------------------------------------"
+
+  caddy:up:
+    desc: "Start Caddy reverse proxy (run certs first on a new machine)"
+    cmd: "docker compose -f docker/caddy/docker-compose.yml up -d"
+
+  caddy:down:
+    desc: "Stop Caddy reverse proxy"
+    cmd: "docker compose -f docker/caddy/docker-compose.yml down"

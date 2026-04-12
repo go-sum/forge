@@ -96,8 +96,8 @@ func runClone(opts cloneOptions, w io.Writer) error {
 	fmt.Fprintf(w, "\nNext steps:\n")
 	fmt.Fprintf(w, "  cd %s\n", target)
 	fmt.Fprintf(w, "  go mod tidy\n")
-	fmt.Fprintf(w, "  make db-migrate\n")
-	fmt.Fprintf(w, "  make dev\n")
+	fmt.Fprintf(w, "  task db:migrate\n")
+	fmt.Fprintf(w, "  task dev\n")
 	return nil
 }
 

@@ -1,6 +1,6 @@
 # check=skip=InvalidDefaultArgInFrom
 # ── Dev toolchain ────────────────────────────────────────────────────────────
-# Pre-built image for development commands: make lint, test, db-gen, assets, build.
+# Pre-built image for development commands: task lint, test, db:gen, assets, build.
 # Also provides air + tailwindcss binaries for dev_target via COPY --from.
 ARG GO_VERSION
 ARG AIR_VERSION

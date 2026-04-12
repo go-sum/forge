@@ -14,7 +14,7 @@ tools/
 │   ├── package/    — subtree-split, push, release, status, sync for pkg/*
 │   ├── workspace/  — fan-out a command across all go.work modules
 │   └── starter/    — clone forge into a new app
-├── Makefile            — overlay: package targets + workspace fan-out overrides
+├── Taskfile.yml        — overlay: ws:* targets + workspace fan-out overrides
 ├── starter/
 │   └── manifest.yaml   — include/exclude/rename rules for the clone operation
 └── README.md           — this file
@@ -28,14 +28,14 @@ tools/
 
 | Role | Zone | Key files |
 |---|---|---|
-| **Monorepo** — develop & release `pkg/*` modules | `tools/`, `pkg/`, `go.work*`, `go.prod.mod*` | `tools/Makefile` loaded via `-include` |
+| **Monorepo** — develop & release `pkg/*` modules | `tools/`, `pkg/`, `go.work*`, `go.prod.mod*` | `tools/Taskfile.yml` included as `ws:` namespace |
 | **Starter template** — bootstrap new Go web apps | everything else | `tools/starter/manifest.yaml` defines the boundary |
 
-The root `Makefile` defines plain-app targets. `tools/Makefile` is
-auto-included at the bottom and overrides `lint`, `test`, `test-race`,
-and `db-gen` with workspace-aware versions that fan out across all `pkg/*`
-modules. When a new app is cloned from forge, the `tools/` directory is
-absent and the plain-app versions run unchanged.
+The root `Taskfile.yml` defines plain-app targets. `tools/Taskfile.yml` is
+included as the `ws:` namespace and provides workspace-aware versions of
+`test`, `test-race`, and `db:gen` that fan out across all `pkg/*` modules.
+When a new app is cloned from forge, the `tools/` directory is absent and
+the plain-app versions run unchanged.
 
 ---
 
@@ -57,8 +57,8 @@ Post-clone:
 ```bash
 cd ../myapp
 go mod tidy
-make db-migrate
-make dev
+task db:migrate
+task dev
 ```
 
 ### Verifying the starter is self-contained
@@ -76,14 +76,14 @@ Exits non-zero on any failure. Run before every release and wired into CI.
 
 All `pkg/*` release operations are handled by `tools/cli/package`:
 
-| Make target | What it does |
+| Task | What it does |
 |---|---|
-| `make package-list` | List all discovered `pkg/*` modules |
-| `make package-push PACKAGE=auth` | Push subtree to mirror repo |
-| `make package-release PACKAGE=auth` | Tag and release a package |
-| `make package-status PACKAGE=auth\|all` | Show sync status |
-| `make package-sync` | Regenerate `go.prod.mod` + `go.prod.sum` |
-| `make deploy` | Full release pipeline (release + push + tag) |
+| `task ws:list` | List all discovered `pkg/*` modules |
+| `task ws:push -- auth` | Push subtree to mirror repo |
+| `task ws:release -- auth` | Tag and release a package |
+| `task ws:status -- auth` | Show sync status |
+| `task ws:sync` | Regenerate `go.prod.mod` + `go.prod.sum` |
+| `task ws:deploy` | Full release pipeline (release + push + tag) |
 
 ---
 
@@ -91,8 +91,8 @@ All `pkg/*` release operations are handled by `tools/cli/package`:
 
 1. Create `pkg/<name>/` with its own `go.mod` (`module github.com/go-sum/<name>`).
 2. Add `./pkg/<name>` to `go.work` and a `replace` + `require` pair to root `go.mod`.
-3. Add the sqlc config path to the `db-gen` override in `tools/Makefile`.
-4. Add a `make package-release PACKAGE=<name>` call to the release sequence in
+3. Add the sqlc config path to the `ws:db:gen` task in `tools/Taskfile.yml`.
+4. Add a `task ws:release -- <name>` call to the release sequence in
    `tools/cli/package/release.go`.
 5. Add the package to `tools/starter/manifest.yaml`'s exclude list (already
    covered by the `pkg/` directory exclusion, but add explicitly if needed).

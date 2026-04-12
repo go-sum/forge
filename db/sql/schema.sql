@@ -1,7 +1,7 @@
 -- Schema: starter application
---   1. make db-compose — compose migration files in db/migrations/
---   2. make db-gen — generate go queries in db/sql/queries/
---   3. make db-migrate — apply migrations from db/migrations/
+--   1. task db:compose — compose migration files in db/migrations/
+--   2. task db:gen — generate go queries in db/sql/queries/
+--   3. task db:migrate — apply migrations from db/migrations/
 
 -- ─── Extensions ─────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS citext;

@@ -1,0 +1,101 @@
+version: '3'
+
+# Loaded by root Taskfile.yml as the 'ws:' (workspace) namespace.
+# Present only in the monorepo; stripped on app clone.
+#
+# Re-derives compose helpers for compatibility with Taskfile < v3.28,
+# where root vars are not automatically propagated to included files.
+
+vars:
+  WORKSPACE: "go run ./tools/cli/workspace"
+  D_COMPOSE:  docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name {{.PROJECT_NAME}}
+  RUN_TOOLS: "{{.D_COMPOSE}} --profile tools run --rm"
+  RUN_APP:   "{{.D_COMPOSE}} --profile dev run --rm"
+
+tasks:
+
+  # ── Tests ─────────────────────────────────────────────────────────────────────
+
+  test:
+    desc: "Run tests across all workspace modules (fast, no race detector)"
+    cmds:
+      - "{{.D_COMPOSE}} --profile dev up -d db kv"
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        go run ./cli/db migrate'
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'CGO_ENABLED=1
+        TEST_DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        TEST_KV_URL=redis://$KV_HOST:$KV_PORT/1
+        {{.WORKSPACE}} exec -j 4 -x tools/cli/package -- go test -count=1 ./...'
+
+  test-race:
+    desc: "Run tests with race detector across all workspace modules"
+    cmds:
+      - "{{.D_COMPOSE}} --profile dev up -d db kv"
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        go run ./cli/db migrate'
+      - >-
+        {{.RUN_TOOLS}} tools sh -c
+        'CGO_ENABLED=1
+        TEST_DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/${PGDATABASE}_test?sslmode=disable
+        TEST_KV_URL=redis://$KV_HOST:$KV_PORT/1
+        {{.WORKSPACE}} exec -j 1 -- go test -race -count=1 ./...'
+
+  # ── Database ──────────────────────────────────────────────────────────────────
+
+  db:gen:
+    desc: "Regenerate sqlc Go code for app and all pkg/* modules"
+    cmds:
+      - "{{.RUN_TOOLS}} tools sqlc generate -f .sqlc.yaml"
+      - "{{.RUN_TOOLS}} tools sqlc generate -f pkg/auth/pgstore/.sqlc.yaml"
+      - "{{.RUN_TOOLS}} tools sqlc generate -f pkg/queue/pgstore/.sqlc.yaml"
+
+  # ── Deploy ────────────────────────────────────────────────────────────────────
+
+  deploy:
+    desc: "Validate and deploy — task ws:deploy [-- [--auto] [v1.2.0]]"
+    cmd: |
+      {{.RUN_TOOLS}} tools sh -c '
+        git config --global user.email "${GIT_USER_EMAIL}" &&
+        git config --global user.name "${GIT_USER_NAME}" &&
+        git config --global url."https://x-access-token:${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" &&
+        go run ./tools/cli/package deploy {{.CLI_ARGS}}'
+
+  # ── Package Sync & Release ────────────────────────────────────────────────────
+
+  list:
+    desc: "List all discovered packages"
+    cmd: "{{.RUN_TOOLS}} tools go run ./tools/cli/package list"
+
+  push:
+    desc: "Push a package subtree to its mirror repo — task ws:push -- auth"
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: "package name required — e.g. task ws:push -- auth"
+    cmd: "{{.RUN_TOOLS}} tools go run ./tools/cli/package push {{.CLI_ARGS}}"
+
+  release:
+    desc: "Release a package — task ws:release -- auth [v0.1.0]"
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: "package name required — e.g. task ws:release -- auth"
+    cmd: "{{.RUN_TOOLS}} tools go run ./tools/cli/package release {{.CLI_ARGS}}"
+
+  status:
+    desc: "Show sync status for a package — task ws:status -- auth"
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: "package name required — e.g. task ws:status -- auth"
+    cmd: "{{.RUN_TOOLS}} tools go run ./tools/cli/package status {{.CLI_ARGS}}"
+
+  sync:
+    desc: "Regenerate go.prod.mod + go.prod.sum from go.mod"
+    cmd: |
+      {{.RUN_TOOLS}} tools sh -c '
+        git config --global url."https://x-access-token:${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf "https://github.com/" &&
+        go run ./tools/cli/package sync'

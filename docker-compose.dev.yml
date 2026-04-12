@@ -5,8 +5,8 @@
 #
 # The db container hosts three databases (created by db/init-dev/01-databases.sh):
 #   starter       — main development database
-#   starter_plan  — schema compose computation (make db-compose)
-#   starter_test  — test suite (make test)
+#   starter_plan  — schema compose computation (task db:compose)
+#   starter_test  — test suite (task test)
 # The kv container is shared: DB 0 for dev, DB 1 for tests.
 
 services:

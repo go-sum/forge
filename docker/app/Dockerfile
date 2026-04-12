@@ -67,7 +67,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 WORKDIR /app
 # go.prod.mod has no replace directives — pkg/ modules resolve from GitHub.
 # go.prod.sum locks exact checksums for a reproducible build.
-# To regenerate: make package-sync
+# To regenerate: task ws:sync
 COPY go.prod.mod go.mod
 COPY go.prod.sum go.sum
 # Private modules require GITHUB_ACCESS_TOKEN passed as a build secret.

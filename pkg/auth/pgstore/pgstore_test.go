@@ -60,7 +60,7 @@ SELECT COALESCE(to_regclass('public.users')::text, '')
 		t.Fatalf("verify users table: %v", err)
 	}
 	if relation != "users" {
-		t.Fatalf("users table is missing; run make db-migrate before these tests")
+		t.Fatalf("users table is missing; run task db:migrate before these tests")
 	}
 }
 
