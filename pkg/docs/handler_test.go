@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-sum/server/route"
 	"github.com/labstack/echo/v5"
 )
 
@@ -50,7 +49,7 @@ func TestResolvePath(t *testing.T) {
 	}
 }
 
-func TestModuleServesPagesAssetsAndDocs404(t *testing.T) {
+func TestHandlerServesPagesAssetsAndDocs404(t *testing.T) {
 	tmpDir := t.TempDir()
 	docsRoot := filepath.Join(tmpDir, "doc")
 	if err := os.MkdirAll(filepath.Join(docsRoot, "architecture", "api-rules"), 0o755); err != nil {
@@ -77,9 +76,9 @@ func TestModuleServesPagesAssetsAndDocs404(t *testing.T) {
 	}
 
 	e := echo.New()
-	m := NewModule(tmpDir)
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/docs", Name: "docs.index", Handler: m.Handle})
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/docs/*", Name: "docs.show", Handler: m.Handle})
+	h := NewHandler(tmpDir)
+	mustAdd(t, e, http.MethodGet, "/docs", "docs.index", h.Handle)
+	mustAdd(t, e, http.MethodGet, "/docs/*", "docs.show", h.Handle)
 
 	tests := []struct {
 		path       string
@@ -117,7 +116,7 @@ func TestModuleServesPagesAssetsAndDocs404(t *testing.T) {
 	}
 }
 
-func TestModuleCacheControlHeaders(t *testing.T) {
+func TestHandlerCacheControlHeaders(t *testing.T) {
 	tmpDir := t.TempDir()
 	docsRoot := filepath.Join(tmpDir, "doc")
 	if err := os.MkdirAll(filepath.Join(docsRoot, "css"), 0o755); err != nil {
@@ -134,9 +133,9 @@ func TestModuleCacheControlHeaders(t *testing.T) {
 	}
 
 	e := echo.New()
-	m := NewModule(tmpDir)
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/docs", Name: "docs.index", Handler: m.Handle})
-	route.Add(e, echo.Route{Method: http.MethodGet, Path: "/docs/*", Name: "docs.show", Handler: m.Handle})
+	h := NewHandler(tmpDir)
+	mustAdd(t, e, http.MethodGet, "/docs", "docs.index", h.Handle)
+	mustAdd(t, e, http.MethodGet, "/docs/*", "docs.show", h.Handle)
 
 	tests := []struct {
 		path          string
@@ -154,5 +153,12 @@ func TestModuleCacheControlHeaders(t *testing.T) {
 				t.Fatalf("Cache-Control = %q, want %q", got, tc.wantCacheCtrl)
 			}
 		})
+	}
+}
+
+func mustAdd(t *testing.T, e *echo.Echo, method, path, name string, h echo.HandlerFunc) {
+	t.Helper()
+	if _, err := e.AddRoute(echo.Route{Method: method, Path: path, Name: name, Handler: h}); err != nil {
+		t.Fatalf("AddRoute %s %s: %v", method, path, err)
 	}
 }

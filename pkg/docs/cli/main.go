@@ -9,12 +9,12 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:           "build",
-		Short:         "Asset build pipeline",
+		Use:           "docs",
+		Short:         "Hugo documentation tools",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(newAssetsCmd(), newSpritesCmd())
+	root.AddCommand(newBuildCmd(), newInitCmd())
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

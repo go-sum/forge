@@ -2,14 +2,11 @@
 #
 # Defines what the `tools/cli/starter clone` command copies, renames, and
 # rewrites when materialising a new app from forge.
-#
-# All paths are relative to the forge repository root.
-
-# Paths (files and directories) to exclude from the clone.
-# Everything else is copied verbatim.
+# All paths are relative to the repository root.
 exclude:
-  # Monorepo-only zones — not in .gitignore, must be explicitly excluded.
+  # Monorepo-only zones — not in .gitignore, explicitly exclude.
   - .decisions/MONOREPO_PACKAGES.md
+  - .docs/
   - .project/
   - go.mod
   - go.sum
@@ -17,6 +14,7 @@ exclude:
   - go.work.sum
   - pkg/
   - tools/
+  - internal/features/docs/
 
 # Files to rename in the destination after copying.
 rename:

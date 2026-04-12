@@ -5,6 +5,7 @@ go 1.26.0
 replace (
 	github.com/go-sum/auth => ./pkg/auth
 	github.com/go-sum/componentry => ./pkg/componentry
+	github.com/go-sum/docs => ./pkg/docs
 	github.com/go-sum/kv => ./pkg/kv
 	github.com/go-sum/queue => ./pkg/queue
 	github.com/go-sum/security => ./pkg/security
@@ -19,6 +20,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/go-sum/auth v0.0.3
 	github.com/go-sum/componentry v0.0.2
+	github.com/go-sum/docs v0.0.0
 	github.com/go-sum/kv v0.0.4
 	github.com/go-sum/queue v0.0.2
 	github.com/go-sum/security v0.0.2

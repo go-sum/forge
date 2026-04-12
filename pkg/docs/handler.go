@@ -12,16 +12,16 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-type Module struct {
+type Handler struct {
 	publicDir string
 }
 
-func NewModule(publicDir string) *Module {
-	return &Module{publicDir: publicDir}
+func NewHandler(publicDir string) *Handler {
+	return &Handler{publicDir: publicDir}
 }
 
-func (m *Module) Handle(c *echo.Context) error {
-	root := filepath.Join(m.publicDir, "doc")
+func (h *Handler) Handle(c *echo.Context) error {
+	root := filepath.Join(h.publicDir, "doc")
 	target, isAsset, err := resolvePath(root, c.Request().URL.Path)
 	if err != nil {
 		return echo.ErrNotFound

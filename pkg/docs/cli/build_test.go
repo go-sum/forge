@@ -5,14 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/go-sum/componentry/assetconfig"
 )
 
-func TestBuildDocsInvokesHugoAndRebuildsOutput(t *testing.T) {
+func TestBuildInvokesHugoAndRebuildsOutput(t *testing.T) {
 	tmpDir := t.TempDir()
-	publicDir := filepath.Join(tmpDir, "public")
-	outputDir := filepath.Join(publicDir, "doc")
+	outputDir := filepath.Join(tmpDir, "public", "doc")
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		t.Fatalf("mkdir output: %v", err)
 	}
@@ -50,9 +47,8 @@ func TestBuildDocsInvokesHugoAndRebuildsOutput(t *testing.T) {
 	t.Setenv("PATH", fakeHugoDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("TEST_CAPTURE", capturePath)
 
-	paths := assetconfig.Paths{PublicDir: publicDir, PublicPrefix: "/public"}
-	if err := buildDocs(paths); err != nil {
-		t.Fatalf("buildDocs() error = %v", err)
+	if err := build(".docs", outputDir); err != nil {
+		t.Fatalf("build() error = %v", err)
 	}
 
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
@@ -81,7 +77,46 @@ func TestBuildDocsInvokesHugoAndRebuildsOutput(t *testing.T) {
 	}
 }
 
-func TestBuildDocsReturnsErrorWhenHugoFails(t *testing.T) {
+func TestBuildForwardsCustomSource(t *testing.T) {
+	tmpDir := t.TempDir()
+	capturePath := filepath.Join(tmpDir, "hugo.args")
+	fakeHugoDir := filepath.Join(tmpDir, "bin")
+	if err := os.MkdirAll(fakeHugoDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	fakeHugoPath := filepath.Join(fakeHugoDir, "hugo")
+	script := "#!/bin/sh\n" +
+		"set -eu\n" +
+		"src=''\n" +
+		"while [ \"$#\" -gt 0 ]; do\n" +
+		"  case \"$1\" in\n" +
+		"    --source) src=\"$2\"; shift 2 ;;\n" +
+		"    *) shift ;;\n" +
+		"  esac\n" +
+		"done\n" +
+		"printf '%s\\n' \"$src\" > \"$TEST_CAPTURE\"\n"
+	if err := os.WriteFile(fakeHugoPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake hugo: %v", err)
+	}
+
+	t.Setenv("PATH", fakeHugoDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("TEST_CAPTURE", capturePath)
+
+	outputDir := filepath.Join(tmpDir, "public", "doc")
+	if err := build("my-docs", outputDir); err != nil {
+		t.Fatalf("build() error = %v", err)
+	}
+
+	gotRaw, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("read capture: %v", err)
+	}
+	if got := strings.TrimSpace(string(gotRaw)); got != "my-docs" {
+		t.Fatalf("source = %q, want %q", got, "my-docs")
+	}
+}
+
+func TestBuildReturnsErrorWhenHugoFails(t *testing.T) {
 	tmpDir := t.TempDir()
 	fakeHugoDir := filepath.Join(tmpDir, "bin")
 	if err := os.MkdirAll(fakeHugoDir, 0o755); err != nil {
@@ -94,13 +129,12 @@ func TestBuildDocsReturnsErrorWhenHugoFails(t *testing.T) {
 
 	t.Setenv("PATH", fakeHugoDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	paths := assetconfig.Paths{PublicDir: filepath.Join(tmpDir, "public"), PublicPrefix: "/public"}
-	if err := buildDocs(paths); err == nil {
-		t.Fatal("buildDocs() error = nil, want non-nil when hugo exits 1")
+	if err := build(".docs", filepath.Join(tmpDir, "public", "doc")); err == nil {
+		t.Fatal("build() error = nil, want non-nil when hugo exits 1")
 	}
 }
 
-func TestBuildDocsResolvesRelativePublicDirOutsideDocsSourceTree(t *testing.T) {
+func TestBuildResolvesRelativeDestination(t *testing.T) {
 	tmpDir := t.TempDir()
 	fakeHugoDir := filepath.Join(tmpDir, "bin")
 	if err := os.MkdirAll(fakeHugoDir, 0o755); err != nil {
@@ -131,9 +165,8 @@ func TestBuildDocsResolvesRelativePublicDirOutsideDocsSourceTree(t *testing.T) {
 		t.Fatalf("Getwd() error = %v", err)
 	}
 
-	paths := assetconfig.Paths{PublicDir: "public", PublicPrefix: "/public"}
-	if err := buildDocs(paths); err != nil {
-		t.Fatalf("buildDocs() error = %v", err)
+	if err := build(".docs", "public/doc"); err != nil {
+		t.Fatalf("build() error = %v", err)
 	}
 
 	gotRaw, err := os.ReadFile(capturePath)

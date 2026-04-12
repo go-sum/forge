@@ -5,7 +5,7 @@ import (
 	authadapter "github.com/go-sum/forge/internal/adapters/auth"
 	"github.com/go-sum/forge/internal/features/availability"
 	"github.com/go-sum/forge/internal/features/contact"
-	"github.com/go-sum/forge/internal/features/docs"
+	"github.com/go-sum/docs"
 	"github.com/go-sum/forge/internal/features/examples"
 	"github.com/go-sum/forge/internal/features/public"
 	"github.com/go-sum/forge/internal/features/sessions"
@@ -34,7 +34,7 @@ func RegisterRoutes(r *Runtime, availHandler *availability.Handler, authHandler 
 	}, resolve.Routes())
 
 	publicHandler := public.NewModule(r.Config, siteHandler)
-	docsHandler := docs.NewModule(r.PublicDir)
+	docsHandler := docs.NewHandler(r.PublicDir)
 	contactHandler := contact.NewHandler(r.Config, contact.NewService(r.Queue, contact.Config{
 		SendTo:   r.Config.Service.Send.SendTo,
 		SendFrom: send.DefaultRegistry.SendFrom(r.Config.Service.Send.Delivery),

@@ -76,8 +76,8 @@ db-status: ## Show migration status
 
 assets: ## Build all generated frontend assets
 	$(RUN_TOOLS) -e HTMX_VERSION=$(HTMX_VERSION) tools go run ./cli/build assets --minify
-	$(RUN_TOOLS) tools go run ./cli/build docs
 	$(RUN_TOOLS) tools go run ./cli/build sprites
+	$(RUN_TOOLS) tools go run ./pkg/docs/cli build
 
 # ── Toolchain ────────────────────────────────────────────────────────────────
 
